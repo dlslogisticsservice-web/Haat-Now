@@ -5,6 +5,8 @@ import { HomeScreen } from './features/home/HomeScreen';
 import { RestaurantScreen } from './features/restaurant/RestaurantScreen';
 import { CheckoutPage } from './features/checkout/CheckoutPage';
 import { OrdersList } from './features/orders/OrdersList';
+import { WalletScreen } from './features/wallet/WalletScreen';
+import { ProfileScreen } from './features/profile/ProfileScreen';
 import { MerchantApp } from './features/merchant/MerchantApp';
 import { DriverApp } from './features/driver/DriverApp';
 import { AdminDashboard } from './features/admin/AdminDashboard';
@@ -40,7 +42,7 @@ export default function App() {
   const [session, setSession] = useState<{ id: string; phone_number: string; role: string } | null>(null);
   const [simulatedRole, setSimulatedRole] = useState<'customer' | 'merchant' | 'driver' | 'admin'>('customer');
 
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'restaurant' | 'checkout' | 'orders'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'restaurant' | 'checkout' | 'orders' | 'wallet' | 'profile'>('home');
   const [selectedBranchId, setSelectedBranchId] = useState<string>('');
   const [selectedBranchName, setSelectedBranchName] = useState<string>('');
   const [selectedTrackingOrderId, setSelectedTrackingOrderId] = useState<string | undefined>(undefined);
@@ -216,7 +218,8 @@ export default function App() {
       ═══════════════════════════════════════════════════════ */}
       {simulatedRole === 'customer' && (
         <>
-          {/* ── Stitch-spec Top Header ───────────────────────── */}
+          {/* ── Stitch-spec Top Header (hidden on full-screen portals) ─── */}
+          {currentScreen !== 'wallet' && currentScreen !== 'profile' && (
           <header
             className="sticky top-[36px] z-50 flex items-center justify-between px-4 h-16 shadow-sm"
             style={{ background: 'rgba(17,20,23,0.85)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
@@ -265,8 +268,10 @@ export default function App() {
               <Icon name="account_circle" className="text-[var(--color-primary-fixed)] cursor-pointer hover:opacity-80 transition-opacity" />
             </div>
           </header>
+          )}
 
-          {/* ── Main scrollable content ──────────────────────── */}
+          {/* ── Main scrollable content (hidden on full-screen portals) ─── */}
+          {currentScreen !== 'wallet' && currentScreen !== 'profile' && (
           <main className="max-w-7xl mx-auto px-4 pt-6 pb-32" id="customer_main">
 
             {currentScreen === 'home' && (
@@ -310,6 +315,13 @@ export default function App() {
             )}
 
           </main>
+          )}
+
+          {/* ── Wallet Screen (full-width) ─────────────── */}
+          {currentScreen === 'wallet' && <WalletScreen customerId={session.id} />}
+
+          {/* ── Profile Screen (full-width) ───────────── */}
+          {currentScreen === 'profile' && <ProfileScreen session={session} onLogout={handleLogout} />}
 
           {/* ── Stitch-spec Floating Bottom Nav ─────────────── */}
           <nav
@@ -336,14 +348,17 @@ export default function App() {
               )}
             </button>
 
-            {/* Explore */}
+            {/* Wallet */}
             <button
-              onClick={() => setCurrentScreen('home')}
-              className="flex flex-col items-center justify-center transition-colors active:scale-90 duration-200 cursor-pointer"
-              style={{ color: 'var(--color-on-surface-variant)' }}
-              id="nav_explore"
+              onClick={() => setCurrentScreen('wallet')}
+              className="flex flex-col items-center justify-center transition-colors active:scale-90 duration-200 cursor-pointer relative"
+              style={{ color: currentScreen === 'wallet' ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)' }}
+              id="nav_wallet"
             >
-              <Icon name="explore" />
+              <Icon name="account_balance_wallet" fill={currentScreen === 'wallet' ? 1 : 0} />
+              {currentScreen === 'wallet' && (
+                <span className="absolute -bottom-1 w-1 h-1 rounded-full" style={{ background: 'var(--color-primary-fixed)' }} />
+              )}
             </button>
 
             {/* Orders */}
@@ -379,11 +394,15 @@ export default function App() {
 
             {/* Profile */}
             <button
-              className="flex flex-col items-center justify-center transition-colors active:scale-90 duration-200 cursor-pointer"
-              style={{ color: 'var(--color-on-surface-variant)' }}
+              onClick={() => setCurrentScreen('profile')}
+              className="flex flex-col items-center justify-center transition-colors active:scale-90 duration-200 cursor-pointer relative"
+              style={{ color: currentScreen === 'profile' ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)' }}
               id="nav_profile"
             >
-              <Icon name="person" />
+              <Icon name="person" fill={currentScreen === 'profile' ? 1 : 0} />
+              {currentScreen === 'profile' && (
+                <span className="absolute -bottom-1 w-1 h-1 rounded-full" style={{ background: 'var(--color-primary-fixed)' }} />
+              )}
             </button>
           </nav>
 
@@ -422,8 +441,8 @@ export default function App() {
           onClick={(e) => { if (e.target === e.currentTarget) setIsCartOpen(false); }}
         >
           <div
-            className="w-full max-w-md h-full flex flex-col p-6 animate-slide-up"
-            style={{ background: 'var(--color-surface-container)', borderInlineStart: '1px solid rgba(255,255,255,0.08)' }}
+            className="w-full max-w-md h-full flex flex-col p-6 animate-slide-up glass-panel"
+            style={{ borderInlineStart: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}
             id="cart_drawer_panel"
           >
             {/* Header */}
@@ -455,8 +474,8 @@ export default function App() {
                   return (
                     <div
                       key={idx}
-                      className="flex flex-row-reverse justify-between items-center gap-3 p-4 rounded-xl"
-                      style={{ background: 'var(--color-surface-container-high)', border: '1px solid rgba(255,255,255,0.04)' }}
+                      className="flex flex-row-reverse justify-between items-center gap-3 p-4 rounded-xl glass-panel"
+                      style={{ border: '1px solid rgba(255,255,255,0.1)' }}
                       id={`cart_row_${idx}`}
                     >
                       <div className="flex-1 text-right">

@@ -451,6 +451,47 @@ body {
 .neon-text-glow { text-shadow: 0 0 10px rgba(163, 249, 91, 0.4); }
 
 /* ============================================================
+   Metallic Card (Wallet / Payment Cards)
+   ============================================================ */
+
+.metallic-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.02) 100%);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================================
+   Checkout Animations (Stitch _11)
+   ============================================================ */
+
+@keyframes dash-flow {
+  to { stroke-dashoffset: -200; }
+}
+
+@keyframes shimmer-sweep {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 10px rgba(163, 249, 91, 0.3); }
+  50%       { box-shadow: 0 0 25px rgba(163, 249, 91, 0.7); }
+}
+
+.order-path-dash {
+  stroke-dasharray: 10;
+  animation: dash-flow 20s linear infinite;
+}
+
+.swipe-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(168, 255, 96, 0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer-sweep 2s infinite;
+}
+
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+
+/* ============================================================
    Selection Color
    ============================================================ */
 

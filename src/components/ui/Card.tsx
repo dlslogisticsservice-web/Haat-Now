@@ -11,6 +11,7 @@ interface CardProps {
   neonGlow?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  id?: string;
   onClick?: () => void;
   children: React.ReactNode;
   as?: keyof React.JSX.IntrinsicElements;
@@ -62,14 +63,17 @@ export const Card: React.FC<CardProps> = ({
   neonGlow = false,
   className = '',
   style,
+  id,
   onClick,
   children,
-  as: Tag = 'div',
+  as,
 }) => {
   const isInteractive = hover || !!onClick;
+  const Tag = (as ?? 'div') as React.ElementType;
 
   return (
     <Tag
+      id={id}
       onClick={onClick}
       className={[
         radiusClasses[radius],
