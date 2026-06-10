@@ -1,0 +1,460 @@
+@import "tailwindcss";
+
+/* ============================================================
+   HAAT NOW — Luminous Precision Design System
+   Design Token Layer — v1.0.0
+   All tokens derived from Stitch "Luminous Precision" spec.
+   ============================================================ */
+
+@theme {
+  /* ── Typography ─────────────────────────────────────────── */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-arabic: "Noto Sans Arabic", "Cairo", ui-sans-serif, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
+
+  /* ── Color: Backgrounds & Surfaces ──────────────────────── */
+  --color-background:                #111417;
+  --color-surface:                   #111417;
+  --color-surface-dim:               #111417;
+  --color-surface-bright:            #37393d;
+  --color-surface-container-lowest:  #0b0e11;
+  --color-surface-container-low:     #191c1f;
+  --color-surface-container:         #1d2023;
+  --color-surface-container-high:    #272a2e;
+  --color-surface-container-highest: #323538;
+  --color-surface-variant:           #323538;
+  --color-surface-tint:              #88dc41;
+
+  /* ── Color: On-Surface Text ──────────────────────────────── */
+  --color-on-background:     #e1e2e7;
+  --color-on-surface:        #e1e2e7;
+  --color-on-surface-variant: #c0cab2;
+  --color-inverse-surface:   #e1e2e7;
+  --color-inverse-on-surface: #2e3134;
+
+  /* ── Color: Outline ──────────────────────────────────────── */
+  --color-outline:         #8a947e;
+  --color-outline-variant: #414a37;
+
+  /* ── Color: Primary (Neon Lime) ──────────────────────────── */
+  --color-primary:                  #ffffff;
+  --color-on-primary:               #193700;
+  --color-primary-container:        #a3f95b;
+  --color-on-primary-container:     #3a7100;
+  --color-primary-fixed:            #a3f95b;
+  --color-primary-fixed-dim:        #88dc41;
+  --color-on-primary-fixed:         #0c2000;
+  --color-on-primary-fixed-variant: #275000;
+  --color-inverse-primary:          #366b00;
+
+  /* ── Color: Secondary (Soft Lime) ───────────────────────── */
+  --color-secondary:                  #a1d667;
+  --color-on-secondary:               #1e3700;
+  --color-secondary-container:        #406c01;
+  --color-on-secondary-container:     #b7ed7a;
+  --color-secondary-fixed:            #bdf37f;
+  --color-secondary-fixed-dim:        #a1d667;
+  --color-on-secondary-fixed:         #0f2000;
+  --color-on-secondary-fixed-variant: #2d5000;
+
+  /* ── Color: Tertiary (Emerald Success) ───────────────────── */
+  --color-tertiary:                  #ffffff;
+  --color-on-tertiary:               #003920;
+  --color-tertiary-container:        #65fdaf;
+  --color-on-tertiary-container:     #007347;
+  --color-tertiary-fixed:            #65fdaf;
+  --color-tertiary-fixed-dim:        #42e095;
+  --color-on-tertiary-fixed:         #002111;
+  --color-on-tertiary-fixed-variant: #005231;
+
+  /* ── Color: Error ────────────────────────────────────────── */
+  --color-error:             #ffb4ab;
+  --color-on-error:          #690005;
+  --color-error-container:   #93000a;
+  --color-on-error-container: #ffdad6;
+
+  /* ── Neon Accent (shorthand) ─────────────────────────────── */
+  --color-neon:        #a3f95b;
+  --color-neon-dim:    #88dc41;
+  --color-neon-bright: #c4ff7a;
+
+  /* ── Typography Scale ────────────────────────────────────── */
+  --text-display-lg:          48px;
+  --text-display-lg--line-height: 56px;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-lg--font-weight: 700;
+
+  --text-display-md:          36px;
+  --text-display-md--line-height: 44px;
+  --text-display-md--letter-spacing: -0.02em;
+  --text-display-md--font-weight: 700;
+
+  --text-headline-lg:          32px;
+  --text-headline-lg--line-height: 40px;
+  --text-headline-lg--letter-spacing: -0.01em;
+  --text-headline-lg--font-weight: 600;
+
+  --text-headline-lg-mobile:          28px;
+  --text-headline-lg-mobile--line-height: 36px;
+  --text-headline-lg-mobile--letter-spacing: -0.01em;
+  --text-headline-lg-mobile--font-weight: 600;
+
+  --text-headline-sm:          20px;
+  --text-headline-sm--line-height: 28px;
+  --text-headline-sm--letter-spacing: 0em;
+  --text-headline-sm--font-weight: 600;
+
+  --text-body-lg:          18px;
+  --text-body-lg--line-height: 28px;
+  --text-body-lg--letter-spacing: 0em;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md:          16px;
+  --text-body-md--line-height: 24px;
+  --text-body-md--letter-spacing: 0em;
+  --text-body-md--font-weight: 400;
+
+  --text-label-md:          14px;
+  --text-label-md--line-height: 20px;
+  --text-label-md--letter-spacing: 0.01em;
+  --text-label-md--font-weight: 500;
+
+  --text-label-sm:          12px;
+  --text-label-sm--line-height: 16px;
+  --text-label-sm--letter-spacing: 0.05em;
+  --text-label-sm--font-weight: 600;
+
+  /* ── Spacing ─────────────────────────────────────────────── */
+  --spacing-unit:             4px;
+  --spacing-stack-sm:         8px;
+  --spacing-stack-md:         16px;
+  --spacing-gutter:           16px;
+  --spacing-stack-lg:         32px;
+  --spacing-container-margin: 24px;
+  --spacing-section-gap:      64px;
+  --spacing-sidebar:          280px;
+
+  /* ── Border Radius ───────────────────────────────────────── */
+  --radius-sm:   0.25rem;   /* 4px  — micro */
+  --radius:      0.5rem;    /* 8px  — inputs, small cards */
+  --radius-md:   0.75rem;   /* 12px */
+  --radius-lg:   0.5rem;    /* 8px  — Stitch exact */
+  --radius-xl:   0.75rem;   /* 12px — Stitch exact */
+  --radius-2xl:  2rem;      /* 32px — hero cards */
+  --radius-full: 9999px;    /* pills, buttons, badges */
+
+  /* ── Shadows ─────────────────────────────────────────────── */
+  --shadow-card:    0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-overlay: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --shadow-neon-sm: 0 0 12px rgba(163, 249, 91, 0.15);
+  --shadow-neon:    0 0 15px rgba(163, 249, 91, 0.3);
+  --shadow-neon-lg: 0 0 30px rgba(163, 249, 91, 0.3);
+  --shadow-emerald: 0 0 20px rgba(0, 194, 122, 0.2);
+
+  /* ── Transitions ─────────────────────────────────────────── */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast:   150ms;
+  --duration-normal: 300ms;
+  --duration-slow:   500ms;
+}
+
+/* ============================================================
+   Global Base Styles
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-md);
+  line-height: 24px;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* RTL support */
+[dir="rtl"] {
+  font-family: var(--font-arabic), var(--font-sans);
+}
+
+/* ============================================================
+   Scrollbar Styling
+   ============================================================ */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-surface-container-lowest); }
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-container-highest);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--color-outline); }
+
+/* ============================================================
+   Material Symbols Icon Base
+   ============================================================ */
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+/* ============================================================
+   Glassmorphism Utility Classes
+   ============================================================ */
+
+.glass {
+  background: rgba(29, 32, 35, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Home-screen card glass — Stitch spec: rgba(29,32,35,0.4) border 0.08 */
+.glass-card {
+  background: rgba(29, 32, 35, 0.4);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-sm {
+  background: rgba(29, 32, 35, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-heavy {
+  background: rgba(17, 20, 23, 0.8);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-hover:hover {
+  border-color: rgba(163, 249, 91, 0.3);
+  background: rgba(29, 32, 35, 0.6);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.5), 0 0 15px rgba(163, 249, 91, 0.1);
+}
+
+/* ============================================================
+   Neon Glow Utilities
+   ============================================================ */
+
+.neon-glow-sm       { box-shadow: var(--shadow-neon-sm); }
+.neon-glow          { box-shadow: var(--shadow-neon); }
+.neon-glow-lg       { box-shadow: var(--shadow-neon-lg); }
+/* Checkout-scoped neon: Stitch uses rgba(168,255,96) — slightly brighter */
+.neon-glow-checkout { box-shadow: 0 0 20px rgba(168, 255, 96, 0.2); }
+.neon-glow-btn {
+  transition: box-shadow var(--duration-normal) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+}
+.neon-glow-btn:hover {
+  box-shadow: var(--shadow-neon-lg);
+  transform: translateY(-1px);
+}
+.neon-glow-btn:active { transform: translateY(0); }
+
+.neon-text { text-shadow: 0 0 8px rgba(168, 255, 96, 0.4); }
+.neon-border { border-color: var(--color-neon) !important; }
+
+/* ============================================================
+   Typography Utility Classes
+   ============================================================ */
+
+.text-display-lg {
+  font-size: var(--text-display-lg);
+  line-height: var(--text-display-lg--line-height);
+  letter-spacing: var(--text-display-lg--letter-spacing);
+  font-weight: var(--text-display-lg--font-weight);
+}
+.text-display-md {
+  font-size: var(--text-display-md);
+  line-height: var(--text-display-md--line-height);
+  letter-spacing: var(--text-display-md--letter-spacing);
+  font-weight: var(--text-display-md--font-weight);
+}
+.text-headline-lg {
+  font-size: var(--text-headline-lg);
+  line-height: var(--text-headline-lg--line-height);
+  letter-spacing: var(--text-headline-lg--letter-spacing);
+  font-weight: var(--text-headline-lg--font-weight);
+}
+.text-headline-lg-mobile {
+  font-size: var(--text-headline-lg-mobile);
+  line-height: var(--text-headline-lg-mobile--line-height);
+  letter-spacing: var(--text-headline-lg-mobile--letter-spacing);
+  font-weight: var(--text-headline-lg-mobile--font-weight);
+}
+.text-headline-sm {
+  font-size: var(--text-headline-sm);
+  line-height: var(--text-headline-sm--line-height);
+  letter-spacing: var(--text-headline-sm--letter-spacing);
+  font-weight: var(--text-headline-sm--font-weight);
+}
+.text-body-lg {
+  font-size: var(--text-body-lg);
+  line-height: var(--text-body-lg--line-height);
+  font-weight: var(--text-body-lg--font-weight);
+}
+.text-body-md {
+  font-size: var(--text-body-md);
+  line-height: var(--text-body-md--line-height);
+  font-weight: var(--text-body-md--font-weight);
+}
+.text-label-md {
+  font-size: var(--text-label-md);
+  line-height: var(--text-label-md--line-height);
+  letter-spacing: var(--text-label-md--letter-spacing);
+  font-weight: var(--text-label-md--font-weight);
+}
+.text-label-sm {
+  font-size: var(--text-label-sm);
+  line-height: var(--text-label-sm--line-height);
+  letter-spacing: var(--text-label-sm--letter-spacing);
+  font-weight: var(--text-label-sm--font-weight);
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   No Scrollbar Utility
+   ============================================================ */
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ============================================================
+   Float Animation (for hero elements)
+   ============================================================ */
+
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes neon-pulse {
+  0%   { opacity: 0.3; transform: scale(1); }
+  100% { opacity: 0.6; transform: scale(1.1); }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.animate-float     { animation: subtle-float 4s ease-in-out infinite; }
+.animate-neon-pulse { animation: neon-pulse 4s infinite alternate; }
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+.animate-slide-up  { animation: slide-up 0.3s var(--ease-standard) both; }
+.animate-fade-in   { animation: fade-in 0.25s ease both; }
+
+/* ============================================================
+   Metallic Background (Stitch Auth Screens)
+   ============================================================ */
+
+.metallic-bg {
+  background: radial-gradient(circle at 50% 50%, #1d2023 0%, #111417 100%);
+  position: relative;
+}
+
+/* carbon-fibre micro-texture overlay at 5% opacity */
+.metallic-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("https://www.transparenttextures.com/patterns/carbon-fibre.png");
+  opacity: 0.05;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* glass-panel — Stitch exact: rgba(29,32,35,0.6) blur(20px) border 0.1 */
+.glass-panel {
+  background: rgba(29, 32, 35, 0.6);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.neon-glow-primary {
+  box-shadow: 0 0 20px rgba(163, 249, 91, 0.2);
+  transition: box-shadow var(--duration-normal) var(--ease-standard);
+}
+.neon-glow-primary:hover {
+  box-shadow: 0 0 30px rgba(163, 249, 91, 0.45);
+}
+
+/* ============================================================
+   Platinum Gradient (Stitch Hero Banner)
+   ============================================================ */
+
+.platinum-gradient {
+  background: linear-gradient(135deg, #1d2023 0%, #323538 50%, #1d2023 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.platinum-gradient::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent 45%, rgba(255,255,255,0.05) 50%, transparent 55%);
+  animation: platinum-shine 6s infinite linear;
+  pointer-events: none;
+}
+
+@keyframes platinum-shine {
+  0%   { transform: translateX(-30%) translateY(-30%); }
+  100% { transform: translateX(30%)  translateY(30%); }
+}
+
+.neon-text-glow { text-shadow: 0 0 10px rgba(163, 249, 91, 0.4); }
+
+/* ============================================================
+   Selection Color
+   ============================================================ */
+
+::selection {
+  background-color: var(--color-primary-container);
+  color: var(--color-on-primary-container);
+}
