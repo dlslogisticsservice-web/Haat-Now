@@ -1,56 +1,121 @@
-# PRODUCTION_CUTOVER_REPORT.md
+# PRODUCTION_CUTOVER_REPORT.md — HAAT NOW Final Production Audit
 
-Audit only — no fixes applied. Every row is backed by a live probe (anon key) or the built bundle (`dist/assets/index-*.js`). `authenticated`-role items remain unverifiable here (no service-role / SQL Editor / real session).
+_2026-06-20 · Final cutover audit. Every conclusion is backed by a live probe (anon key), the built bundle, or a runtime login against the served production build. Items requiring a service-role key, SQL Editor, or a real authenticated JWT are **UNVERIFIABLE here** and marked as such — never guessed._
 
-## Overall verdict: 🔴 **NO-GO**
-Multiple Critical blockers: real auth disabled, the current build is **sandbox-mode with demo credentials embedded**, and `0019` grants are unconfirmed.
+## DECISION: 🔴 **NO-GO — Production Ready = NO**
 
-| # | Item | PASS/FAIL | Evidence | Risk | Fix Applied | Go/No-Go |
-|---|---|---|---|---|---|---|
-| 1 | **Migration 0019** (authenticated grants) | ⛔ UNVERIFIED→FAIL | anon cannot read `pg_catalog`/`role_table_grants` (404); no `GRANT…TO authenticated` in any applied migration (strong prior: unapplied) | 🔴 Critical — logged-in users get `42501` on orders/wallets/carts | None (audit only) — apply `0019` + run the `role_table_grants` proof query | **NO-GO** |
-| 2 | **order_country_code** | ❌ FAIL | live RPC → `42501` (runs as caller ⇒ **SECURITY INVOKER**); self-selects `orders` inside the admin `orders` policy | 🟠 High — admin order reads hit `infinite recursion detected in policy` | None — `CREATE OR REPLACE … SECURITY DEFINER` (SQL prepared) | **NO-GO** |
-| 3 | **All RLS policies** | 🟡 PARTIAL | anon correctly blocked on owner tables (`orders/wallets/notifications/driver_earnings` → `401/42501`); catalog public (`merchant_branches` → `200`); 0018 admin helpers live (`auth_is_admin→false`) | 🟡 Medium — authenticated/admin **row** enforcement unverifiable without a JWT | None | **CONDITIONAL** |
-| 4 | **Real Supabase auth** | ❌ FAIL | `POST /auth/v1/otp` → `phone_provider_disabled`; email signup requires confirmation; anon/OAuth off | 🔴 Critical — no real login possible | None — enable Phone provider + Test OTP (dashboard) | **NO-GO** |
-| 5 | **RBAC enforcement** | ⛔ BLOCKED→FAIL | mechanism (0018) applied, but no admin session obtainable + recursion bug (#2) | 🟠 High — cannot prove Egypt/Saudi/Super isolation; admin orders would error | None — depends on #2 + #4 | **NO-GO** |
-| 6 | **Demo account isolation** | ❌ FAIL | demo accounts are sandbox-only (`auth.service` `DEMO_ACCOUNTS`), **but** the prod bundle embeds them + OTP `123456` (see #7); in sandbox mode they grant full role access | 🔴 Critical — if shipped in sandbox mode, anyone logs in as Super Admin with `123456` | None — build-time strip + pin `VITE_AUTH_MODE=supabase` | **NO-GO** |
-| 7 | **Sandbox code exposure** | ❌ FAIL | **prod bundle contains:** `haat_sb_orders`×1, `sandbox`×2, `123456`×4, demo phone `201000000005`×1, demo names (`كابتن/متجر تجريبي`)×2. `.env` `VITE_AUTH_MODE=sandbox` ⇒ Vite inlines it ⇒ **the build is permanently sandbox-active** | 🔴 Critical — production build = sandbox build with hardcoded demo login | None — set `VITE_AUTH_MODE=supabase` at build + build-time guard to exclude `sandboxStore`/`DEMO_ACCOUNTS` | **NO-GO** |
-| 8 | **Driver Portal real data** | ⛔ BLOCKED→FAIL | sandbox renders demo driver/feed/earnings; real path (`driverService` + `complete_delivery`) exists but needs auth+grants (#1,#4) | 🟠 High — currently demo data, real untested | None | **NO-GO** |
-| 9 | **Merchant Portal real data** | ⛔ BLOCKED→FAIL | sandbox renders demo branch/orders/products; real path (`merchantService`/`orderService`) exists, needs auth+grants | 🟠 High | None | **NO-GO** |
-| 10 | **Admin Portal real data** | ⛔ BLOCKED→FAIL | sandbox feeds order count; real path (`adminService.getGlobalAnalytics` + 0018 scoping) exists, blocked by #1/#2/#4 | 🟠 High | None | **NO-GO** |
+---
 
-## Critical blockers (must clear before GO)
-1. 🔴 **Build ships in sandbox mode with demo credentials** (#6, #7) — `123456` + Super-Admin phone are in the bundle and active. **Hardest blocker; trivially exploitable if deployed as-is.**
-2. 🔴 **Phone provider disabled** (#4) — no real auth path.
-3. 🔴 **Migration 0019 unconfirmed** (#1) — authenticated users would be `42501`-locked.
-4. 🟠 **`order_country_code` recursion** (#2) — breaks admin orders + RBAC.
+## SECTION 1 — Auth Mode Verification — ❌ FAIL
+**Evidence (repo files):**
+| File | Present | `VITE_AUTH_MODE` / `AUTH_MODE` |
+|---|---|---|
+| `.env` | ✅ | **`sandbox` / `sandbox`** |
+| `.env.local` / `.env.production` / `.env.preview` / `.env.development` | ❌ absent | — |
+| `vercel.json`, `netlify.toml`, `railway.*`, `render.yaml`, `.github/workflows/*` | ❌ none in repo | — |
 
-## Required before re-audit (none done here — audit only)
-- Build with `VITE_AUTH_MODE=supabase`; add a build-time flag so `sandboxStore`/`DEMO_ACCOUNTS`/OTP are excluded from prod bundles; re-run the bundle grep → expect **0** hits for `123456`/`haat_sb_orders`/demo phones.
-- Enable Phone provider + Test OTP; apply `0019`; apply `order_country_code` DEFINER fix; provision roles; verify money/delivery RPCs `prosecdef=true`.
-- Re-run authenticated-role + RBAC proof queries (in `PRODUCTION_VALIDATION_REPORT.md`) and the portal/workflow suites in supabase mode.
+- The **only** build-time auth config in the repository is `.env = sandbox`. Vite inlines `VITE_AUTH_MODE` at build, so a build from this repo as-is is **sandbox**.
+- **Vercel / Railway / Render / Netlify / GitHub Actions secrets are platform-side and NOT in the repository** → their values are **UNVERIFIABLE from the codebase**; they must be inspected in each platform dashboard. **No evidence exists that any production deployment overrides `VITE_AUTH_MODE=supabase`.**
+- **Verdict:** FAIL — the committed/only config builds `sandbox`; production-`supabase` is unproven for every deploy path.
 
-## EMPIRICAL EXPLOITABILITY PROOF (runtime, built app — not source inspection)
-Built the app (`npm run build`) and served the **production bundle** via `vite preview` (`:4173`), then attempted real logins with OTP `123456`.
-
-**Build A — `.env VITE_AUTH_MODE=sandbox` (current repo config):**
+## SECTION 2 — Sandbox Exploitability — ❌ FAIL · **EXPLOITABLE = YES**
+**Method:** `npm run build` (`.env=sandbox`) → `vite preview` (`:4173`) → real login attempts, OTP `123456`.
 ```
-EXPLOITED  Customer     +201000000001  reachedOTP=true  portal=true
-EXPLOITED  Merchant     +201000000002  reachedOTP=true  portal=true
-EXPLOITED  Driver       +201000000003  reachedOTP=true  portal=true
-EXPLOITED  Egypt Admin  +201000000004  reachedOTP=true  portal=true
-EXPLOITED  Super Admin  +201000000005  reachedOTP=true  portal=true
-EXPLOITED  Saudi Admin  +201000000006  reachedOTP=true  portal=true
-→ EXPLOITED 6/6 (incl. Super Admin) on the production build.
+LOGIN-OK  Customer     +201000000001  portalLoaded=true  roleAssigned=customer
+LOGIN-OK  Merchant     +201000000002  portalLoaded=true  roleAssigned=merchant
+LOGIN-OK  Driver       +201000000003  portalLoaded=true  roleAssigned=driver
+LOGIN-OK  Egypt Admin  +201000000004  portalLoaded=true  roleAssigned=admin
+LOGIN-OK  Super Admin  +201000000005  portalLoaded=true  roleAssigned=admin
+LOGIN-OK  Saudi Admin  +201000000006  portalLoaded=true  roleAssigned=admin
+EXPLOITABLE = YES (6/6, incl. Super Admin)
 ```
-**Build B — rebuilt with `VITE_AUTH_MODE=supabase` (true production auth):**
-```
-BLOCKED  Customer     reachedOTP=false  msg="خطأ في إرسال الرمز: Unsupported phone provider"
-BLOCKED  Super Admin  reachedOTP=false  msg="Unsupported phone provider"
-→ 0/2 — demo login disabled; falls through to real OTP (provider off).
-```
+Login succeeds, portal loads, access granted, role assigned — for **all 6**. **Control:** a rebuild with `VITE_AUTH_MODE=supabase` previously yielded `BLOCKED` (login → "Unsupported phone provider"), confirming the build-time env is the root cause. **Verdict:** FAIL.
 
-### EXPLOITABLE = **YES** (with the repository's current `.env`)
-Root cause confirmed: Vite inlines `VITE_AUTH_MODE` at build time. The committed `.env=sandbox` produces a bundle where the demo backdoor (`123456` + `DEMO_ACCOUNTS`) is **active**; building with `VITE_AUTH_MODE=supabase` disables it. This is the deterministic fix.
+## SECTION 3 — Production Bundle Inspection — ❌ FAIL
+**Bundle:** `dist/assets/index-*.js` (794 KB), built with current `.env`.
+| Token | Occurrences |
+|---|---|
+| `sandbox` | 2 |
+| `haat_sb_orders` | 1 |
+| `123456` | 4 |
+| `201000000001` / `201000000005` | 1 each |
+| demo name `كابتن تجريبي` | 1 |
+| `DEMO_ACCOUNTS` (identifier) | 0 (minified away — the **data** is present) |
 
-## Go/No-Go
-**🔴 IMMEDIATE NO-GO.** Empirically proven: the production build as currently configured grants Super-Admin access with a 4-digit-known OTP. Mandatory before any deploy: build with `VITE_AUTH_MODE=supabase` (and add a build-time guard to strip `sandboxStore`/`DEMO_ACCOUNTS` from the bundle). Then clear the other critical blockers (phone provider, `0019`, `order_country_code`) and re-audit.
+- **Present:** yes. **Reachable:** yes. **Executable:** yes — proven in Section 2 (the embedded OTP `123456` + demo phones produce working logins). **Dead code only:** NO. **Verdict:** FAIL — sandbox functionality is present *and* executable in the production bundle.
+
+## SECTION 4 — Migration 0019 (authenticated grants) — ⛔ UNVERIFIABLE → FAIL
+- **Live:** `/rest/v1/pg_policies` → `404`, `/rest/v1/role_table_grants` → `404` (anon cannot read `information_schema`/`pg_catalog` via REST). No authenticated JWT obtainable to test behaviorally.
+- No `GRANT … TO authenticated` exists in any applied migration (strong prior: unapplied). **Cannot confirm applied / successful / no-drift / no-partial.**
+- **Proof query (SQL Editor required):**
+```sql
+select table_name, string_agg(privilege_type,',' order by privilege_type)
+from information_schema.role_table_grants
+where table_schema='public' and grantee='authenticated'
+and table_name in ('orders','order_items','wallets','notifications','favorites','addresses','customer_carts','cart_items')
+group by table_name;   -- expect 8 rows w/ ≥ SELECT
+```
+- **Verdict:** FAIL (not confirmable here; risk = logged-in users `42501`).
+
+## SECTION 5 — order_country_code — ❌ FAIL
+- **Live execution:** `POST /rpc/order_country_code` → `42501 permission denied for table orders` — it runs under the **caller's** role ⇒ **SECURITY INVOKER** (a DEFINER fn would return data/null, like `auth_is_admin()→false`).
+- It self-`SELECT`s `orders` and is referenced by the admin `"Admins read orders by scope"` policy on `orders` → **infinite-recursion risk** (`infinite recursion detected in policy for relation "orders"`) the moment an admin reads orders. Country isolation therefore unenforceable.
+- **Verdict:** FAIL — must be `SECURITY DEFINER`.
+
+## SECTION 6 — Real Authentication — ❌ FAIL
+- **Phone provider:** `phone_provider_disabled` (live) → phone OTP login impossible.
+- **Email provider:** enabled but `mailer_autoconfirm:false` (confirmation required) → signup yields no session.
+- **OAuth / anonymous:** all disabled.
+- Signup / login / logout / session-persistence / refresh / protected-routes are **code-correct and centralized** (`auth.service.ts`) but **cannot be exercised** — no provider yields a real session. **Verdict:** FAIL (no real auth path live).
+
+## SECTION 7 — RBAC — ⛔ UNVERIFIABLE → FAIL
+- DB mechanism applied (0018: `auth_is_admin/scope/country` live), but **no real session obtainable** (Section 6) → DB/API/UI authorization, RLS row-enforcement, country isolation, cross-role & cross-country access, privilege-escalation **cannot be runtime-tested**.
+- The only "RBAC" observable today is the **sandbox role assignment** (Section 2) — which is the exploit, not real enforcement. Plus the Section 5 recursion would break admin reads.
+- **Verdict:** FAIL (unverifiable + blocked by #5/#6). Proof requires the JWT-simulation queries in SQL Editor.
+
+## SECTION 8 — Test Accounts — ❌ FAIL (real) / exploit (sandbox)
+- **Real mode:** accounts not provisioned in `auth.users`/`user_roles`/`admin_users` (no SQL access) **and** cannot log in (phone disabled). Correct role/country/permission assignment **unverifiable**.
+- **Sandbox mode:** all 6 log in with correct roles assigned (Section 2) — but this is the demo backdoor, not production auth. **Verdict:** FAIL.
+
+## SECTION 9 — Driver Portal real data — ❌ FAIL
+- Renders **demo data** from `sandboxStore` (sandbox build). Real path (`driverService` + `complete_delivery` RPC) exists but needs auth + grants (#4/#6). Orders/wallet/earnings/status/delivery shown are **not real**. **Verdict:** FAIL (demo data).
+
+## SECTION 10 — Merchant Portal real data — ❌ FAIL
+- Renders **demo branch/orders/products/revenue** from `sandboxStore`. Real path (`merchantService`/`orderService`) exists, blocked by auth + grants. **Verdict:** FAIL (demo data).
+
+## SECTION 11 — Admin Portal real data — ❌ FAIL
+- Analytics/order-count fed by `sandboxStore` in sandbox; real `adminService.getGlobalAnalytics` + 0018 country scoping blocked by #4/#5/#6. **Verdict:** FAIL (demo data; scoping unenforceable due to #5).
+
+---
+
+## SECTION 12 — Final Go / No-Go
+
+| Section | PASS/FAIL |
+|---|---|
+| 1 Auth mode | ❌ FAIL |
+| 2 Exploitability (EXPLOITABLE=YES) | ❌ FAIL |
+| 3 Bundle inspection | ❌ FAIL |
+| 4 Migration 0019 | ⛔ FAIL (unverifiable) |
+| 5 order_country_code | ❌ FAIL |
+| 6 Real authentication | ❌ FAIL |
+| 7 RBAC | ⛔ FAIL (unverifiable) |
+| 8 Test accounts | ❌ FAIL |
+| 9 Driver real data | ❌ FAIL |
+| 10 Merchant real data | ❌ FAIL |
+| 11 Admin real data | ❌ FAIL |
+
+- **PASS / FAIL:** FAIL (0 of 11 sections pass).
+- **Evidence:** runtime logins (6/6 exploited), bundle grep, live RPC/auth probes — all above.
+- **Root cause:** (a) build ships `VITE_AUTH_MODE=sandbox` → demo backdoor active with OTP `123456`; (b) real auth provider disabled; (c) authenticated grants (`0019`) unconfirmed; (d) `order_country_code` SECURITY INVOKER → admin RLS recursion. (b)–(d) require Supabase dashboard/SQL access absent from this environment.
+- **Risk Level:** 🔴 **Critical** — Section 2 is an actively-exploitable Super-Admin auth bypass, not merely a readiness gap.
+- **Fix Required (in order):**
+  1. Build production with `VITE_AUTH_MODE=supabase` **and** add a build-time guard to strip `sandboxStore`/`DEMO_ACCOUNTS`/OTP from the bundle; re-run Section 2 → expect 6/6 BLOCKED and Section 3 → 0 hits.
+  2. Enable Supabase Phone provider (+ Test OTP).
+  3. Apply migration `0019`; confirm with the role_table_grants query.
+  4. Apply `order_country_code` `SECURITY DEFINER` fix.
+  5. Provision real roles (`seed_demo_accounts.sql`); verify money/delivery RPCs `prosecdef=true`.
+  6. Re-run RBAC + portal + workflow suites in `supabase` mode to convert Sections 7–11 to verified PASS.
+- **Go / No-Go:** 🔴 **NO-GO.**
+- **Production Ready = NO.**
+
+> Nothing was guessed: confirmed-true via live evidence — exploitability, bundle contents, `order_country_code` invoker status, phone provider disabled, 0018 applied. Genuinely unverifiable from this environment (no service-role/SQL/JWT, platform secrets not in repo) — `0019` application, authenticated-role RBAC, platform env values — are labeled UNVERIFIABLE with the exact query/step to close them.
