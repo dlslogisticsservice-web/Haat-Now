@@ -41,10 +41,10 @@ const PRIORITY_VARIANT: Record<string, 'error' | 'warning' | 'neutral' | 'second
   critical: 'error', high: 'error', medium: 'warning', low: 'neutral',
 };
 
-interface AdminDashboardProps { adminId: string }
+interface AdminDashboardProps { adminId: string; onLogout: () => void }
 
-export const AdminDashboard = ({ adminId }: AdminDashboardProps) => {
-  const { country } = useAppConfig();
+export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
+  const { country, lang, toggleLang } = useAppConfig();
   const cur = country.currency.symbolAr;
   // ── State (unchanged) ─────────────────────────────────────
   const [analytics,         setAnalytics]         = useState({ totalOrders: 0, totalMerchants: 0, totalDrivers: 0 });
@@ -151,16 +151,37 @@ export const AdminDashboard = ({ adminId }: AdminDashboardProps) => {
         id="admin_main_content"
       >
         {/* ── Header ──────────────────────────────────────── */}
-        <div className="flex items-center justify-between" id="admin_title_card">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={fetchAdminModuleData}
-            leftIcon={<Icon name="refresh" size={16} />}
-          >
-            تحديث
-          </Button>
-          <div className="text-end">
+        <div className="flex items-center justify-between gap-3" id="admin_title_card">
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={onLogout}
+              id="admin_logout_btn"
+              leftIcon={<Icon name="logout" size={16} />}
+            >
+              تسجيل الخروج
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleLang}
+              id="admin_lang_btn"
+              leftIcon={<Icon name="language" size={16} />}
+            >
+              {lang === 'ar' ? 'EN' : 'ع'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={fetchAdminModuleData}
+              id="admin_refresh_btn"
+              leftIcon={<Icon name="refresh" size={16} />}
+            >
+              تحديث
+            </Button>
+          </div>
+          <div className="text-end hidden sm:block">
             <div className="flex items-center gap-2.5 justify-end">
               <h1 className="text-headline-lg-mobile font-bold text-[var(--color-on-surface)]">
                 لوحة تحكم الإدارة
@@ -171,6 +192,29 @@ export const AdminDashboard = ({ adminId }: AdminDashboardProps) => {
               إدارة الرسوم والمتغيرات وتذاكر الدعم
             </p>
           </div>
+        </div>
+
+        {/* ── Mobile tab navigation (sidebar is desktop-only) ── */}
+        <div className="md:hidden flex gap-2" id="admin_mobile_tabs">
+          {SIDEBAR_SECTIONS[0].items.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                id={`admin_mtab_${item.id}`}
+                onClick={() => setActiveTab(item.id as AdminTab)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-[var(--radius-lg)] text-label-md font-medium transition-all cursor-pointer"
+                style={{
+                  background: isActive ? 'var(--color-secondary-container)' : 'rgba(255,255,255,0.04)',
+                  color: isActive ? 'var(--color-on-secondary-container)' : 'var(--color-on-surface-variant)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <Icon name={item.icon} size={16} fill={isActive ? 1 : 0} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* ═══════════════════════════════════════════════════ */}

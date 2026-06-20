@@ -566,7 +566,7 @@ export default function App() {
       ══════════════════════════════════════════════════════════ */}
       {session.role === 'merchant' && <MerchantApp merchantId={session.id} />}
       {session.role === 'driver'   && <DriverApp driverId={session.id} />}
-      {session.role === 'admin'    && <AdminDashboard adminId={session.id} />}
+      {session.role === 'admin'    && <AdminDashboard adminId={session.id} onLogout={handleLogout} />}
 
       {/* ══════════════════════════════════════════════════════════
           CART DRAWER
