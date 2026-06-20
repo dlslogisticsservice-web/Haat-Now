@@ -12,6 +12,8 @@ Fix sprint result. Code-actionable blockers FIXED + runtime-verified; infra-gate
 
 **Phase 1 control proof:** dev build (`import.meta.env.DEV=true`) → Super-Admin sandbox login still `LOGIN-OK` (demo workflow intact); prod build (`DEV=false`) → `LOGIN-OK` becomes `BLOCKED`.
 
+**Bulletproof proof (committed code alone):** rebuilt for production **with `.env.production` removed and `.env=sandbox`** → demo logins still **0/2 (BLOCKED)** and bundle `DEMO_ACCOUNTS`=0. So the protection lives in **committed code** (`auth.service.ts` `DEV` gate), not the env file. `.env.production` is a gitignored local convenience; production deploys set `VITE_AUTH_MODE=supabase` via their own platform env vars — but **even if they don't, a production build cannot authenticate demo accounts.**
+
 ## Phase 2 — Enable & verify real Supabase auth ⚠️ PARTIAL (provider is dashboard-gated)
 | Item | PASS/FAIL | Evidence | Fix Applied | Remaining Risk |
 |---|---|---|---|---|
