@@ -38,14 +38,17 @@ group by table_name;          -- expect 8 rows, each ≥ SELECT (+ INSERT/UPDATE
 
 ## PHASE 3 — order_country_code Fix — ❌ FAIL (external)
 - **Status:** live RPC → `42501` ⇒ runs as caller = **SECURITY INVOKER**; self-`SELECT`s `orders` while referenced by the admin `orders` policy → **infinite recursion** on admin reads. `search_path` not pinned.
-- **Fix (SQL Editor):**
+- **Fix (SQL Editor)** — only change vs migration 0018 is adding `security definer` (breaks the RLS recursion; join chain is already correct):
 ```sql
-create or replace function public.order_country_code(p_order_id uuid)
-returns text language sql stable security definer set search_path = public as $$
-  select c.country_code from orders o
-  join customers cu on cu.id = o.customer_id
-  join countries c on c.id = cu.country_id        -- adjust to actual FK chain
-  where o.id = p_order_id
+create or replace function public.order_country_code(p_order_id uuid) returns varchar
+  language sql stable security definer set search_path = public as $$
+  select co.code
+  from orders o
+  join merchant_branches mb on mb.id = o.branch_id
+  join zones z              on z.id  = mb.zone_id
+  join cities ci            on ci.id = z.city_id
+  join countries co         on co.id = ci.country_id
+  where o.id = p_order_id;
 $$;
 revoke all on function public.order_country_code(uuid) from public;
 grant execute on function public.order_country_code(uuid) to authenticated;
