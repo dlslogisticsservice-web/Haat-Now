@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { walletService } from '../../services/wallet.service';
 import { Wallet, WalletTransaction } from '../../services/types';
+import { sandboxStore } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import {
   RefreshCw, MoreVertical, AlertCircle, Loader2, Plus,
@@ -85,6 +86,15 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
     setWalletLoading(true);
     setWalletError(null);
     try {
+      // Sandbox: the real wallets table is unreadable as anon — read the shared store.
+      if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
+        const bal = sandboxStore.getWallet('customer', customerId);
+        setWallet({ id: 'sb-wallet', owner_type: 'customer', owner_id: customerId, balance: bal, currency: country.currency.code } as any);
+        setTransactions(sandboxStore.getCustomerOrders(customerId).map(o => ({
+          id: 'tx-' + o.id, wallet_id: 'sb-wallet', amount: o.total_amount, type: 'debit', created_at: o.created_at,
+        })) as any);
+        return;
+      }
       const { data: w, error: wErr } = await walletService.getWallet('customer', customerId);
       if (wErr) {
         setWalletError('تعذّر تحميل بيانات المحفظة');
