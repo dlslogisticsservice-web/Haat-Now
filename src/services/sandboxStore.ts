@@ -23,10 +23,12 @@ export interface SbOrder {
   history: { status: SbStatus; at: string }[];
 }
 export interface SbNotif { id: string; target_user_id: string; message: string; created_at: string }
+export interface SbReview { id: string; order_id: string; rating: number; comment: string; created_at: string }
 
 const ORDERS_KEY = 'haat_sb_orders';
 const WALLET_KEY = 'haat_sb_wallets';
 const NOTIF_KEY  = 'haat_sb_notifs';
+const REVIEW_KEY = 'haat_sb_reviews';
 const SEQ_KEY    = 'haat_sb_seq';
 
 function read<T>(k: string, def: T): T {
@@ -131,5 +133,17 @@ export const sandboxStore = {
   // ── Notifications ────────────────────────────────────────────────────────────
   getNotifications(userId: string): SbNotif[] {
     return read<SbNotif[]>(NOTIF_KEY, []).filter(n => n.target_user_id === userId);
+  },
+
+  // ── Reviews & ratings ────────────────────────────────────────────────────────
+  getReview(orderId: string): SbReview | undefined {
+    return read<SbReview[]>(REVIEW_KEY, []).find(r => r.order_id === orderId);
+  },
+  setReview(orderId: string, rating: number, comment: string): SbReview {
+    const list = read<SbReview[]>(REVIEW_KEY, []).filter(r => r.order_id !== orderId);
+    const review: SbReview = { id: nextId('rv'), order_id: orderId, rating, comment, created_at: nowISO() };
+    list.unshift(review);
+    write(REVIEW_KEY, list);
+    return review;
   },
 };

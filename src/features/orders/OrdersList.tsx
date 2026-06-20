@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { orderService } from '../../services/order.service';
+import { productService } from '../../services/product.service';
 import { sandboxStore } from '../../services/sandboxStore';
 import { trackingService } from '../../services/tracking.service';
 import { calculateDistanceKm, calculateEtaMinutes } from '../../services/location.service';
@@ -9,8 +10,9 @@ import { useAppConfig } from '../../contexts/AppConfigContext';
 import {
   Loader2, ScrollText, ChevronLeft, ChevronRight, Truck, Check, Phone,
   MessageSquare, Headphones, Hourglass, CheckCircle, ChefHat, Bike,
-  CheckCheck, XCircle,
+  CheckCheck, XCircle, Star,
 } from 'lucide-react';
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import type { LucideIcon } from 'lucide-react';
 
 function parseDriverCoords(coords: unknown): { lat: number; lng: number } | null {
@@ -84,6 +86,41 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   const [ticketSubject,   setTicketSubject]   = useState('');
   const [showTicketInput, setShowTicketInput] = useState(false);
   const [ticketLoading,   setTicketLoading]   = useState(false);
+  // ── Reviews & ratings (delivered orders) ──
+  const [ratingValue,     setRatingValue]     = useState(0);
+  const [ratingHover,     setRatingHover]     = useState(0);
+  const [ratingComment,   setRatingComment]   = useState('');
+  const [ratingDone,      setRatingDone]      = useState(false);
+  const [ratingLoading,   setRatingLoading]   = useState(false);
+
+  // Load any existing review when a delivered order is opened.
+  useEffect(() => {
+    setRatingValue(0); setRatingHover(0); setRatingComment(''); setRatingDone(false);
+    if (!selectedOrderId || orderDetails?.status !== 'delivered') return;
+    if (SANDBOX) {
+      const r = sandboxStore.getReview(selectedOrderId);
+      if (r) { setRatingValue(r.rating); setRatingComment(r.comment); setRatingDone(true); }
+    } else {
+      productService.getReviews(selectedOrderId).then(({ data }) => {
+        const r = data?.[0];
+        if (r) { setRatingValue(r.rating); setRatingComment(r.comment || ''); setRatingDone(true); }
+      }).catch(() => { /* ignore */ });
+    }
+  }, [selectedOrderId, orderDetails?.status]);
+
+  const submitRating = async () => {
+    if (!selectedOrderId || ratingValue < 1 || ratingLoading) return;
+    setRatingLoading(true);
+    try {
+      if (SANDBOX) {
+        sandboxStore.setReview(selectedOrderId, ratingValue, ratingComment.trim());
+      } else {
+        await productService.submitReview({ order_id: selectedOrderId, customer_id: customerId, rating: ratingValue, comment: ratingComment.trim() || null });
+      }
+      setRatingDone(true);
+    } catch { /* surfaced by the unchanged state */ }
+    finally { setRatingLoading(false); }
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -199,6 +236,20 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
 
   const fetchOrderDetails = async (orderId: string) => {
     setRiderLoc(null);
+    if (SANDBOX) {
+      const o = sandboxStore.getById(orderId);
+      if (o) {
+        setOrderDetails({
+          id: o.id, status: o.status, total_amount: o.total_amount, driver_id: o.driver_id,
+          drivers: o.driver_id ? { full_name: 'كابتن هات ناو', phone_number: '' } : null,
+          merchant_branches: { name: o.branch_name },
+          branch_lat_snapshot: null, branch_lng_snapshot: null, delivery_lat: null, delivery_lng: null,
+        });
+        setCourierProgress(o.status === 'delivered' ? 1.0 : o.status === 'on_the_way' ? 0.5 : o.status === 'preparing' ? 0.25 : o.status === 'accepted' ? 0.1 : 0);
+      }
+      setDetailsLoading(false);
+      return;
+    }
     try {
       setDetailsLoading(true);
       const { data, error } = await orderService.getOrderDetails(orderId);
@@ -433,6 +484,48 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
           <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${courierProgress * 100}%`, background: 'var(--color-primary-fixed)', boxShadow: '0 0 8px rgba(163,249,91,0.5)' }} />
         </div>
       </div>
+
+      {/* ════════════════════════════════════════════
+          RATE YOUR ORDER (delivered)
+      ════════════════════════════════════════════ */}
+      {orderDetails.status === 'delivered' && (
+        <div className="glass rounded-2xl p-5 mt-4" id="rating_card">
+          <h3 style={{ color: 'white', fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>
+            {ratingDone ? 'شكراً لتقييمك 🙏' : 'كيف كانت تجربتك؟'}
+          </h3>
+          <div className="flex gap-2" style={{ justifyContent: 'center' }} onMouseLeave={() => setRatingHover(0)}>
+            {[1, 2, 3, 4, 5].map(n => {
+              const filled = (ratingHover || ratingValue) >= n;
+              return (
+                <button key={n} id={`rating_star_${n}`} disabled={ratingDone}
+                  onMouseEnter={() => !ratingDone && setRatingHover(n)}
+                  onClick={() => !ratingDone && setRatingValue(n)}
+                  style={{ background: 'none', border: 'none', cursor: ratingDone ? 'default' : 'pointer', padding: '2px' }}>
+                  <Star size={32} strokeWidth={1.6}
+                    color={filled ? '#fbbf24' : 'rgba(255,255,255,0.25)'}
+                    fill={filled ? '#fbbf24' : 'none'} />
+                </button>
+              );
+            })}
+          </div>
+          {!ratingDone && (
+            <>
+              <textarea value={ratingComment} onChange={e => setRatingComment(e.target.value)}
+                placeholder="أضف تعليقاً (اختياري)…" rows={2}
+                className="w-full mt-4 rounded-xl px-3 py-2.5"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '13px', resize: 'none' }} />
+              <button id="submit_rating_btn" onClick={submitRating} disabled={ratingValue < 1 || ratingLoading}
+                className="w-full mt-3 h-11 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+                style={{ background: ratingValue < 1 ? 'rgba(163,249,91,0.25)' : 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontSize: '14px', fontWeight: 700, opacity: ratingValue < 1 ? 0.6 : 1 }}>
+                {ratingLoading ? <Loader2 size={18} className="animate-spin" /> : 'إرسال التقييم'}
+              </button>
+            </>
+          )}
+          {ratingDone && ratingComment && (
+            <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px', marginTop: '10px', textAlign: 'center' }}>"{ratingComment}"</p>
+          )}
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════
           BOTTOM SHEET
