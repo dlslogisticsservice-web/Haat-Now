@@ -29,5 +29,28 @@ Multiple Critical blockers: real auth disabled, the current build is **sandbox-m
 - Enable Phone provider + Test OTP; apply `0019`; apply `order_country_code` DEFINER fix; provision roles; verify money/delivery RPCs `prosecdef=true`.
 - Re-run authenticated-role + RBAC proof queries (in `PRODUCTION_VALIDATION_REPORT.md`) and the portal/workflow suites in supabase mode.
 
+## EMPIRICAL EXPLOITABILITY PROOF (runtime, built app — not source inspection)
+Built the app (`npm run build`) and served the **production bundle** via `vite preview` (`:4173`), then attempted real logins with OTP `123456`.
+
+**Build A — `.env VITE_AUTH_MODE=sandbox` (current repo config):**
+```
+EXPLOITED  Customer     +201000000001  reachedOTP=true  portal=true
+EXPLOITED  Merchant     +201000000002  reachedOTP=true  portal=true
+EXPLOITED  Driver       +201000000003  reachedOTP=true  portal=true
+EXPLOITED  Egypt Admin  +201000000004  reachedOTP=true  portal=true
+EXPLOITED  Super Admin  +201000000005  reachedOTP=true  portal=true
+EXPLOITED  Saudi Admin  +201000000006  reachedOTP=true  portal=true
+→ EXPLOITED 6/6 (incl. Super Admin) on the production build.
+```
+**Build B — rebuilt with `VITE_AUTH_MODE=supabase` (true production auth):**
+```
+BLOCKED  Customer     reachedOTP=false  msg="خطأ في إرسال الرمز: Unsupported phone provider"
+BLOCKED  Super Admin  reachedOTP=false  msg="Unsupported phone provider"
+→ 0/2 — demo login disabled; falls through to real OTP (provider off).
+```
+
+### EXPLOITABLE = **YES** (with the repository's current `.env`)
+Root cause confirmed: Vite inlines `VITE_AUTH_MODE` at build time. The committed `.env=sandbox` produces a bundle where the demo backdoor (`123456` + `DEMO_ACCOUNTS`) is **active**; building with `VITE_AUTH_MODE=supabase` disables it. This is the deterministic fix.
+
 ## Go/No-Go
-**NO-GO for production.** The single most urgent item is the **sandbox-in-bundle / demo-credential exposure (#6/#7)** — a security issue, not just readiness. Clear the four critical blockers, then re-audit to convert the BLOCKED rows to verified PASS/FAIL.
+**🔴 IMMEDIATE NO-GO.** Empirically proven: the production build as currently configured grants Super-Admin access with a 4-digit-known OTP. Mandatory before any deploy: build with `VITE_AUTH_MODE=supabase` (and add a build-time guard to strip `sandboxStore`/`DEMO_ACCOUNTS` from the bundle). Then clear the other critical blockers (phone provider, `0019`, `order_country_code`) and re-audit.
