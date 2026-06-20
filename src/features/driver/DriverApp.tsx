@@ -26,10 +26,12 @@ interface OrdersFeed {
   total_amount: number;
   merchant_branches?: { name: string; zones?: { name: string } };
 }
-interface DriverAppProps { driverId: string }
+interface DriverAppProps { driverId: string; onLogout: () => void }
 
-export const DriverApp = ({ driverId }: DriverAppProps) => {
-  const { country, price: money } = useAppConfig();
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+
+export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
+  const { country, lang, toggleLang, price: money } = useAppConfig();
   const cur = country.currency.symbolAr;
   // ── State (unchanged) ─────────────────────────────────────
   const [driverProfile,           setDriverProfile]           = useState<any>(null);
@@ -104,6 +106,23 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
   const fetchDriverCore = async () => {
     try {
       setLoading(true);
+      // Sandbox mode has no real backend session, so the drivers table can't be read.
+      // Provide a demo driver profile + sample data so the portal renders with data.
+      if (SANDBOX) {
+        setDriverProfile({ id: driverId, full_name: 'كابتن تجريبي', phone_number: '+201000000003', is_online: true, vehicle_type: 'motorcycle' });
+        setIsOnline(true);
+        setEarnings([
+          { id: 'e1', delivery_fee_earned: 10, created_at: '2026-06-18T10:00:00Z' },
+          { id: 'e2', delivery_fee_earned: 10, created_at: '2026-06-18T12:30:00Z' },
+          { id: 'e3', delivery_fee_earned: 10, created_at: '2026-06-19T09:15:00Z' },
+        ]);
+        setAvailableFeed([
+          { id: 'feed1', status: 'accepted', total_amount: 78.5, merchant_branches: { name: 'مطعم الجليلة — حي النخيل', zones: { name: 'حي النخيل' } } },
+          { id: 'feed2', status: 'accepted', total_amount: 45.0, merchant_branches: { name: 'مايسترو بيتزا', zones: { name: 'حي الملقا' } } },
+        ]);
+        setActiveJobs([]);
+        return;
+      }
       const { data, error } = await supabase.from('drivers').select('*').eq('id', driverId).maybeSingle();
       if (error || !data) {
         setDriverProfile(null);
@@ -131,6 +150,7 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
     setActionLoading(true);
     try {
       const targetState = !isOnline;
+      if (SANDBOX) { setIsOnline(targetState); return; }
       const { error } = await driverService.toggleOnline(driverProfile.id, targetState);
       if (!error) setIsOnline(targetState); else alert((error as any).message);
     } catch (e) { console.error(e); }
@@ -192,6 +212,16 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
 
   return (
     <div className="min-h-screen p-6 md:p-8 space-y-5" id="driver_app_container">
+
+      {/* ── Top bar: logout + language ─────────────────────── */}
+      <div className="flex items-center justify-between" id="driver_topbar">
+        <Button variant="danger" size="sm" onClick={onLogout} id="driver_logout_btn" leftIcon={<Icon name="logout" size={16} />}>
+          تسجيل الخروج
+        </Button>
+        <Button variant="ghost" size="sm" onClick={toggleLang} id="driver_lang_btn" leftIcon={<Icon name="language" size={16} />}>
+          {lang === 'ar' ? 'EN' : 'ع'}
+        </Button>
+      </div>
 
       {/* ══════════════════════════════════════════════════════
           PRIMARY — Command Center: Online Status Hero

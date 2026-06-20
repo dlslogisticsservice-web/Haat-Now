@@ -80,10 +80,12 @@ function UploadStatus({ error, success, successMsg = 'تم الحفظ بنجاح
   return null;
 }
 
-interface MerchantAppProps { merchantId: string }
+interface MerchantAppProps { merchantId: string; onLogout: () => void }
 
-export const MerchantApp = ({ merchantId }: MerchantAppProps) => {
-  const { country, price: money } = useAppConfig();
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+
+export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
+  const { country, lang, toggleLang, price: money } = useAppConfig();
   const cur = country.currency.symbolAr;
 
   // ── Core state ─────────────────────────────────────────────────────────
@@ -164,6 +166,26 @@ export const MerchantApp = ({ merchantId }: MerchantAppProps) => {
   const fetchMerchantMetadata = async () => {
     try {
       setLoading(true);
+      // Sandbox mode has no backend session — provide demo merchant data so the
+      // portal renders with content instead of an empty/blank state.
+      if (SANDBOX) {
+        setMerchantData({ id: merchantId, business_name: 'متجر تجريبي', logo_url: null } as any);
+        const demoBranch: any = { id: 'demo-branch-1', merchant_id: merchantId, name: 'الفرع التجريبي', is_active: true, cover_image_url: null };
+        setBranches([demoBranch]);
+        setSelectedBranchId(demoBranch.id);
+        setCategories([{ id: 'c1', name: 'مطاعم' } as any]);
+        setSelectedCategoryId('c1');
+        setProducts([
+          { id: 'p1', name: 'كبسة لحم فاخرة', price: 45, product_images: [] },
+          { id: 'p2', name: 'مندي دجاج', price: 38, product_images: [] },
+        ] as any);
+        setOrders([
+          { id: 'o1', status: 'pending',   total_amount: 78.5, customers: { full_name: 'محمد العميل' } },
+          { id: 'o2', status: 'preparing', total_amount: 45.0, customers: { full_name: 'سارة أحمد' } },
+        ] as any);
+        setEarnings(101.5);
+        return;
+      }
       const [bRes, mRes] = await Promise.all([
         supabase.from('merchant_branches').select('*').eq('merchant_id', merchantId),
         supabase.from('merchants').select('id, business_name, logo_url').eq('id', merchantId).maybeSingle(),
@@ -433,6 +455,39 @@ export const MerchantApp = ({ merchantId }: MerchantAppProps) => {
         className="flex-1 min-h-screen overflow-y-auto p-6 md:p-8 space-y-6 md:ms-[280px]"
         id="merchant_main_content"
       >
+        {/* ── Top bar: logout + language ─────────────────────────────── */}
+        <div className="flex items-center justify-between" id="merchant_topbar">
+          <Button variant="danger" size="sm" onClick={onLogout} id="merchant_logout_btn" leftIcon={<Icon name="logout" size={16} />}>
+            تسجيل الخروج
+          </Button>
+          <Button variant="ghost" size="sm" onClick={toggleLang} id="merchant_lang_btn" leftIcon={<Icon name="language" size={16} />}>
+            {lang === 'ar' ? 'EN' : 'ع'}
+          </Button>
+        </div>
+
+        {/* ── Mobile tab navigation (sidebar is desktop-only) ─────────── */}
+        <div className="md:hidden grid grid-cols-4 gap-1.5" id="merchant_mobile_tabs">
+          {SIDEBAR_SECTIONS[0].items.map((item) => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                id={`merchant_mtab_${item.id}`}
+                onClick={() => setActiveTab(item.id as MerchantTab)}
+                className="flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-[var(--radius-lg)] text-label-sm font-medium transition-all cursor-pointer"
+                style={{
+                  background: isActive ? 'var(--color-secondary-container)' : 'rgba(255,255,255,0.04)',
+                  color: isActive ? 'var(--color-on-secondary-container)' : 'var(--color-on-surface-variant)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                }}
+              >
+                <Icon name={item.icon} size={16} fill={isActive ? 1 : 0} />
+                <span className="truncate w-full text-center" style={{ fontSize: '9px' }}>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between gap-4 flex-wrap" id="merchant_branch_header_card">
           <div className="flex flex-col gap-1.5" id="merch_main_title">

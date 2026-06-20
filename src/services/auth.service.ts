@@ -28,6 +28,7 @@ export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
   '+201000000004': { id: '44444444-0000-0000-0000-000000000001', role: 'admin',     country: 'EG', name: 'مدير مصر',     scope: 'country' },
   '+966500000004': { id: '44444444-0000-0000-0000-000000000002', role: 'admin',     country: 'SA', name: 'مدير السعودية', scope: 'country' },
   '+201000000005': { id: '55555555-0000-0000-0000-000000000005', role: 'admin',     country: 'EG', name: 'المدير العام',  scope: 'super' },
+  '+201000000006': { id: '44444444-0000-0000-0000-000000000003', role: 'admin',     country: 'SA', name: 'مدير السعودية', scope: 'country' },
 };
 
 // Resolves the highest-priority role for a user from the database (supabase mode).

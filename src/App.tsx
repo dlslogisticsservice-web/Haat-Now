@@ -564,8 +564,8 @@ export default function App() {
       {/* ══════════════════════════════════════════════════════════
           OTHER PORTALS
       ══════════════════════════════════════════════════════════ */}
-      {session.role === 'merchant' && <MerchantApp merchantId={session.id} />}
-      {session.role === 'driver'   && <DriverApp driverId={session.id} />}
+      {session.role === 'merchant' && <MerchantApp merchantId={session.id} onLogout={handleLogout} />}
+      {session.role === 'driver'   && <DriverApp driverId={session.id} onLogout={handleLogout} />}
       {session.role === 'admin'    && <AdminDashboard adminId={session.id} onLogout={handleLogout} />}
 
       {/* ══════════════════════════════════════════════════════════
