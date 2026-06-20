@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { EnterpriseSidebar, SidebarSection } from '../../components/ui/EnterpriseSidebar';
+import { sandboxStore } from '../../services/sandboxStore';
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 
 // ── Types (unchanged) ─────────────────────────────────────────
@@ -64,6 +65,12 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const fetchAdminModuleData = async () => {
     try {
       setLoading(true);
+      if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
+        const sb = sandboxStore.getOrders();
+        setAnalytics({ totalOrders: sb.length, totalMerchants: 1, totalDrivers: 1 });
+        setTickets([]);
+        return;
+      }
       const { data: analyticsData } = await adminService.getGlobalAnalytics();
       if (analyticsData) setAnalytics(analyticsData);
       const { data: feeConf } = await adminService.getAppConfig('MIN_DELIVERY_FEE');

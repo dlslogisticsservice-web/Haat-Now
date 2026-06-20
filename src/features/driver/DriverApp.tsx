@@ -4,6 +4,7 @@ import { driverService } from '../../services/driver.service';
 import { orderService } from '../../services/order.service';
 import { trackingService } from '../../services/tracking.service';
 import { walletService } from '../../services/wallet.service';
+import { sandboxStore } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Icon } from '../../components/ui/Icon';
 import { Card, StatCard } from '../../components/ui/Card';
@@ -63,6 +64,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
 
   // GPS tracking helpers
   const startGPSTracking = (drvId: string) => {
+    if (SANDBOX) return;  // no GPS/geolocation in demo mode (avoids permission prompts)
     if (watchIdRef.current !== null) return;
     if (!navigator.geolocation) {
       alert('تحديد الموقع غير مدعوم في هذا المتصفح');
@@ -102,25 +104,22 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
     return () => { stopGPSTracking(); };
   }, []);
 
+  // Reads the shared sandbox store into driver state (feed / active / earnings).
+  const loadSandboxDriver = () => {
+    setAvailableFeed(sandboxStore.getDriverAvailable().map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, merchant_branches: { name: o.branch_name, zones: { name: '' } } })) as any);
+    setActiveJobs(sandboxStore.getDriverActive(driverId).map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, customer_id: o.customer_id, customers: { full_name: o.customer_name, phone_number: '' }, merchant_branches: { name: o.branch_name } })) as any);
+    setEarnings(sandboxStore.getDriverDelivered(driverId).map(o => ({ id: o.id, delivery_fee_earned: o.delivery_fee, created_at: o.created_at })));
+  };
+
   // ── Business logic (ALL UNCHANGED) ───────────────────────
   const fetchDriverCore = async () => {
     try {
       setLoading(true);
-      // Sandbox mode has no real backend session, so the drivers table can't be read.
-      // Provide a demo driver profile + sample data so the portal renders with data.
+      // Sandbox mode: read the shared sandbox backend so the lifecycle is real.
       if (SANDBOX) {
         setDriverProfile({ id: driverId, full_name: 'كابتن تجريبي', phone_number: '+201000000003', is_online: true, vehicle_type: 'motorcycle' });
         setIsOnline(true);
-        setEarnings([
-          { id: 'e1', delivery_fee_earned: 10, created_at: '2026-06-18T10:00:00Z' },
-          { id: 'e2', delivery_fee_earned: 10, created_at: '2026-06-18T12:30:00Z' },
-          { id: 'e3', delivery_fee_earned: 10, created_at: '2026-06-19T09:15:00Z' },
-        ]);
-        setAvailableFeed([
-          { id: 'feed1', status: 'accepted', total_amount: 78.5, merchant_branches: { name: 'مطعم الجليلة — حي النخيل', zones: { name: 'حي النخيل' } } },
-          { id: 'feed2', status: 'accepted', total_amount: 45.0, merchant_branches: { name: 'مايسترو بيتزا', zones: { name: 'حي الملقا' } } },
-        ]);
-        setActiveJobs([]);
+        loadSandboxDriver();
         return;
       }
       const { data, error } = await supabase.from('drivers').select('*').eq('id', driverId).maybeSingle();
@@ -161,6 +160,12 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
     if (!isOnline) { alert('الرجاء الانتقال إلى وضع الاتصال أولاً!'); return; }
     setActionLoading(true);
     try {
+      if (SANDBOX) {
+        sandboxStore.assignDriver(orderId, driverId);
+        sandboxStore.setStatus(orderId, 'on_the_way');
+        loadSandboxDriver();
+        return;
+      }
       const { success, error } = await driverService.acceptDelivery(orderId, driverProfile.id);
       if (error) alert(`فشل قبول الطلب: ${(error as any).message || error}`);
       else if (success) { alert('تم قبول الطلب بنجاح!'); await reloadDriverState(driverProfile.id); }
@@ -171,6 +176,12 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   const handleAdvanceActiveJob = async (job: ActiveOrder) => {
     setActionLoading(true);
     try {
+      if (SANDBOX) {
+        if (job.status === 'on_the_way') sandboxStore.completeDelivery(job.id, driverId);
+        else if (job.status === 'preparing') sandboxStore.setStatus(job.id, 'on_the_way');
+        loadSandboxDriver();
+        return;
+      }
       if (job.status === 'preparing') {
         const { error } = await orderService.updateOrderStatus(job.id, 'on_the_way', 'الطلب في الطريق.');
         if (!error) {

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { orderService } from '../../services/order.service';
+import { sandboxStore } from '../../services/sandboxStore';
 import { trackingService } from '../../services/tracking.service';
 import { calculateDistanceKm, calculateEtaMinutes } from '../../services/location.service';
 import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps';
@@ -185,6 +186,11 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   const fetchOrders = async () => {
     try {
       setLoading(true);
+      if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
+        const sb = sandboxStore.getCustomerOrders(customerId);
+        setOrders(sb.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, created_at: o.created_at, branch_id: o.branch_id, merchant_branches: { name: o.branch_name } })) as unknown as Order[]);
+        return;
+      }
       const { data, error } = await orderService.getCustomerOrders(customerId);
       if (!error && data) setOrders(data as unknown as Order[]);
     } catch (e) { console.error(e); }

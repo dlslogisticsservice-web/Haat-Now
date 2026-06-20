@@ -4,8 +4,11 @@ import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
 import { adminService } from '../../services/admin.service';
 import { authService } from '../../services/auth.service';
+import { sandboxStore } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { getCategoryThumb } from '../../utils/categoryImages';
+
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import {
   ChevronLeft, Loader2, Star, UtensilsCrossed, BadgeCheck,
   CheckCircle2, Circle, MapPin, Wallet, Smartphone, CreditCard,
@@ -284,6 +287,22 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const grandTotal  = Math.max(0, subtotal - discountVal + deliveryFee + luxuryFee);
 
   const handlePlaceOrder = async () => {
+    // Sandbox: write to the shared sandbox backend so the full lifecycle works
+    // across customer/merchant/driver/admin without a real Supabase session.
+    if (SANDBOX) {
+      const order = sandboxStore.createOrder({
+        customer_id: customerId,
+        customer_name: 'عميل تجريبي',
+        branch_id: branchId,
+        branch_name: '',
+        total_amount: grandTotal,
+        delivery_fee: deliveryFee,
+        items: cartItems.map(it => ({ name: it.product.name, qty: it.quantity, price: it.product.price + (it.variant?.price_modifier ?? 0) })),
+      });
+      setCompletedOrderId(order.id);
+      setShowSuccessModal(true);
+      return;
+    }
     if (addresses.length === 0) { alert('لا يوجد عنوان توصيل. يُرجى إضافة عنوان من صفحة حسابك الشخصي.'); return; }
     if (!selectedAddress) { alert('الرجاء تحديد عنوان التوصيل'); return; }
     if (!selectedPayment)  { alert('الرجاء تحديد طريقة الدفع');   return; }
@@ -858,6 +877,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                 : 'اسحب لتأكيد الطلب'}
             </div>
             <div
+              id="checkout_swipe_handle"
               className="absolute w-12 h-12 rounded-full flex items-center justify-center z-10 cursor-grab active:cursor-grabbing"
               style={{
                 left: `${handleLeft}px`,

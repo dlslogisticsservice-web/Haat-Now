@@ -4,6 +4,7 @@ import { merchantService } from '../../services/merchant.service';
 import { orderService } from '../../services/order.service';
 import { storageService } from '../../services/storage.service';
 import { Icon } from '../../components/ui/Icon';
+import { sandboxStore } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -179,11 +180,9 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
           { id: 'p1', name: 'كبسة لحم فاخرة', price: 45, product_images: [] },
           { id: 'p2', name: 'مندي دجاج', price: 38, product_images: [] },
         ] as any);
-        setOrders([
-          { id: 'o1', status: 'pending',   total_amount: 78.5, customers: { full_name: 'محمد العميل' } },
-          { id: 'o2', status: 'preparing', total_amount: 45.0, customers: { full_name: 'سارة أحمد' } },
-        ] as any);
-        setEarnings(101.5);
+        const sbOrders = sandboxStore.getMerchantOrders();
+        setOrders(sbOrders.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, customers: { full_name: o.customer_name } })) as any);
+        setEarnings(sbOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total_amount - o.delivery_fee), 0));
         return;
       }
       const [bRes, mRes] = await Promise.all([
@@ -229,6 +228,12 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
   const handleUpdateStatus = async (orderId: string, status: string) => {
     setActionLoading(true);
     try {
+      if (SANDBOX) {
+        sandboxStore.setStatus(orderId, status as any);
+        const sb = sandboxStore.getMerchantOrders();
+        setOrders(sb.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, customers: { full_name: o.customer_name } })) as any);
+        return;
+      }
       let notes = '';
       if (status === 'accepted')  notes = 'تم قبول طلبكم.';
       if (status === 'preparing') notes = 'جاري تجهيز طلبكم الآن.';
