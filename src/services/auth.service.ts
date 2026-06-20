@@ -105,6 +105,27 @@ export const authService = {
     return { id: user.id, phone_number: user.phone || '', role };
   },
 
+  // ── Access token (for authenticated edge-function / API calls) ───────────────
+  // Single source of truth for the bearer token. Sandbox has no real Supabase JWT.
+  async getAccessToken(): Promise<string> {
+    if (isSandbox()) return '';
+    const { data: { session } } = await supabase.auth.getSession();
+    return session?.access_token ?? '';
+  },
+
+  // ── Subscribe to auth changes (login / logout / token refresh) ───────────────
+  // Supabase mode → real onAuthStateChange. Sandbox mode → no-op (state is driven
+  // by the login/logout handlers; the real client would emit INITIAL_SESSION=null
+  // and wipe the sandbox session).
+  subscribeToAuthChanges(onChange: (user: User | null) => void): () => void {
+    if (isSandbox()) return () => {};
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sbSession) => {
+      if (!sbSession) { onChange(null); return; }
+      this.getCurrentUser().then(onChange).catch(console.error);
+    });
+    return () => subscription.unsubscribe();
+  },
+
   // ── Logout ──────────────────────────────────────────────────────────────────
   async signOut(): Promise<{ error: any }> {
     if (isSandbox()) {

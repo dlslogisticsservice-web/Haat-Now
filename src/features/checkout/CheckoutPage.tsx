@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
 import { adminService } from '../../services/admin.service';
+import { authService } from '../../services/auth.service';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { getCategoryThumb } from '../../utils/categoryImages';
 import {
@@ -96,12 +97,12 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
     const poll = async () => {
       attempts++;
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = await authService.getAccessToken();
         const res = await fetch(`${supabaseUrl}/functions/v1/payment-verify`, {
           method: 'POST',
           headers: {
             'Content-Type':  'application/json',
-            'Authorization': `Bearer ${session?.access_token ?? ''}`,
+            'Authorization': `Bearer ${accessToken}`,
             'apikey':        anonKey,
           },
           body: JSON.stringify({ paymentAttemptId: attemptId }),
@@ -318,8 +319,8 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
       );
       if (orderErr) { paymentTabRef?.close(); alert(`خطأ في إنشاء الطلب: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
       if (orderData) {
-        // EF2-11: Call payment-initiate Edge Function with customer JWT
-        const { data: { session } } = await supabase.auth.getSession();
+        // EF2-11: Call payment-initiate Edge Function with the customer JWT
+        const accessToken = await authService.getAccessToken();
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
         const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
@@ -327,7 +328,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           method: 'POST',
           headers: {
             'Content-Type':  'application/json',
-            'Authorization': `Bearer ${session?.access_token ?? ''}`,
+            'Authorization': `Bearer ${accessToken}`,
             'apikey':        anonKey,
           },
           body: JSON.stringify({ orderId: orderData.id, customerId, amount: grandTotal, currency: country.currency.code }),

@@ -161,15 +161,9 @@ export default function App() {
       .catch(console.error)
       .finally(() => { if (active) setSessionValidating(false); });
 
-    // Subscribe to Supabase auth changes ONLY in supabase mode — in sandbox mode the
-    // real client fires INITIAL_SESSION=null on mount, which would wipe the sandbox session.
-    if (import.meta.env.VITE_AUTH_MODE === 'sandbox') return () => { active = false; };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sbSession) => {
-      if (!sbSession) { setSession(null); return; }
-      authService.getCurrentUser().then(user => setSession(user)).catch(console.error);
-    });
-    return () => { active = false; subscription.unsubscribe(); };
+    // All auth-change subscription lives in authService (no-op in sandbox mode).
+    const unsubscribe = authService.subscribeToAuthChanges(user => setSession(user));
+    return () => { active = false; unsubscribe(); };
   }, []);
 
   // ── Handlers ────────────────────────────────────────────────────
