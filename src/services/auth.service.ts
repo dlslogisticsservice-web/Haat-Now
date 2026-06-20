@@ -6,11 +6,12 @@ import { toE164 } from '../utils/phone';
 // Dual-mode authentication.
 //   VITE_AUTH_MODE=sandbox   → local demo OTP (123456) + fixed demo accounts.
 //   VITE_AUTH_MODE=supabase  → real Supabase phone OTP (production).
-// The mode is selected ONLY by the env var (not by dev/prod build), so the
-// production implementation is never removed.
+// Sandbox is gated on `import.meta.env.DEV` — a BUILD-TIME constant that is FALSE
+// in any production build (`vite build`). So in production: demo accounts + OTP
+// 123456 can never authenticate, AND the sandbox branches (incl. DEMO_ACCOUNTS)
+// are statically dead → tree-shaken out of the production bundle. Dev keeps sandbox.
 // ─────────────────────────────────────────────────────────────────────────────
-const AUTH_MODE = import.meta.env.VITE_AUTH_MODE || 'supabase';
-const isSandbox = () => AUTH_MODE === 'sandbox';
+const IS_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' && import.meta.env.DEV;
 
 export const SANDBOX_OTP = '123456';
 const SANDBOX_SESSION_KEY = 'haat_sandbox_session';
@@ -55,7 +56,7 @@ export const authService = {
   // ── Request OTP ────────────────────────────────────────────────────────────
   async sendOtp(phoneNumber: string): Promise<{ error: any }> {
     const phone = toE164(phoneNumber);
-    if (isSandbox()) {
+    if (IS_SANDBOX) {
       if (!DEMO_ACCOUNTS[phone]) {
         return { error: { message: 'رقم غير مسجّل في وضع التجربة. استخدم أحد أرقام الحسابات التجريبية.' } };
       }
@@ -69,7 +70,7 @@ export const authService = {
   async verifyOtp(phoneNumber: string, token: string): Promise<{ data: { user: User | null }; error: any }> {
     const phone = toE164(phoneNumber);
 
-    if (isSandbox()) {
+    if (IS_SANDBOX) {
       const acct = DEMO_ACCOUNTS[phone];
       if (!acct) return { data: { user: null }, error: { message: 'رقم غير مسجّل في وضع التجربة.' } };
       if (token !== SANDBOX_OTP) return { data: { user: null }, error: { message: `رمز غير صحيح. استخدم ${SANDBOX_OTP}.` } };
@@ -99,7 +100,7 @@ export const authService = {
 
   // ── Resolve current user (session recovery after refresh) ───────────────────
   async getCurrentUser(): Promise<User | null> {
-    if (isSandbox()) return readSandboxSession();
+    if (IS_SANDBOX) return readSandboxSession();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     const role = await resolveHighestRole(user.id);
@@ -109,7 +110,7 @@ export const authService = {
   // ── Access token (for authenticated edge-function / API calls) ───────────────
   // Single source of truth for the bearer token. Sandbox has no real Supabase JWT.
   async getAccessToken(): Promise<string> {
-    if (isSandbox()) return '';
+    if (IS_SANDBOX) return '';
     const { data: { session } } = await supabase.auth.getSession();
     return session?.access_token ?? '';
   },
@@ -119,7 +120,7 @@ export const authService = {
   // by the login/logout handlers; the real client would emit INITIAL_SESSION=null
   // and wipe the sandbox session).
   subscribeToAuthChanges(onChange: (user: User | null) => void): () => void {
-    if (isSandbox()) return () => {};
+    if (IS_SANDBOX) return () => {};
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sbSession) => {
       if (!sbSession) { onChange(null); return; }
       this.getCurrentUser().then(onChange).catch(console.error);
@@ -129,7 +130,7 @@ export const authService = {
 
   // ── Logout ──────────────────────────────────────────────────────────────────
   async signOut(): Promise<{ error: any }> {
-    if (isSandbox()) {
+    if (IS_SANDBOX) {
       if (typeof localStorage !== 'undefined') localStorage.removeItem(SANDBOX_SESSION_KEY);
       return { error: null };
     }
