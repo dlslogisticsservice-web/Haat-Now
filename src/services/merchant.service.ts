@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Order, Product } from './types';
+import { Order, Product, MerchantBranch, ProductImage } from './types';
 
 export const merchantService = {
   // Query all order files dispatched to a particular branch ID
@@ -13,12 +13,44 @@ export const merchantService = {
     return { data: data || [], error };
   },
 
-  // Modify merchant branch service settings
-  async updateBranchInfo(branchId: string, payload: { name: string }): Promise<{ error: any }> {
+  // Modify merchant branch service settings (name and/or cover image)
+  async updateBranchInfo(
+    branchId: string,
+    payload: Partial<Pick<MerchantBranch, 'name' | 'cover_image_url' | 'is_active'>>,
+  ): Promise<{ error: any }> {
     const { error } = await supabase
       .from('merchant_branches')
       .update(payload)
       .eq('id', branchId);
+    return { error };
+  },
+
+  // Update merchant brand logo URL (call after storageService.uploadMerchantLogo)
+  async updateMerchantLogo(merchantId: string, logoUrl: string): Promise<{ error: any }> {
+    const { error } = await supabase
+      .from('merchants')
+      .update({ logo_url: logoUrl })
+      .eq('id', merchantId);
+    return { error };
+  },
+
+  // Link a storage URL to a product by inserting into product_images
+  // Call after storageService.uploadProductImage returns a url
+  async addProductImage(productId: string, url: string): Promise<{ data: ProductImage | null; error: any }> {
+    const { data, error } = await supabase
+      .from('product_images')
+      .insert({ product_id: productId, url })
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  // Remove a product image record (does not delete the file from storage)
+  async deleteProductImage(imageId: string): Promise<{ error: any }> {
+    const { error } = await supabase
+      .from('product_images')
+      .delete()
+      .eq('id', imageId);
     return { error };
   },
 

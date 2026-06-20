@@ -9,8 +9,28 @@ export const checkoutService = {
       .select('*')
       .eq('code', code.toUpperCase())
       .single();
-    
-    return { data, error };
+
+    // 1. Exists
+    if (error || !data) {
+      return { data: null, error: error || new Error('الكود غير صالح أو غير موجود') };
+    }
+    // 2. Active flag
+    if (!data.is_active) {
+      return { data: null, error: new Error('هذا الكوبون غير مفعّل') };
+    }
+    // 3. Start date
+    if (data.start_date && new Date(data.start_date) > new Date()) {
+      return { data: null, error: new Error('هذا الكوبون لم يبدأ بعد') };
+    }
+    // 4. End date
+    if (data.end_date && new Date(data.end_date) < new Date()) {
+      return { data: null, error: new Error('انتهت صلاحية هذا الكوبون') };
+    }
+    // 5. Discount value
+    if (!data.discount_percent || data.discount_percent <= 0) {
+      return { data: null, error: new Error('هذا الكوبون لا يحتوي على خصم صالح') };
+    }
+    return { data, error: null };
   },
 
   // Get active registered payment cards/wallets of customer

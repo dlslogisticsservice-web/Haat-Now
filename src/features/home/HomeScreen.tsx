@@ -1,499 +1,492 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
+import {
+  Star, Clock, SearchX, Search, X, Zap, Bike, Shield, Tag,
+  UtensilsCrossed, ShoppingCart, Pill, Coffee, CakeSlice, Gift, Flower2, Smartphone,
+  ChevronLeft,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { CATEGORY_IMAGES, getCategoryCover, type CategoryKey } from '../../utils/categoryImages';
+import { MarketplaceHero } from './MarketplaceHero';
+import { useAppConfig } from '../../contexts/AppConfigContext';
+import { useTranslation } from 'react-i18next';
 
+// Map a marketplace category key to the on-screen category filter id.
+const CAT_KEY_TO_ID: Record<CategoryKey, string> = {
+  restaurant: 'cat-food', market: 'cat-market', pharmacy: 'cat-pharmacy', coffee: 'cat-coffee',
+  sweets: 'cat-sweets', gifts: 'cat-perfume', perfume: 'cat-perfume', flowers: 'cat-flowers', electronics: 'cat-electronics',
+};
+
+/* ─── Types ─────────────────────────────────────────────────── */
 interface BranchWithMerchant {
-  id: string;
-  name: string;
-  merchant_id: string;
-  zone_id: string;
-  is_active: boolean;
-  merchants: { business_name: string; logo_url?: string };
+  id: string; name: string; merchant_id: string; zone_id: string; is_active: boolean;
+  merchants: { business_name: string; logo_url?: string | null };
   zones: { name: string };
 }
+interface DBOffer { id: string; title: string; description: string | null; discount_percent: number | null; }
+interface Category { id: string; name: string; cat: CategoryKey; Icon: LucideIcon; tintFrom: string; tintTo: string; patterns: string[]; }
 
+/* ─── Category Data — §5 Lovable ────────────────────────────── */
+const CATEGORIES: Category[] = [
+  { id: 'cat-food',        name: 'المطاعم',       cat: 'restaurant',  Icon: UtensilsCrossed, tintFrom: 'rgba(163,249,91,0.32)',  tintTo: 'rgba(163,249,91,0.08)',  patterns: ['جليلة','مايسترو','pizza','burger','مطعم','باشا','رومانو'] },
+  { id: 'cat-market',      name: 'السوبر ماركت',  cat: 'market',      Icon: ShoppingCart,    tintFrom: 'rgba(26,180,120,0.32)',  tintTo: 'rgba(26,180,120,0.08)',  patterns: ['التميمي','بقالة','سوبر','market','فريش'] },
+  { id: 'cat-pharmacy',    name: 'الصيدلية',      cat: 'pharmacy',    Icon: Pill,            tintFrom: 'rgba(220,60,60,0.28)',   tintTo: 'rgba(220,60,60,0.07)',   patterns: ['الدواء','صيدلية','pharmacy'] },
+  { id: 'cat-coffee',      name: 'القهوة',        cat: 'coffee',      Icon: Coffee,          tintFrom: 'rgba(210,165,40,0.32)',  tintTo: 'rgba(210,165,40,0.08)',  patterns: ['قهو','coffee','مليون','لاتيه'] },
+  { id: 'cat-sweets',      name: 'الحلويات',      cat: 'sweets',      Icon: CakeSlice,       tintFrom: 'rgba(210,165,40,0.28)',  tintTo: 'rgba(163,249,91,0.06)',  patterns: ['حلو','dessert','كيك'] },
+  { id: 'cat-perfume',     name: 'العطور',        cat: 'perfume',     Icon: Gift,            tintFrom: 'rgba(190,120,220,0.28)', tintTo: 'rgba(190,120,220,0.06)', patterns: ['عطر','عطور','بخور','عود','perfume','fragrance'] },
+  { id: 'cat-flowers',     name: 'الزهور',        cat: 'flowers',     Icon: Flower2,         tintFrom: 'rgba(26,180,120,0.28)',  tintTo: 'rgba(163,249,91,0.06)',  patterns: ['زهور','flowers'] },
+  { id: 'cat-electronics', name: 'إلكترونيات',    cat: 'electronics', Icon: Smartphone,      tintFrom: 'rgba(163,249,91,0.28)',  tintTo: 'rgba(26,180,120,0.06)',  patterns: ['إلكترون','electronics','جوال'] },
+];
+
+/* ─── Offer Banners ─────────────────────────────────────────── */
+const STATIC_BANNERS = [
+  { id: 'ob1', qualifier: 'عرض حصري',     title: 'خصم 50%',      subtitle: 'على البيتزا الطازجة',   bg: 'linear-gradient(135deg,#0d2a08 0%,#061403 100%)', accent: 'rgba(163,249,91,0.40)' },
+  { id: 'ob2', qualifier: 'مجاني تماماً', title: 'توصيل مجاني',  subtitle: 'على أول 3 طلبات',        bg: 'linear-gradient(135deg,#0c1a2e 0%,#060e1c 100%)', accent: 'rgba(100,170,255,0.30)' },
+  { id: 'ob3', qualifier: 'كومبو العائلة', title: 'خصم 30%',     subtitle: 'على طلبات الأسرة',      bg: 'linear-gradient(135deg,#2a1008 0%,#140500 100%)', accent: 'rgba(255,140,60,0.35)' },
+];
+
+/* ─── Mock Restaurants (always-visible fallback) ────────────── */
+const MOCK_RESTAURANTS = [
+  { id: 'm1', name: 'مطعم الباشا',    cuisine: 'مشاوي • كباب فاخر',           eta: '25-35', delivery: 'مجاني',   rating: '4.9', min: '50',  type: 'grills',  badge: 'مميز',            badgeLime: true  },
+  { id: 'm2', name: 'بيتزا رومانو',   cuisine: 'إيطالي • بيتزا نابوليتانا',  eta: '30-45', delivery: '10', rating: '4.8', min: '40',  type: 'pizza',   badge: 'الأكثر طلباً',   badgeLime: false },
+  { id: 'm3', name: 'كافيه لاتيه',    cuisine: 'كافيه • مشروبات فاخرة',      eta: '20-30', delivery: 'مجاني',   rating: '4.7', min: '30',  type: 'coffee',  badge: 'اختيار الذواقة', badgeLime: false },
+  { id: 'm4', name: 'سوبر فريش',      cuisine: 'سوبر ماركت • مستلزمات يومية', eta: '45-60', delivery: '15', rating: '4.6', min: '80',  type: 'market',  badge: 'مميز',            badgeLime: true  },
+];
+
+const MOCK_FEATURED = [
+  { id: 'f1', name: 'مطعم الباشا',   type: 'grills'  },
+  { id: 'f2', name: 'بيتزا رومانو',  type: 'pizza'   },
+  { id: 'f3', name: 'كافيه لاتيه',   type: 'coffee'  },
+  { id: 'f4', name: 'سوبر فريش',     type: 'market'  },
+  { id: 'f5', name: 'صيدلية الشفاء', type: 'pharmacy'},
+  { id: 'f6', name: 'حلويات أصيل',   type: 'sweets'  },
+];
+
+/* ─── Banner Illustration — multi-vertical marketplace promo imagery ───────── */
+function BannerIllustration({ id }: { id: string }) {
+  // Offers span the whole marketplace, so banners rotate across verticals
+  // (not food-only) — deterministic per banner id.
+  const ROTATION: CategoryKey[] = ['restaurant', 'market', 'coffee', 'flowers', 'gifts', 'sweets'];
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h + id.charCodeAt(i)) % ROTATION.length;
+  return (
+    <img src={CATEGORY_IMAGES[ROTATION[h]].cover} alt="" aria-hidden="true" loading="lazy" decoding="async"
+      style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 30%' }} />
+  );
+}
+
+
+/* ─── Restaurant Photo Fallback — real photography ──────────── */
+function RestaurantPhoto({ type, name }: { type?: string; name: string }) {
+  // Category-specific cover — pharmacies/flowers/electronics never get food imagery.
+  return <img src={getCategoryCover(name, type)} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+}
+
+function getCuisine(name: string): string {
+  const n = name.toLowerCase();
+  if (n.includes('قهو') || n.includes('coffee') || n.includes('لاتيه')) return 'كافيه • مشروبات فاخرة';
+  if (n.includes('بيتزا') || n.includes('pizza') || n.includes('رومانو')) return 'إيطالي • بيتزا نابوليتانا';
+  if (n.includes('صيدل') || n.includes('دواء')) return 'صيدلية • أدوية وصحة';
+  if (n.includes('تميمي') || n.includes('سوبر') || n.includes('فريش')) return 'سوبر ماركت • مستلزمات';
+  if (n.includes('باشا') || n.includes('مشاوي') || n.includes('كباب')) return 'مشاوي • كباب فاخر';
+  return 'مطعم • متنوع';
+}
+
+/* ─── Props ──────────────────────────────────────────────────── */
 interface HomeScreenProps {
   onSelectRestaurant: (branchId: string, restaurantName: string) => void;
+  onNavigateToWallet?: () => void;
   customerId: string;
 }
 
-// Static Stitch service categories
-const STITCH_SERVICES = [
-  { id: 'restaurants', icon: 'restaurant',                   label: 'المطاعم',     sub: 'طعام فاخر',          patterns: ['جليلة', 'مايسترو', 'pizza', 'burger'] },
-  { id: 'pharmacy',    icon: 'medical_services',             label: 'الصيدلية',    sub: 'خدمة صحية',          patterns: ['الدواء', 'صيدلية', 'pharmacy'] },
-  { id: 'grocery',     icon: 'local_grocery_store',          label: 'البقالة',     sub: 'احتياجاتك اليومية', patterns: ['التميمي', 'بقالة', 'سوبر'] },
-  { id: 'shipping',    icon: 'local_shipping',               label: 'الشحن',       sub: 'توصيل سريع',         patterns: [] },
-  { id: 'gifts',       icon: 'featured_seasonal_and_gifts',  label: 'الهدايا',     sub: 'لكل مناسبة',         patterns: [] },
-  { id: 'lifestyle',   icon: 'diamond',                      label: 'لايف ستايل',  sub: 'نمط حياة راقٍ',      patterns: [] },
-] as const;
+/* ─── Main Component ─────────────────────────────────────────── */
+export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
+  const { country } = useAppConfig();
+  const { t } = useTranslation();
+  const cur = country.currency.symbolAr;
+  const [branches,       setBranches]       = useState<BranchWithMerchant[]>([]);
+  const [offers,         setOffers]         = useState<DBOffer[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [selectedCat,    setSelectedCat]    = useState<string | null>(null);
+  const [searchQuery,    setSearchQuery]    = useState('');
+  const [activeOfferIdx, setActiveOfferIdx] = useState(0);
 
-// Food photography from Stitch (Aida/Google AI images)
-const IMG = {
-  foodHero:  'https://lh3.googleusercontent.com/aida-public/AB6AXuBqhISBia3EhqtgcWHq5mdSZ6pg2_WF5pG8kl7MsDsY_z2X6yJwfhfsLhFHCPFiPQTDZbeZreWpkhj68Y4WYn_aAKurL3Dv02IUsi7zI4AihP01-iwVEhGxwMtmcjkhHgrT4zuSbSGQcTiFBroxSnr93odhoaFFDZ5CQZSHYiDsKPeyKOBYpgpRU2HWk93Ah9BRJ9E5aHHBXtHvF_rdzeDUTcPh8Qx2Xbf97CjH9CL7eT3ceC4ocXPyj1ZdO2KhqyQEqJOGkwVoZ1k4',
-  grocery:   'https://lh3.googleusercontent.com/aida-public/AB6AXuCu6V9PQdA18NYGt7HvMIzRgI1OQWKviwJcGYgPuXbwMXJSdO335HANaIeGCeCKkguoVfXyNhgpIYW_khZqiMJhYckhzqeOcZBne46qyZROZ-z4gyN6Ezlwrd12Q24MncE2jsQViK1PrIgUbwjLtz0TB6tk4-HLWiOb_ZpthTitgbCCRoIPAb_Dq89k5mQ3hYOSNHOXAwhYxK4rGOPBVBIP9jTuPRctdq37ruXnNDOAz9KorqXp6q0ZviWBIO9XUjwXTwt9WBvwL1aq',
-  coffee:    'https://lh3.googleusercontent.com/aida-public/AB6AXuA47itg_9tKYoRbiXmwjheGkhStNXuWUf5ioKUpupZ8Jfqaqkbr_dc9x6TOVQAyYGLsFHRZaXEiwStL-BtuJL1sQcTA6cKtSCPRrB47iSLA_t7RnZASBLli8hunMGh4Rnspc__6tPf4aXGVAogu7EMfxRK_0JsR1ctrZQygaxmREoUuklmXokzIAnprwMlV6Tb_LzWiQnujXC2H2oPZkKGs-XYm868nHzHa5BOef5QL2keHRdYJc67YVyfdjeOajYzSRgZbCdqphoF0',
-  pizza:     'https://lh3.googleusercontent.com/aida-public/AB6AXuAn8ewo2cStsQ6anzYniJFDp-gGbMZHj42ZL2xyq50um_XQkpptI6kjX7z2yhHq6HqoyBGTOH38Y73h0JGL4nNiKAFT3EFBCW3zAd8sSNE6xNTjygmnT_PCfheL2CpCWMZXX0NrOylG0avQx2UlWzLfe816Or9weSYMaCvYMUkqSOniB9CPbVu5wKMiN-v7_aTCaBJQF12QeRp8auTxI8OO-QXEljopNwU4fLOFi9XyidoOpgbw24R3Co00c0HenHbLlQ2IdtO7d42J',
-  pharmacy:  'https://lh3.googleusercontent.com/aida-public/AB6AXuCbEu3lgn2Uev4Fs8gEm1bdnrLBqI2K6YTdv9aZQwakFb2lreDKFchKj6gQ7VK4DIPAFQM9ICZP6fi4b3es4C7AKxA3Jvu8qY7w5eH-IrJ61bP0UscfryFmbaZZBK37IPVv50ASslseIMABttglch20CBpH7m6uJht6yZFyWDG7SM8mI3_UOLuQ6m28-mnPrLV6HEzZTQC0-wDGptc-uaI1TtzMlatnFwWT-hzaqgTNMld1OC9K-tXZxSl45jWSLZ6GCNCCrIcmKkOi',
-} as const;
+  useEffect(() => { fetchAllData(); }, []);
 
-// Map branch name → Stitch shop image fallback
-function shopImage(branch: BranchWithMerchant): string {
-  const n = (branch.merchants?.business_name || branch.name).toLowerCase();
-  if (n.includes('قهو') || n.includes('مليون') || n.includes('coffee')) return IMG.coffee;
-  if (n.includes('بيتزا') || n.includes('pizza') || n.includes('مايسترو') || n.includes('جليلة')) return IMG.pizza;
-  if (n.includes('صيدل') || n.includes('دواء') || n.includes('pharmacy')) return IMG.pharmacy;
-  if (n.includes('تميمي') || n.includes('بقال') || n.includes('سوبر') || n.includes('market')) return IMG.grocery;
-  return IMG.foodHero;
-}
-
-// Fixed ratings per branch for stable display
-const RATINGS = ['4.9', '4.7', '4.8', '4.6', '4.9', '4.7'];
-function branchRating(idx: number): string { return RATINGS[idx % RATINGS.length]; }
-
-export const HomeScreen = ({ onSelectRestaurant, customerId }: HomeScreenProps) => {
-  const [branches,        setBranches]        = useState<BranchWithMerchant[]>([]);
-  const [selectedService, setSelectedService] = useState<string | null>(null);
-  const [searchQuery,     setSearchQuery]     = useState('');
-  const [loading,         setLoading]         = useState(true);
-  const [walletPoints,    setWalletPoints]    = useState<number>(2450);
-
-  useEffect(() => { fetchBranches(); fetchWalletBalance(); }, []);
-
-  const fetchBranches = async () => {
+  const fetchAllData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const { data } = await supabase
-        .from('merchant_branches')
-        .select('id,name,merchant_id,zone_id,is_active,merchants(business_name,logo_url),zones(name)');
-      if (data) setBranches(data as unknown as BranchWithMerchant[]);
-    } catch (e) {
-      console.error('fetchBranches error:', e);
-    } finally {
-      setLoading(false);
-    }
+      const now = new Date().toISOString();
+      const [branchRes, offerRes] = await Promise.all([
+        supabase.from('merchant_branches').select('id,name,merchant_id,zone_id,is_active,merchants(business_name,logo_url),zones(name)'),
+        supabase.from('offers').select('id,title,description,discount_percent').eq('is_active', true).lte('start_date', now).gte('end_date', now),
+      ]);
+      // Surface query errors instead of silently falling back to mock cards.
+      if (branchRes.error) console.error('HomeScreen merchant_branches:', branchRes.error);
+      if (offerRes.error)  console.error('HomeScreen offers:', offerRes.error);
+      if (branchRes.data) setBranches(branchRes.data as unknown as BranchWithMerchant[]);
+      if (offerRes.data)  setOffers(offerRes.data);
+    } catch (e) { console.error('HomeScreen fetch:', e); }
+    finally { setLoading(false); }
   };
 
-  const fetchWalletBalance = async () => {
-    try {
-      const { data } = await supabase.from('wallets').select('balance')
-        .eq('owner_type', 'customer').eq('owner_id', customerId).maybeSingle();
-      if (data && Number(data.balance) > 0) setWalletPoints(Math.round(Number(data.balance) * 10));
-    } catch (_e) { /* silent — keep default 2,450 */ }
-  };
+  const filteredBranches = useMemo(() => {
+    return branches.filter(branch => {
+      const q  = searchQuery.toLowerCase().trim();
+      const bn = (branch.merchants?.business_name || branch.name).toLowerCase();
+      const nameMatch = !q || bn.includes(q) || branch.name.toLowerCase().includes(q);
+      if (!selectedCat) return nameMatch;
+      const cat = CATEGORIES.find(c => c.id === selectedCat);
+      if (!cat) return nameMatch;
+      return nameMatch && cat.patterns.some(p =>
+        branch.name.toLowerCase().includes(p.toLowerCase()) ||
+        (branch.merchants?.business_name || '').toLowerCase().includes(p.toLowerCase()),
+      );
+    });
+  }, [branches, searchQuery, selectedCat]);
 
-  const filteredBranches = branches.filter((branch) => {
-    const q = searchQuery.toLowerCase();
-    const nameMatch =
-      !q ||
-      branch.merchants?.business_name?.toLowerCase().includes(q) ||
-      branch.name?.toLowerCase().includes(q);
-    if (!selectedService) return nameMatch;
-    const svc = STITCH_SERVICES.find(s => s.id === selectedService);
-    if (!svc || svc.patterns.length === 0) return false;
-    const pMatch = svc.patterns.some(p =>
-      branch.name.toLowerCase().includes(p.toLowerCase()) ||
-      (branch.merchants?.business_name || '').toLowerCase().includes(p.toLowerCase())
-    );
-    return nameMatch && pMatch;
-  });
+  const isFiltering = !!searchQuery.trim() || !!selectedCat;
 
-  const pointsFormatted = walletPoints.toLocaleString('ar-SA');
+  const offerBanners = offers.length > 0
+    ? offers.slice(0, 3).map((o, i) => ({
+        id:        o.id,
+        qualifier: 'خصم',
+        title:     o.discount_percent ? `خصم ${o.discount_percent}%` : o.title,
+        subtitle:  o.title,
+        bg:        STATIC_BANNERS[i % 3].bg,
+        accent:    STATIC_BANNERS[i % 3].accent,
+      }))
+    : STATIC_BANNERS;
+
+  /* Always show content — use mock data when real data empty */
+  const displayBranches = filteredBranches.length > 0 ? filteredBranches : (isFiltering ? [] : null);
+  const showMock = !isFiltering && filteredBranches.length === 0;
+
+  const DELIVERY_FEES = ['مجاني', `15 ${cur}`, 'مجاني', `10 ${cur}`, `8 ${cur}`, 'مجاني'];
+  const ETAS          = ['25-35', '45-30', '35-50', '20-30', '30-45', '25-40'];
+  const RATINGS       = ['4.9', '4.7', '4.8', '4.6', '4.9', '4.7'];
+  const MIN_ORDERS    = ['50', '80', '60', '40', '70', '50'];
 
   return (
-    <div id="home_screen_portal" style={{ position: 'relative' }}>
+    <div id="home_screen_portal" dir="rtl" style={{ position: 'relative' }}>
 
-      {/* ── Atmospheric corner orbs (Stitch pro_v2_1 spec) ── */}
-      <div
-        className="fixed rounded-full pointer-events-none animate-neon-pulse"
-        style={{
-          top: '-10%', right: '-10%',
-          width: '400px', height: '400px',
-          background: 'rgba(163,249,91,0.05)',
-          filter: 'blur(120px)',
-          zIndex: 0,
-        }}
-      />
-      <div
-        className="fixed rounded-full pointer-events-none animate-neon-pulse"
-        style={{
-          bottom: '10%', left: '-10%',
-          width: '300px', height: '300px',
-          background: 'rgba(163,249,91,0.05)',
-          filter: 'blur(100px)',
-          zIndex: 0,
-        }}
-      />
+      {/* ══ 1. MARKETPLACE HERO — rotating multi-vertical carousel ══ */}
+      {!isFiltering && (
+        <MarketplaceHero onShop={(c) => setSelectedCat(CAT_KEY_TO_ID[c] ?? null)} />
+      )}
 
-      {/* ════════════════════════════════════════════
-          HERO — Platinum Exclusive Banner
-      ════════════════════════════════════════════ */}
-      <section className="mb-section-gap">
+      {/* ══ 2. SEARCH — polished silver §4 ══ */}
+      <section className="mb-4" id="home_search" style={{ position: 'relative', zIndex: 2 }}>
         <div
-          className="platinum-gradient rounded-xl p-6 md:p-8 border border-white/10"
-          style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.7), 0 0 80px rgba(163,249,91,0.07)' }}
+          className="glass glass-shine"
+          style={{
+            height: '52px', borderRadius: '16px',
+            paddingLeft: '6px', paddingRight: '16px',
+            direction: 'ltr', display: 'flex', alignItems: 'center', gap: '10px',
+            position: 'relative', overflow: 'hidden',
+          }}
         >
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-
-            {/* Text side */}
-            <div className="w-full md:w-2/3 text-right z-10">
-              <div
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-4"
-                style={{ background: 'rgba(163,249,91,0.12)', border: '1px solid rgba(163,249,91,0.3)' }}
-              >
-                <span
-                  className="material-symbols-outlined text-[var(--color-primary-fixed)]"
-                  style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}
-                >workspace_premium</span>
-                <span
-                  className="text-[var(--color-primary-fixed)] font-bold uppercase tracking-wider"
-                  style={{ fontSize: '11px' }}
-                >Platinum Exclusive</span>
-              </div>
-
-              <h1 className="text-headline-lg-mobile text-[var(--color-on-surface)] mb-2">
-                ارتق بتجربتك مع{' '}
-                <span className="text-[var(--color-primary-fixed)] neon-text-glow">HAAT NOW Platinum</span>
-              </h1>
-
-              <p className="text-body-md text-[var(--color-on-surface-variant)] max-w-sm">
-                توصيل فاخر من أفضل المطاعم مع خصومات حصرية وأولوية في الخدمة الفاخرة.
-              </p>
-
-              <button
-                className="mt-6 px-8 py-3 rounded-full text-label-md font-bold transition-all active:scale-95 hover:scale-105"
-                style={{
-                  background: 'var(--color-primary-fixed)',
-                  color: 'var(--color-on-primary-fixed)',
-                  textTransform: 'none',
-                  letterSpacing: 0,
-                  boxShadow: '0 0 20px rgba(163,249,91,0.35), 0 4px 16px rgba(0,0,0,0.5)',
-                }}
-              >
-                اطلب الآن
-              </button>
-            </div>
-
-            {/* Card visual */}
-            <div className="relative flex justify-center md:justify-end">
-              <div
-                className="absolute w-48 h-48 rounded-full blur-3xl animate-neon-pulse"
-                style={{ background: 'rgba(163,249,91,0.12)' }}
-              />
-              <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYat7stVwKGvHnJ2NlX7_2wPhaldQPrhpBV_P6P98uR1SMMQZQC6H_26hlq7SeNbyI1inLMrqvpQO0eONiu8wD_ze-Qpc8tKLXbUHhdKKN5BlqM-yIMgFKARlNN7mTsQPG3giEM98NQQYxqWb_wX46JZMvgI_9POblSztNyD_JcMk7sPn-NYD_qfJiE8GmIegmPtb-FcH46KE5CYuPIxRnnXbcJh7OA2oKRczkLPUVT9hAhqsUuhtl86-1OPIsrkFn-nJmBLeCr7YF"
-                alt="Haat Now Platinum Card"
-                className="w-56 h-auto relative z-10 drop-shadow-2xl"
-                style={{ transform: 'rotate(12deg)' }}
-              />
-            </div>
+          <div className="flex-shrink-0" style={{ width: '38px', height: '38px', borderRadius: '12px', background: 'var(--color-primary-fixed)', boxShadow: '0 0 18px rgba(163,249,91,0.50)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Search size={18} color="#0c2000" strokeWidth={2.5} />
           </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════
-          SEARCH BAR
-      ════════════════════════════════════════════ */}
-      <section className="mb-section-gap">
-        <div className="relative group transition-all">
-          <span
-            className="absolute end-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-[var(--color-on-surface-variant)] group-focus-within:text-[var(--color-primary-fixed)] transition-colors pointer-events-none z-10"
-            style={{ fontSize: '20px' }}
-          >search</span>
           <input
-            type="text"
-            placeholder="ماذا تريد أن تطلب اليوم؟"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            id="home_search_input"
-            className="w-full rounded-xl py-4 pe-12 ps-12 text-body-md text-[var(--color-on-surface)] placeholder:text-[var(--color-on-surface-variant)]/50 focus:outline-none transition-all shadow-sm"
-            style={{
-              background: 'var(--color-surface-container)',
-              border: 'none',
-              boxShadow: 'none',
-            }}
-            onFocus={(e) => {
-              (e.currentTarget.parentElement as HTMLElement).style.transform = 'scale(1.01)';
-            }}
-            onBlur={(e) => {
-              (e.currentTarget.parentElement as HTMLElement).style.transform = '';
-            }}
+            type="text" placeholder={t('common.search')}
+            value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            id="home_search_input" dir="rtl"
+            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#f2f4f6', fontSize: '13px', caretColor: 'var(--color-primary-fixed)', minWidth: 0 }}
           />
-          <button
-            className="absolute start-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg"
-            style={{ background: 'rgba(255,255,255,0.06)' }}
-          >
-            <span className="material-symbols-outlined text-[var(--color-on-surface)]" style={{ fontSize: '16px' }}>tune</span>
-          </button>
+          {searchQuery ? (
+            <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', flexShrink: 0 }}>
+              <X size={15} color="rgba(242,244,246,0.5)" strokeWidth={2.5} />
+            </button>
+          ) : (
+            <>
+              <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.20)', flexShrink: 0 }} />
+              <button style={{ background: 'none', border: 'none', color: 'var(--color-primary-fixed)', fontSize: '12px', fontWeight: 700, cursor: 'pointer', padding: '0 2px', flexShrink: 0, whiteSpace: 'nowrap' }}>فلاتر</button>
+            </>
+          )}
         </div>
       </section>
 
-      {/* ════════════════════════════════════════════
-          الخدمات المميزة — Service Categories Grid
-      ════════════════════════════════════════════ */}
-      <section className="mb-section-gap">
-        <div className="flex items-center justify-between mb-4">
-          <a
-            className="text-[var(--color-primary-fixed)] hover:underline cursor-pointer"
-            style={{ fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
-          >رؤية الكل</a>
-          <h2
-            className="text-headline-sm text-[var(--color-on-surface)]"
-            style={{ textTransform: 'none', letterSpacing: 0 }}
-          >الخدمات المميزة</h2>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3" id="services_grid">
-          {STITCH_SERVICES.map((svc) => {
-            const isActive = selectedService === svc.id;
+      {/* ══ 3. CATEGORIES — ultra-compact 4×2 glass photo shortcuts (8-in-a-row on desktop) ══ */}
+      <section className="mb-3" id="home_categories" style={{ position: 'relative', zIndex: 2 }}>
+        <div className="grid grid-cols-4 lg:grid-cols-8 gap-1.5">
+          {CATEGORIES.map((cat) => {
+            const isActive = selectedCat === cat.id;
+            const img = CATEGORY_IMAGES[cat.cat].cover;
             return (
               <button
-                key={svc.id}
-                onClick={() => setSelectedService(isActive ? null : svc.id)}
-                className={`glass-card rounded-xl p-5 flex flex-col items-center text-center cursor-pointer group transition-all duration-200 ${isActive ? 'neon-glow-sm' : 'glass-hover'}`}
-                style={isActive ? { borderColor: 'rgba(163,249,91,0.45)' } : {}}
-                id={`svc_${svc.id}`}
+                key={cat.id}
+                onClick={() => setSelectedCat(isActive ? null : cat.id)}
+                className="category-card group active:scale-[0.95] transition-transform cursor-pointer"
+                aria-pressed={isActive}
+                style={{
+                  position: 'relative',
+                  aspectRatio: '1 / 0.72',
+                  width: '100%',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  padding: 0,
+                  background: 'linear-gradient(180deg, #1a1e22 0%, #0d1013 100%)',
+                  border: isActive ? '1.5px solid var(--color-primary-fixed)' : '1px solid rgba(255,255,255,0.10)',
+                  boxShadow: isActive
+                    ? '0 0 0 2px rgba(163,249,91,0.25), 0 0 20px rgba(163,249,91,0.45), 0 8px 20px rgba(0,0,0,0.5)'
+                    : '0 6px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)',
+                }}
               >
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"
-                  style={{ background: isActive ? 'rgba(163,249,91,0.18)' : 'rgba(163,249,91,0.08)' }}
-                >
-                  <span
-                    className="material-symbols-outlined text-[var(--color-primary-fixed)] neon-text-glow"
-                    style={{ fontSize: '28px', fontVariationSettings: "'FILL' 1" }}
-                  >{svc.icon}</span>
-                </div>
-                <span
-                  className="font-bold text-[var(--color-on-surface)]"
-                  style={{ fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
-                >{svc.label}</span>
-                <span
-                  className="text-[var(--color-on-surface-variant)] mt-1"
-                  style={{ fontSize: '12px', textTransform: 'none', letterSpacing: 0 }}
-                >{svc.sub}</span>
+                {/* Category photo */}
+                <img
+                  src={img}
+                  alt={cat.name}
+                  loading="lazy"
+                  decoding="async"
+                  className="category-card__img w-full h-full object-cover"
+                  style={{ opacity: isActive ? 1 : 0.82, transition: 'opacity 200ms ease, transform 300ms ease' }}
+                />
+                {/* Legibility scrim */}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(6,9,11,0.96) 0%, rgba(6,9,11,0.38) 52%, rgba(6,9,11,0.08) 100%)', pointerEvents: 'none' }} />
+                {/* Subtle glass reflection — top sheen */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '46%', background: 'linear-gradient(180deg, rgba(255,255,255,0.16), transparent)', pointerEvents: 'none' }} />
+                {/* Green hover/active glow */}
+                <div className="category-card__glow" style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 50% 118%, rgba(163,249,91,0.34), transparent 62%)', opacity: isActive ? 1 : 0, transition: 'opacity 220ms ease', pointerEvents: 'none' }} />
+                {/* Label */}
+                <span style={{
+                  position: 'absolute', left: '3px', right: '3px', bottom: '5px',
+                  textAlign: 'center', fontSize: '8.5px', fontWeight: 700, lineHeight: 1.1,
+                  color: isActive ? 'var(--color-primary-fixed)' : '#f2f4f6',
+                  textShadow: '0 1px 6px rgba(0,0,0,0.85)', letterSpacing: '-0.02em',
+                }}>
+                  {t('cats.' + cat.cat)}
+                </span>
               </button>
             );
           })}
         </div>
       </section>
 
-      {/* ════════════════════════════════════════════
-          عروض مختارة لك — Featured Offers Bento
-      ════════════════════════════════════════════ */}
-      <section className="mb-section-gap">
-        <h2
-          className="text-headline-sm text-[var(--color-on-surface)] mb-4"
-          style={{ textTransform: 'none', letterSpacing: 0 }}
-        >عروض مختارة لك</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4" style={{ gridAutoRows: '200px' }}>
-
-          {/* Large food card — spans 2 cols × 2 rows on md+ */}
-          <div
-            className="glass-card rounded-xl overflow-hidden relative group cursor-pointer md:col-span-2 md:row-span-2"
-            style={{ minHeight: '200px' }}
-          >
-            <img
-              src={IMG.foodHero}
-              alt="عرض المذاق العالمي"
-              className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-700"
-            />
-            <div
-              className="absolute inset-0"
-              style={{ background: 'linear-gradient(to top, rgba(17,20,23,0.92) 0%, rgba(17,20,23,0.3) 60%, transparent 100%)' }}
-            />
-            <div className="absolute bottom-0 p-6 w-full text-right">
-              <span
-                className="px-2 py-0.5 rounded text-[10px] font-bold mb-2 inline-block"
-                style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }}
-              >50% خصم</span>
-              <h3
-                className="text-headline-sm text-[var(--color-on-surface)]"
-                style={{ textTransform: 'none', letterSpacing: 0 }}
-              >المذاق العالمي</h3>
-              <p
-                className="text-body-md text-[var(--color-on-surface-variant)]"
-                style={{ textTransform: 'none', letterSpacing: 0 }}
-              >أفضل المطاعم العالمية في مكان واحد</p>
-            </div>
+      {/* ══ 4. OFFER BANNERS — focal point §10 ══ */}
+      {!isFiltering && (
+        <section className="mb-3" id="home_offers" style={{ position: 'relative', zIndex: 2 }}>
+          <div className="flex items-center justify-between" style={{ marginBottom: '10px' }}>
+            <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>عرض الكل</button>
+            <h2 className="flex items-center gap-2" style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>
+              <Zap size={16} color="var(--color-primary-fixed)" strokeWidth={2.5} style={{ filter: 'drop-shadow(0 0 8px rgba(163,249,91,0.60))' }} />
+              {t('home.exclusiveOffers')}
+            </h2>
           </div>
-
-          {/* Grocery split card */}
-          <div className="glass-card rounded-xl overflow-hidden relative group cursor-pointer md:col-span-2">
-            <div className="flex h-full">
-              <div className="w-1/2 p-6 flex flex-col justify-center text-right">
-                <h3
-                  className="font-bold text-[var(--color-on-surface)]"
-                  style={{ fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
-                >سوبر ماركت هافت</h3>
-                <p
-                  className="text-[var(--color-on-surface-variant)] mt-1"
-                  style={{ fontSize: '12px', textTransform: 'none', letterSpacing: 0 }}
-                >توصيل خلال 20 دقيقة</p>
-                <button
-                  className="mt-4 flex items-center justify-end gap-1 text-[var(--color-primary-fixed)]"
-                  style={{ fontSize: '12px', textTransform: 'none', letterSpacing: 0 }}
-                >
-                  اطلب الآن
-                  <span className="material-symbols-outlined" style={{ fontSize: '14px' }}>chevron_left</span>
-                </button>
-              </div>
-              <div className="w-1/2 relative overflow-hidden">
-                <img
-                  src={IMG.grocery}
-                  alt="بقالة"
-                  className="h-full w-full object-cover opacity-70"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Rewards card */}
-          <div
-            className="glass-card rounded-xl p-6 flex flex-col justify-between cursor-pointer"
-            style={{ borderLeft: '4px solid var(--color-primary-fixed)' }}
-          >
-            <div>
-              <span
-                className="material-symbols-outlined text-[var(--color-primary-fixed)]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >stars</span>
-              <h3
-                className="font-bold text-[var(--color-on-surface)] mt-2"
-                style={{ fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
-              >نقاط المكافآت</h3>
-            </div>
-            <div className="text-right">
-              <p className="text-display-md text-[var(--color-primary-fixed)] neon-text-glow">
-                {pointsFormatted}
-              </p>
-              <p
-                className="text-[var(--color-on-surface-variant)]"
-                style={{ fontSize: '12px', textTransform: 'none', letterSpacing: 0 }}
-              >نقطة متاحة</p>
-            </div>
-          </div>
-
-          {/* Order tracking card */}
-          <div className="glass-card rounded-xl p-6 flex flex-col justify-between overflow-hidden relative cursor-pointer">
-            <div className="z-10">
-              <h3
-                className="font-bold text-[var(--color-on-surface)]"
-                style={{ fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
-              >تتبع طلبك</h3>
-              <p
-                className="text-[var(--color-on-surface-variant)] mt-1"
-                style={{ fontSize: '12px', textTransform: 'none', letterSpacing: 0 }}
-              >في الطريق إليك</p>
-            </div>
-            <div className="mt-4 z-10 flex items-center gap-2">
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1" style={{ direction: 'ltr' }}
+            onScroll={e => setActiveOfferIdx(Math.round(e.currentTarget.scrollLeft / (300 + 12)))}>
+            {offerBanners.map(offer => (
               <div
-                className="flex-1 h-1 rounded-full overflow-hidden"
-                style={{ background: 'var(--color-surface-variant)' }}
+                key={offer.id}
+                className="flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform"
+                dir="rtl"
+                style={{
+                  width: '300px', height: '178px', borderRadius: '22px', overflow: 'hidden',
+                  position: 'relative', flexShrink: 0,
+                  boxShadow: '0 22px 55px rgba(0,0,0,0.70), 0 8px 20px rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.16)',
+                  borderTop: '1px solid rgba(255,255,255,0.16)',
+                  borderLeft: '1px solid rgba(255,255,255,0.08)',
+                  borderRight: '1px solid rgba(255,255,255,0.08)',
+                  borderBottom: '1px solid rgba(255,255,255,0.03)',
+                }}
               >
-                <div
-                  className="h-full w-2/3 rounded-full"
-                  style={{ background: 'var(--color-primary-fixed)', boxShadow: '0 0 8px rgba(163,249,91,0.5)' }}
-                />
-              </div>
-            </div>
-            <span
-              className="absolute -bottom-4 -start-4 material-symbols-outlined text-white/5 rotate-12"
-              style={{ fontSize: '64px' }}
-            >schedule</span>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════
-          متاجر قريبة منك — Nearby Shops (horizontal scroll)
-      ════════════════════════════════════════════ */}
-      <section className="mb-section-gap">
-        <div className="flex items-center justify-between mb-4">
-          <a
-            className="text-[var(--color-primary-fixed)] hover:underline cursor-pointer"
-            style={{ fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
-          >المزيد</a>
-          <h2
-            className="text-headline-sm text-[var(--color-on-surface)]"
-            style={{ textTransform: 'none', letterSpacing: 0 }}
-          >متاجر قريبة منك</h2>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-16 gap-3">
-            <span
-              className="material-symbols-outlined text-[var(--color-primary-fixed)] animate-spin-slow"
-              style={{ fontSize: '32px' }}
-            >refresh</span>
-            <span className="text-body-md text-[var(--color-on-surface-variant)]">جاري تصفح المتاجر...</span>
-          </div>
-        ) : filteredBranches.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-            <span
-              className="material-symbols-outlined text-[var(--color-on-surface-variant)]/30"
-              style={{ fontSize: '48px' }}
-            >storefront</span>
-            <p className="text-body-md text-[var(--color-on-surface-variant)]">لا توجد متاجر تطابق بحثك</p>
-          </div>
-        ) : (
-          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar" id="shops_scroll">
-            {filteredBranches.map((branch, idx) => (
-              <div
-                key={branch.id}
-                onClick={() => onSelectRestaurant(branch.id, branch.merchants?.business_name || branch.name)}
-                className="min-w-[280px] glass-card rounded-xl overflow-hidden cursor-pointer glass-hover flex-shrink-0 transition-all"
-                id={`shop_card_${branch.id}`}
-              >
-                {/* Photo */}
-                <div className="w-full h-40 relative overflow-hidden">
-                  {branch.merchants?.logo_url ? (
-                    <img
-                      src={branch.merchants.logo_url}
-                      alt={branch.merchants.business_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <img
-                      src={shopImage(branch)}
-                      alt={branch.merchants?.business_name || branch.name}
-                      className="w-full h-full object-cover"
-                    />
-                  )}
+                <div style={{ position: 'absolute', inset: 0, background: offer.bg }} />
+                {/* Accent glow — stronger, centered on illustration */}
+                <div style={{ position: 'absolute', top: '-40px', right: '-20px', width: '220px', height: '220px', borderRadius: '50%', background: offer.accent, filter: 'blur(65px)', opacity: 0.90, pointerEvents: 'none' }} />
+                {/* Bottom accent depth */}
+                <div style={{ position: 'absolute', bottom: '-20px', left: '10%', width: '120px', height: '120px', borderRadius: '50%', background: offer.accent, filter: 'blur(45px)', opacity: 0.35, pointerEvents: 'none' }} />
+                {/* Illustration — expanded to fill left 56% */}
+                <div style={{ position: 'absolute', left: '-8px', top: '-8px', bottom: '-8px', width: '58%' }}>
+                  <BannerIllustration id={offer.id} />
                 </div>
-
-                {/* Info */}
-                <div className="p-4 text-right">
-                  <div className="flex justify-between items-start">
-                    <span
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[var(--color-primary-fixed)]"
-                      style={{ background: 'rgba(163,249,91,0.1)', fontSize: '10px' }}
-                    >
-                      <span
-                        className="material-symbols-outlined"
-                        style={{ fontSize: '10px', fontVariationSettings: "'FILL' 1" }}
-                      >star</span>
-                      {branchRating(idx)}
-                    </span>
-                    <h3
-                      className="font-bold text-[var(--color-on-surface)]"
-                      style={{ fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
-                    >
-                      {branch.merchants?.business_name || branch.name}
-                    </h3>
-                  </div>
-                  <p
-                    className="text-[var(--color-on-surface-variant)] mt-1"
-                    style={{ fontSize: '12px', textTransform: 'none', letterSpacing: 0 }}
-                  >
-                    {branch.zones?.name || 'الرياض'} • 15-30 دقيقة
+                {/* Scrim — preserves text legibility */}
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 0%, rgba(6,8,10,0.45) 36%, rgba(6,8,10,0.92) 58%, rgba(6,8,10,1) 72%)' }} />
+                {/* Top specular */}
+                <div style={{ position: 'absolute', top: 0, left: '10%', right: '10%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent)', pointerEvents: 'none' }} />
+                {/* Text column */}
+                <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '55%', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '4px', padding: '14px 16px 12px' }}>
+                  <p style={{ fontSize: '10px', color: 'var(--color-primary-fixed)', fontWeight: 700, letterSpacing: '0.08em', textShadow: '0 0 14px rgba(163,249,91,0.65)', margin: 0, textTransform: 'uppercase' }}>
+                    {'qualifier' in offer ? (offer as typeof STATIC_BANNERS[0]).qualifier : 'خصم'}
                   </p>
+                  <p style={{ fontSize: '32px', fontWeight: 900, color: '#f2f4f6', letterSpacing: '-0.04em', lineHeight: 0.95, margin: 0, textShadow: '0 2px 12px rgba(0,0,0,0.60)' }}>{offer.title}</p>
+                  {'subtitle' in offer && (offer as typeof STATIC_BANNERS[0]).subtitle && (
+                    <p style={{ fontSize: '11px', color: 'rgba(180,184,188,0.90)', lineHeight: 1.3, margin: 0 }}>{(offer as typeof STATIC_BANNERS[0]).subtitle}</p>
+                  )}
+                  <button type="button" className="animate-pulse-glow" style={{ alignSelf: 'flex-start', marginTop: '5px', height: '36px', padding: '0 18px', borderRadius: '18px', background: 'var(--color-primary-fixed)', border: 'none', color: '#0c2000', fontSize: '12px', fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 0 18px rgba(163,249,91,0.50), 0 3px 10px rgba(0,0,0,0.40)' }}>
+                    اطلب الآن
+                  </button>
                 </div>
               </div>
             ))}
           </div>
+          <div className="flex justify-center items-center gap-1.5 mt-2">
+            {offerBanners.map((_, i) => (
+              <div key={i} style={{ width: i === activeOfferIdx ? '22px' : '6px', height: '5px', borderRadius: '3px', background: i === activeOfferIdx ? 'var(--color-primary-fixed)' : 'rgba(255,255,255,0.18)', transition: 'all 0.3s ease', boxShadow: i === activeOfferIdx ? '0 0 10px rgba(163,249,91,0.60)' : 'none' }} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ══ 5. RESTAURANTS ══ */}
+      <section className="mb-4" id="home_restaurants" style={{ position: 'relative', zIndex: 2 }}>
+        <div className="flex items-center justify-between mb-3">
+          {!isFiltering && <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px' }}>
+            المزيد <ChevronLeft size={14} strokeWidth={2.5} />
+          </button>}
+          <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>
+            {isFiltering ? t('home.searchResults') : t('home.nearest')}
+          </h2>
+        </div>
+
+        {loading ? (
+          <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="rounded-2xl skeleton" style={{ height: '240px' }} />)}</div>
+        ) : isFiltering && filteredBranches.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-8 text-center glass rounded-2xl" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+            <SearchX size={28} color="rgba(170,176,182,0.50)" strokeWidth={1.5} />
+            <p style={{ color: '#f2f4f6', fontSize: '15px', fontWeight: 600 }}>{`لا نتائج لـ "${searchQuery}"`}</p>
+            <button onClick={() => { setSearchQuery(''); setSelectedCat(null); }} style={{ padding: '8px 20px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(170,176,182,0.80)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>عرض كل المتاجر</button>
+          </div>
+        ) : (
+          <div className="space-y-3" id="restaurants_list">
+            {(showMock ? MOCK_RESTAURANTS : (isFiltering ? filteredBranches : filteredBranches.slice(0, 4))).map((item, idx) => {
+              const isMock   = 'type' in item;
+              const r        = isMock ? item as typeof MOCK_RESTAURANTS[0] : null;
+              const branch   = isMock ? null : item as BranchWithMerchant;
+              const name     = isMock ? r!.name : (branch!.merchants?.business_name || branch!.name);
+              const cuisine  = isMock ? r!.cuisine : getCuisine(name);
+              const eta      = isMock ? r!.eta      : ETAS[idx % 6];
+              const delivery = isMock ? r!.delivery : DELIVERY_FEES[idx % 6];
+              const rating   = isMock ? r!.rating   : RATINGS[idx % 6];
+              const minOrd   = isMock ? r!.min      : MIN_ORDERS[idx % 6];
+              const badgeLime = isMock ? r!.badgeLime : (idx % 3 === 0);
+              const badge    = isMock ? r!.badge    : ['مميز','اختيار الذواقة','الأكثر طلباً'][idx % 3];
+              const typeKey  = isMock ? r!.type     : undefined;
+              const id       = isMock ? r!.id       : branch!.id;
+              const logoUrl  = !isMock ? branch!.merchants?.logo_url : null;
+              return (
+                <div key={id} onClick={() => onSelectRestaurant(id, name)}
+                  className="rounded-2xl overflow-hidden cursor-pointer active:scale-[0.99] transition-transform" id={isMock ? undefined : `branch_${id}`}
+                  style={{
+                    boxShadow: '0 14px 40px rgba(0,0,0,0.60), 0 4px 12px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.08)',
+                    borderTop: '1px solid rgba(255,255,255,0.12)',
+                    borderLeft: '1px solid rgba(255,255,255,0.06)',
+                    borderRight: '1px solid rgba(255,255,255,0.06)',
+                    borderBottom: '1px solid rgba(0,0,0,0.40)',
+                  }}>
+                  {/* Food image — 168px tall for more visual impact */}
+                  <div className="relative overflow-hidden" style={{ height: '168px', background: '#060a0e' }}>
+                    {logoUrl
+                      ? <img src={logoUrl} alt={name} className="w-full h-full object-cover" />
+                      : <RestaurantPhoto type={typeKey} name={name} />
+                    }
+                    {/* Stronger gradient overlay for depth */}
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(8,11,14,0.98) 0%, rgba(8,11,14,0.50) 38%, rgba(8,11,14,0.08) 65%, transparent 80%)' }} />
+                    {/* Top vignette */}
+                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.28) 0%, transparent 30%)' }} />
+                    {/* Badge — top end (RTL = top left visually) */}
+                    <div className="absolute top-3 end-3 px-2.5 py-1 rounded-full" style={{ background: badgeLime ? 'var(--color-primary-fixed)' : 'rgba(10,14,18,0.72)', border: badgeLime ? 'none' : '1px solid rgba(255,255,255,0.18)', color: badgeLime ? '#0a1c00' : 'rgba(255,255,255,0.88)', fontSize: '11px', fontWeight: 700, backdropFilter: 'blur(12px)', boxShadow: badgeLime ? '0 0 14px rgba(163,249,91,0.55)' : '0 2px 8px rgba(0,0,0,0.50)' }}>
+                      {badge}
+                    </div>
+                    {/* Rating pill — top start */}
+                    <div className="absolute top-3 start-3 flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ background: 'rgba(8,12,16,0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 2px 8px rgba(0,0,0,0.50)' }}>
+                      <Star size={11} color="#f0c840" fill="#f0c840" strokeWidth={0} />
+                      <span style={{ fontSize: '11px', color: 'white', fontWeight: 800 }}>{rating}</span>
+                    </div>
+                  </div>
+                  {/* Card body */}
+                  <div className="px-4 py-3" style={{ background: 'linear-gradient(180deg, #1c2026 0%, #13171a 100%)' }}>
+                    <div className="flex items-start justify-between mb-1">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '11px', color: 'rgba(163,249,91,0.70)', fontWeight: 600 }}>مفتوح الآن</span>
+                        <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(163,249,91,0.55)', display: 'inline-block', boxShadow: '0 0 6px rgba(163,249,91,0.55)' }} />
+                      </div>
+                      <h3 style={{ color: '#f2f4f6', fontSize: '16px', fontWeight: 700, letterSpacing: '-0.01em', margin: 0 }}>{name}</h3>
+                    </div>
+                    <p style={{ color: 'rgba(160,165,170,0.65)', fontSize: '12px', marginBottom: '10px', textAlign: 'right' }}>{cuisine}</p>
+                    <div className="flex items-center justify-end gap-4">
+                      <span className="flex items-center gap-1">
+                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)' }}>الحد {minOrd} {cur}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5"><Bike size={12} color="rgba(163,249,91,0.55)" strokeWidth={2} /><span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.60)' }}>{delivery}</span></span>
+                      <span className="flex items-center gap-1.5"><Clock size={12} color="rgba(255,255,255,0.35)" strokeWidth={2} /><span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.60)' }}>{eta} د</span></span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </section>
 
+      {/* ══ 6. FEATURED STORES — horizontal circles ══ */}
+      {!isFiltering && (
+        <section className="mb-4" id="home_featured_circles" style={{ position: 'relative', zIndex: 2 }}>
+          <div className="flex items-center justify-between mb-3">
+            <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px' }}>
+              عرض الكل <ChevronLeft size={14} strokeWidth={2.5} />
+            </button>
+            <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>{t('home.featured')}</h2>
+          </div>
+          <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
+            {(branches.length > 0 ? branches : MOCK_FEATURED).slice(0, 6).map(item => {
+              const bn   = 'merchants' in item ? (item as BranchWithMerchant).merchants?.business_name || item.name : item.name;
+              const tp   = 'type' in item ? (item as typeof MOCK_FEATURED[0]).type : undefined;
+              const id   = item.id;
+              return (
+                <button key={`circle_${id}`}
+                  onClick={() => onSelectRestaurant(id, bn)}
+                  className="flex-shrink-0 flex flex-col items-center gap-2 active:scale-[0.95] transition-transform cursor-pointer"
+                  style={{ background: 'none', border: 'none', width: '72px', padding: 0 }}>
+                  <div style={{ width: '66px', height: '66px', borderRadius: '50%', overflow: 'hidden', background: '#0c1014', border: '2px solid rgba(255,255,255,0.12)', boxShadow: '0 6px 20px rgba(0,0,0,0.55)', flexShrink: 0 }}>
+                    {'merchants' in item && (item as BranchWithMerchant).merchants?.logo_url
+                      ? <img src={(item as BranchWithMerchant).merchants.logo_url!} alt={bn} className="w-full h-full object-cover" />
+                      : <RestaurantPhoto type={tp} name={bn} />
+                    }
+                  </div>
+                  <span style={{ fontSize: '10px', color: 'rgba(242,244,246,0.60)', textAlign: 'center', lineHeight: 1.3, maxWidth: '72px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{bn}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* ══ 7. BENEFITS — §7 metallic icon cards ══ */}
+      {!isFiltering && (
+        <section className="mb-8" id="home_benefits" style={{ position: 'relative', zIndex: 2 }}>
+          <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em', marginBottom: '14px', textAlign: 'right' }}>لماذا تختار Haat Now؟</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { Icon: Bike,   title: 'توصيل سريع',    sub: 'في 30 دقيقة'      },
+              { Icon: Shield, title: 'جودة مضمونة',   sub: 'أفضل المطاعم'      },
+              { Icon: Tag,    title: 'أسعار مميزة',   sub: 'عروض حصرية دائماً' },
+            ].map(({ Icon, title, sub }) => (
+              <div key={title}
+                className="glass-shine"
+                style={{
+                  borderRadius: '18px', padding: '16px 12px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                  background: 'linear-gradient(180deg, #24282c 0%, #15181b 100%)',
+                  borderTop:    '1px solid rgba(255,255,255,0.14)',
+                  borderLeft:   '1px solid rgba(255,255,255,0.07)',
+                  borderRight:  '1px solid rgba(255,255,255,0.07)',
+                  borderBottom: '1px solid rgba(255,255,255,0.03)',
+                  boxShadow: '0 10px 28px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)',
+                }}>
+                {/* Metallic icon badge §7 */}
+                <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'radial-gradient(ellipse at 35% 28%, #3d4144, #1b2024)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 4px 14px rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon size={20} strokeWidth={1.75} style={{ color: '#c8cacc', filter: 'drop-shadow(0 -1px 1px rgba(255,255,255,0.55)) drop-shadow(0 2px 4px rgba(0,0,0,0.80))' }} />
+                </div>
+                <p style={{ fontSize: '12px', fontWeight: 700, color: '#f2f4f6', textAlign: 'center', margin: 0, lineHeight: 1.2 }}>{title}</p>
+                <p style={{ fontSize: '10px', color: 'rgba(170,176,182,0.65)', textAlign: 'center', margin: 0, lineHeight: 1.3 }}>{sub}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div style={{ height: '100px' }} />
     </div>
   );
 };

@@ -1,7 +1,31 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { orderService } from '../../services/order.service';
+import { trackingService } from '../../services/tracking.service';
+import { calculateDistanceKm, calculateEtaMinutes } from '../../services/location.service';
 import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps';
+import { useAppConfig } from '../../contexts/AppConfigContext';
+import {
+  Loader2, ScrollText, ChevronLeft, ChevronRight, Truck, Check, Phone,
+  MessageSquare, Headphones, Hourglass, CheckCircle, ChefHat, Bike,
+  CheckCheck, XCircle,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+function parseDriverCoords(coords: unknown): { lat: number; lng: number } | null {
+  if (!coords) return null;
+  if (typeof coords === 'object' && coords !== null) {
+    const c = coords as Record<string, unknown>;
+    if (typeof c.x === 'number' && typeof c.y === 'number') {
+      return { lat: c.x, lng: c.y };
+    }
+  }
+  if (typeof coords === 'string') {
+    const m = coords.match(/\(([^,]+),([^)]+)\)/);
+    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+  }
+  return null;
+}
 
 interface Order {
   id: string;
@@ -11,6 +35,10 @@ interface Order {
   branch_id: string;
   driver_id: string | null;
   merchant_branches: { name: string; merchants: { business_name: string } };
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  branch_lat_snapshot?: number | null;
+  branch_lng_snapshot?: number | null;
 }
 interface OrdersListProps {
   customerId: string;
@@ -20,46 +48,41 @@ interface OrdersListProps {
 
 type OrderStatus = Order['status'];
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; icon: string }> = {
-  pending:    { label: 'انتظار الموافقة', color: '#fbbf24', icon: 'hourglass_empty' },
-  accepted:   { label: 'مقبول',          color: '#a3f95b', icon: 'check_circle' },
-  preparing:  { label: 'يُحضَّر الآن',   color: '#a3f95b', icon: 'restaurant' },
-  on_the_way: { label: 'في الطريق',      color: '#a3f95b', icon: 'delivery_dining' },
-  delivered:  { label: 'تم التوصيل',     color: '#4ade80', icon: 'task_alt' },
-  cancelled:  { label: 'ملغي',           color: '#f87171', icon: 'cancel' },
+const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; Icon: LucideIcon }> = {
+  pending:    { label: 'انتظار الموافقة', color: '#fbbf24', Icon: Hourglass   },
+  accepted:   { label: 'مقبول',          color: '#a3f95b', Icon: CheckCircle  },
+  preparing:  { label: 'يُحضَّر الآن',   color: '#a3f95b', Icon: ChefHat     },
+  on_the_way: { label: 'في الطريق',      color: '#a3f95b', Icon: Bike        },
+  delivered:  { label: 'تم التوصيل',     color: '#4ade80', Icon: CheckCheck  },
+  cancelled:  { label: 'ملغي',           color: '#f87171', Icon: XCircle     },
 };
 
-const STATUS_STEPS: { key: OrderStatus; label: string; icon: string }[] = [
-  { key: 'pending',    label: 'تم تأكيد الطلب',      icon: 'check_circle' },
-  { key: 'accepted',   label: 'يتم تحضير الطلب',     icon: 'restaurant' },
-  { key: 'on_the_way', label: 'السائق استلم الطلب',  icon: 'delivery_dining' },
-  { key: 'delivered',  label: 'تم التوصيل',           icon: 'home' },
+const STATUS_STEPS: { key: OrderStatus; label: string }[] = [
+  { key: 'pending',    label: 'تم تأكيد الطلب'     },
+  { key: 'accepted',   label: 'يتم تحضير الطلب'    },
+  { key: 'on_the_way', label: 'السائق استلم الطلب' },
+  { key: 'delivered',  label: 'تم التوصيل'          },
 ];
 
 const DRIVER_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1zBa4W1bsQKFL7K9DnwdSTzFmQqeZCe0dPpllnu1UKIjsvIUBFMajud9PVEzLDjwVaRt1fsUDKqC_ecnOLe2pKDJw7tr_WKPwHFcmmk59UZ6G8windy_z7tEr68RKqkSon3LgNenYQOHwvM6K1Pb6WX7RdMytcQSwGRywB4Tdd0OrZsrvOEk-UG85I1sTAHY4z25zOlm1gF-Uw7T0Chdryvfr9SYF-uVlEjeoI99MiVEMbWMg5cQTMfdAI0QIn2y05gcfkQDZUute';
 const MAP_PHOTO  = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDhSGJvJ91keV3KcXiIFnKS0YhWuSrKZCW_iybvURGhGZZjmD01O8E66Pe-IZIknLpa1xr6rbN2yXLRNgJxyafvetf_ne8GPITiRjaEB3eMmekg6LFLSIp7fCqL1UW6MdveMsESOAgzLCSewmAvdCa6ZcR2yV-xM3RgvJhMyp7xR8KkkI6rHP2Gwk06kTavSB_EMMkiSUASFeHhISs-kxGA0bnA0FDYSnYjfPRV2wUiXfRUZo6cnRgsN2WzM-VRNUcn1-Tdm0fqmccQ';
 
 export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit }: OrdersListProps) => {
+  const { price: money } = useAppConfig();
   const [orders,          setOrders]          = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(selectedOrderIdInit || null);
   const [orderDetails,    setOrderDetails]    = useState<any | null>(null);
   const [loading,         setLoading]         = useState(true);
   const [detailsLoading,  setDetailsLoading]  = useState(false);
-  const [courierProgress, setCourierProgress] = useState(0.4);
-  const [simSpeed,        setSimSpeed]        = useState(1);
-  const canvasRef    = useRef<HTMLCanvasElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [courierProgress, setCourierProgress] = useState(0);
+  const [riderLoc,        setRiderLoc]        = useState<{ lat: number; lng: number } | null>(null);
+  const canvasRef           = useRef<HTMLCanvasElement | null>(null);
+  const containerRef        = useRef<HTMLDivElement | null>(null);
+  const driverLocChannelRef = useRef<any>(null);
   const [dimensions,      setDimensions]      = useState({ width: 400, height: 220 });
   const [ticketSubject,   setTicketSubject]   = useState('');
   const [showTicketInput, setShowTicketInput] = useState(false);
   const [ticketLoading,   setTicketLoading]   = useState(false);
-
-  const merchantLoc = { lat: 24.7136, lng: 46.6753 };
-  const customerLoc = { lat: 24.7584, lng: 46.7020 };
-  const riderLoc = {
-    lat: merchantLoc.lat + (customerLoc.lat - merchantLoc.lat) * courierProgress,
-    lng: merchantLoc.lng + (customerLoc.lng - merchantLoc.lng) * courierProgress,
-  };
 
   useEffect(() => {
     fetchOrders();
@@ -123,12 +146,41 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   }, [dimensions, courierProgress]);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (orderDetails?.status === 'on_the_way') {
-      interval = setInterval(() => setCourierProgress((prev) => prev >= 1.0 ? 1.0 : prev + 0.02 * simSpeed), 2000);
+    if (!riderLoc || !orderDetails) return;
+    const mLat = orderDetails.branch_lat_snapshot;
+    const mLng = orderDetails.branch_lng_snapshot;
+    const cLat = orderDetails.delivery_lat;
+    const cLng = orderDetails.delivery_lng;
+    if (mLat == null || mLng == null || cLat == null || cLng == null) return;
+    const total = calculateDistanceKm(mLat, mLng, cLat, cLng);
+    if (total < 0.01) return;
+    const traveled = calculateDistanceKm(mLat, mLng, riderLoc.lat, riderLoc.lng);
+    setCourierProgress(Math.min(1, traveled / total));
+  }, [riderLoc, orderDetails]);
+
+  useEffect(() => {
+    const driverId    = orderDetails?.driver_id;
+    const activeStatus = orderDetails?.status;
+    if (!driverId || !['preparing', 'on_the_way'].includes(activeStatus)) {
+      if (driverLocChannelRef.current) { supabase.removeChannel(driverLocChannelRef.current); driverLocChannelRef.current = null; }
+      return;
     }
-    return () => clearInterval(interval);
-  }, [orderDetails, simSpeed]);
+    if (driverLocChannelRef.current) supabase.removeChannel(driverLocChannelRef.current);
+    trackingService.getDriverLocation(driverId).then(({ data }) => {
+      if (data) { const parsed = parseDriverCoords(data.coords); if (parsed) setRiderLoc(parsed); }
+    });
+    const handler = (payload: any) => {
+      const parsed = parseDriverCoords(payload.new?.coords);
+      if (parsed) setRiderLoc(parsed);
+    };
+    const channel = supabase
+      .channel(`driver-loc-${driverId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'driver_locations', filter: `driver_id=eq.${driverId}` }, handler)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'driver_locations', filter: `driver_id=eq.${driverId}` }, handler)
+      .subscribe();
+    driverLocChannelRef.current = channel;
+    return () => { supabase.removeChannel(channel); driverLocChannelRef.current = null; };
+  }, [orderDetails?.driver_id, orderDetails?.status]);
 
   const fetchOrders = async () => {
     try {
@@ -140,6 +192,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   };
 
   const fetchOrderDetails = async (orderId: string) => {
+    setRiderLoc(null);
     try {
       setDetailsLoading(true);
       const { data, error } = await orderService.getOrderDetails(orderId);
@@ -158,9 +211,11 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
 
   const handleCancelOrder = async (orderId: string) => {
     if (!window.confirm('هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟')) return;
-    const { success, error } = await orderService.cancelOrder(orderId, 'إلغاء سريع من المستخدم');
-    if (success) { alert('تم إلغاء الطلب وتحويل المبلغ للمحفظة'); fetchOrders(); fetchOrderDetails(orderId); }
-    else alert(`لا يمكن إلغاء الطلب: ${(error as any)?.message || error}`);
+    try {
+      const { success, error } = await orderService.cancelOrder(orderId, 'إلغاء سريع من المستخدم');
+      if (success) { alert('تم إلغاء الطلب وتحويل المبلغ للمحفظة'); fetchOrders(); fetchOrderDetails(orderId); }
+      else alert(`لا يمكن إلغاء الطلب: ${(error as any)?.message || error}`);
+    } catch (e) { console.error(e); }
   };
 
   const handleOpenTicket = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -195,35 +250,48 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <span className="material-symbols-outlined text-[var(--color-primary-fixed)] animate-spin-slow" style={{ fontSize: '36px' }}>refresh</span>
+            <Loader2 size={36} className="text-[var(--color-primary-fixed)] animate-spin" />
             <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>جاري جلب الطلبات...</p>
           </div>
         ) : orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-            <span className="material-symbols-outlined" style={{ fontSize: '64px', color: 'var(--color-on-surface-variant)', opacity: 0.2 }}>receipt_long</span>
-            <p style={{ fontSize: '18px', color: 'white', textTransform: 'none', letterSpacing: 0 }}>لا توجد طلبات</p>
-            <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>لم تقم بإجراء أي طلبات بعد!</p>
+          <div className="flex flex-col items-center justify-center py-16 gap-6 text-center animate-fade-in-up">
+            <div
+              className="w-28 h-28 rounded-3xl flex items-center justify-center glass-shine"
+              style={{ background: 'rgba(163,249,91,0.04)', border: '1px solid rgba(163,249,91,0.12)', boxShadow: '0 0 48px rgba(163,249,91,0.06)' }}
+            >
+              <ScrollText size={48} strokeWidth={1.25} style={{ color: 'rgba(163,249,91,0.28)' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '20px', color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '8px' }}>لا توجد طلبات بعد</p>
+              <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: 1.6 }}>ابدأ رحلتك مع هات ناو واستمتع<br />بتجربة توصيل فاخرة</p>
+            </div>
             <button
               onClick={onSelectOrderBack}
-              className="mt-2 px-6 h-12 rounded-full font-bold cursor-pointer neon-glow"
-              style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontSize: '16px', textTransform: 'none', letterSpacing: 0 }}
+              className="px-8 h-13 rounded-2xl font-bold cursor-pointer neon-glow transition-all active:scale-95"
+              style={{ background: 'var(--color-primary-fixed)', color: '#0c2000', fontSize: '15px', fontWeight: 700, paddingTop: '12px', paddingBottom: '12px' }}
             >اطلب الآن</button>
           </div>
         ) : (
           <div className="space-y-3">
             {orders.map((ord) => {
               const cfg = STATUS_CONFIG[ord.status] || STATUS_CONFIG.pending;
+              const StatusIcon = cfg.Icon;
               return (
                 <div
                   key={ord.id}
                   onClick={() => { setSelectedOrderId(ord.id); fetchOrderDetails(ord.id); }}
                   className="glass glass-hover flex items-center gap-4 p-4 rounded-xl cursor-pointer transition-all"
                   id={`order_card_${ord.id}`}
+                  style={{
+                    boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+                    borderTop: '1px solid rgba(255,255,255,0.12)',
+                    borderLeft: '1px solid rgba(255,255,255,0.12)',
+                    borderRight: '1px solid rgba(255,255,255,0.05)',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  }}
                 >
-                  {/* Arrow */}
-                  <span className="material-symbols-outlined" style={{ fontSize: '18px', color: 'var(--color-primary-fixed)' }}>chevron_left</span>
+                  <ChevronLeft size={18} color="var(--color-primary-fixed)" strokeWidth={2} />
 
-                  {/* Meta */}
                   <div className="flex-1 min-w-0 text-right space-y-1">
                     <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', textTransform: 'none', letterSpacing: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {ord.merchant_branches?.merchants?.business_name || 'المتجر'}
@@ -233,17 +301,13 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
                     </p>
                   </div>
 
-                  {/* Status + amount */}
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-full" style={{ background: `${cfg.color}15`, border: `1px solid ${cfg.color}30` }}>
                       <span style={{ fontSize: '12px', color: cfg.color, textTransform: 'none', letterSpacing: 0 }}>{cfg.label}</span>
-                      <span
-                        className="material-symbols-outlined"
-                        style={{ fontSize: '12px', color: cfg.color, fontVariationSettings: "'FILL' 1" }}
-                      >{cfg.icon}</span>
+                      <StatusIcon size={12} color={cfg.color} strokeWidth={2} />
                     </div>
                     <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>
-                      {ord.total_amount.toFixed(2)} ر.س
+                      {money(ord.total_amount)}
                     </span>
                   </div>
                 </div>
@@ -261,14 +325,24 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   if (detailsLoading || !orderDetails) {
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-4">
-        <span className="material-symbols-outlined text-[var(--color-primary-fixed)] animate-spin-slow" style={{ fontSize: '36px' }}>refresh</span>
+        <Loader2 size={36} className="text-[var(--color-primary-fixed)] animate-spin" />
         <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>جاري تحديث بيانات الطلب...</p>
       </div>
     );
   }
 
   const stepIndex = currentStatusIndex(orderDetails.status as OrderStatus);
-  const eta = Math.max(0, Math.round((1 - courierProgress) * 25));
+
+  const merchantLoc = (orderDetails.branch_lat_snapshot != null && orderDetails.branch_lng_snapshot != null)
+    ? { lat: Number(orderDetails.branch_lat_snapshot), lng: Number(orderDetails.branch_lng_snapshot) }
+    : null;
+  const customerLoc = (orderDetails.delivery_lat != null && orderDetails.delivery_lng != null)
+    ? { lat: Number(orderDetails.delivery_lat), lng: Number(orderDetails.delivery_lng) }
+    : null;
+
+  const eta = riderLoc && customerLoc
+    ? Math.max(0, calculateEtaMinutes(calculateDistanceKm(riderLoc.lat, riderLoc.lng, customerLoc.lat, customerLoc.lng)))
+    : Math.max(0, Math.round((1 - courierProgress) * 25));
 
   return (
     <div id="order_tracking_view" style={{ marginTop: '-24px' }}>
@@ -281,53 +355,32 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
         style={{ height: '55vh', marginLeft: '-16px', marginRight: '-16px', background: '#1a1c1e' }}
         id="map_section"
       >
-        {/* Map background photo */}
-        <img
-          src={MAP_PHOTO}
-          alt="map"
-          className="w-full h-full object-cover"
-          style={{ opacity: 0.4, filter: 'grayscale(100%) contrast(1.25)' }}
-        />
-        {/* Gradient overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, #111417 5%, transparent 40%, transparent 60%, #111417 95%)' }}
-        />
+        <img src={MAP_PHOTO} alt="map" className="w-full h-full object-cover" style={{ opacity: 0.4, filter: 'grayscale(100%) contrast(1.25)' }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to top, #111417 5%, transparent 40%, transparent 60%, #111417 95%)' }} />
 
-        {/* Canvas map (overlaid) */}
-        <div
-          ref={containerRef}
-          className="absolute inset-8"
-          id="canvas_container"
-        >
+        <div ref={containerRef} className="absolute inset-8" id="canvas_container">
           {import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? (
             <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
               <div className="w-full h-full">
-                <Map defaultCenter={merchantLoc} defaultZoom={13} gestureHandling={'greedy'} disableDefaultUI>
-                  <Marker position={merchantLoc} title="المتجر" />
-                  <Marker position={customerLoc} title="المنزل" />
-                  <Marker position={riderLoc}    title="السائق" />
+                <Map defaultCenter={merchantLoc ?? { lat: 24.7136, lng: 46.6753 }} defaultZoom={13} gestureHandling={'greedy'} disableDefaultUI>
+                  {merchantLoc && <Marker position={merchantLoc} title="المتجر" />}
+                  {customerLoc && <Marker position={customerLoc} title="المنزل" />}
+                  {riderLoc    && <Marker position={riderLoc}    title="السائق" />}
                 </Map>
               </div>
             </APIProvider>
           ) : (
-            <canvas
-              ref={canvasRef}
-              width={dimensions.width}
-              height={dimensions.height}
-              className="block w-full h-full"
-              id="courier_canvas"
-            />
+            <canvas ref={canvasRef} width={dimensions.width} height={dimensions.height} className="block w-full h-full" id="courier_canvas" />
           )}
         </div>
 
-        {/* Back button (top-right in RTL) */}
+        {/* Back button */}
         <button
           onClick={() => setSelectedOrderId(null)}
           className="absolute top-4 end-4 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-all active:scale-90 z-10"
           style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)', color: 'var(--color-primary-fixed)' }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>arrow_forward</span>
+          <ChevronRight size={20} strokeWidth={2} />
         </button>
 
         {/* Driver live marker */}
@@ -336,22 +389,12 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
           style={{ transform: `translateX(${courierProgress * 120}px) translateY(${-courierProgress * 60}px)` }}
         >
           <div
-            className="w-12 h-12 rounded-full flex items-center justify-center animate-bounce"
-            style={{
-              background: 'var(--color-primary-fixed)',
-              border: '4px solid #111417',
-              boxShadow: '0 0 20px rgba(163,249,91,0.8)',
-            }}
+            className="w-12 h-12 rounded-full flex items-center justify-center animate-pulse-glow"
+            style={{ background: 'var(--color-primary-fixed)', border: '4px solid #111417', boxShadow: '0 0 20px rgba(163,249,91,0.8)' }}
           >
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '20px', color: 'var(--color-on-primary-fixed)', fontVariationSettings: "'FILL' 1" }}
-            >local_shipping</span>
+            <Truck size={20} color="var(--color-on-primary-fixed)" strokeWidth={2} />
           </div>
-          <div
-            className="mt-2 px-3 py-1 rounded-full"
-            style={{ background: 'rgba(29,32,35,0.8)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}
-          >
+          <div className="mt-2 px-3 py-1 rounded-full" style={{ background: 'rgba(29,32,35,0.8)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}>
             <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>
               {orderDetails.drivers?.full_name || 'الكابتن'}
             </p>
@@ -360,114 +403,68 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
       </div>
 
       {/* ════════════════════════════════════════════
-          FLOATING STATUS CARD (just below map)
+          FLOATING STATUS CARD
       ════════════════════════════════════════════ */}
-      <div
-        className="glass-panel rounded-xl p-5 -mt-4 mx-0 relative z-10"
-        style={{ borderInlineStart: '4px solid var(--color-primary-fixed)' }}
-        id="status_card"
-      >
+      <div className="glass glass-shine rounded-2xl p-5 -mt-4 mx-0 relative z-10" style={{ borderInlineStart: '4px solid var(--color-primary-fixed)' }} id="status_card">
         <div className="flex justify-between items-start">
           <div className="text-left">
-            <p
-              className="font-bold text-[var(--color-primary-fixed)]"
-              style={{ fontSize: '36px', lineHeight: 1, textTransform: 'none', letterSpacing: 0 }}
-            >{eta}</p>
+            <p className="font-bold text-[var(--color-primary-fixed)]" style={{ fontSize: '36px', lineHeight: 1, textTransform: 'none', letterSpacing: 0 }}>{eta}</p>
             <p style={{ fontSize: '12px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0, marginTop: '-2px' }}>دقيقة</p>
           </div>
           <div className="text-right">
-            <h2
-              className="font-bold text-[var(--color-primary-fixed)]"
-              style={{ fontSize: '18px', textTransform: 'none', letterSpacing: 0 }}
-            >
+            <h2 className="font-bold text-[var(--color-primary-fixed)]" style={{ fontSize: '18px', textTransform: 'none', letterSpacing: 0 }}>
               {orderDetails.status === 'on_the_way' ? 'السائق في الطريق إليك' :
                orderDetails.status === 'preparing'  ? 'يتم تحضير طلبك' :
                orderDetails.status === 'delivered'  ? 'تم التوصيل بنجاح 🎉' :
                'تم تأكيد طلبك'}
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', marginTop: '4px', textTransform: 'none', letterSpacing: 0 }}>
-              طلب #{selectedOrderId.slice(-6).toUpperCase()} · {orderDetails.total_amount.toFixed(2)} ر.س
+              طلب #{selectedOrderId.slice(-6).toUpperCase()} · {money(orderDetails.total_amount)}
             </p>
           </div>
         </div>
-        {/* Progress bar */}
         <div className="mt-4 h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.1)' }}>
-          <div
-            className="h-full rounded-full transition-all duration-1000"
-            style={{
-              width: `${courierProgress * 100}%`,
-              background: 'var(--color-primary-fixed)',
-              boxShadow: '0 0 8px rgba(163,249,91,0.5)',
-            }}
-          />
+          <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${courierProgress * 100}%`, background: 'var(--color-primary-fixed)', boxShadow: '0 0 8px rgba(163,249,91,0.5)' }} />
         </div>
-        {/* Speed sim when on the way */}
-        {orderDetails.status === 'on_the_way' && (
-          <select
-            value={simSpeed}
-            onChange={(e) => setSimSpeed(Number(e.target.value))}
-            className="mt-3 h-8 px-2 rounded-lg text-xs"
-            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-primary-fixed)', border: '1px solid rgba(255,255,255,0.08)', textTransform: 'none', letterSpacing: 0 }}
-          >
-            <option value="1">1x</option>
-            <option value="3">3x</option>
-            <option value="5">5x ⚡</option>
-          </select>
-        )}
       </div>
 
       {/* ════════════════════════════════════════════
-          BOTTOM SHEET — Driver + Stepper + Actions
+          BOTTOM SHEET
       ════════════════════════════════════════════ */}
-      <div
-        className="glass-panel rounded-2xl p-6 mt-4 space-y-6"
-        id="bottom_sheet"
-      >
+      <div className="glass glass-shine rounded-2xl p-6 mt-4 space-y-6" id="bottom_sheet">
+
         {/* Driver card */}
         <div className="flex items-center justify-between pb-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
           <div className="flex gap-3">
-            {/* Call + Chat buttons */}
             <button
               className="w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer transition-all active:scale-90"
               style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }}
               id="call_driver_btn"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>call</span>
+              <Phone size={20} strokeWidth={2} />
             </button>
             <button
-              className="w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer transition-all active:scale-90 glass-panel"
+              className="w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer transition-all active:scale-90 glass glass-hover"
               style={{ color: 'var(--color-primary-fixed)' }}
               id="chat_driver_btn"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: '20px' }}>chat</span>
+              <MessageSquare size={20} strokeWidth={2} />
             </button>
           </div>
 
           <div className="flex items-center gap-3 flex-row-reverse">
-            {/* Driver photo */}
             <div className="relative">
-              <img
-                src={DRIVER_IMG}
-                alt="driver"
-                className="w-16 h-16 object-cover"
-                style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.2)' }}
-              />
-              <div
-                className="absolute -bottom-2 -start-2 px-2 py-0.5 rounded-full flex items-center gap-1 font-bold"
-                style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontSize: '10px', textTransform: 'none', letterSpacing: 0 }}
-              >
-                4.9
-                <span className="material-symbols-outlined" style={{ fontSize: '10px', fontVariationSettings: "'FILL' 1" }}>star</span>
-              </div>
+              <img src={DRIVER_IMG} alt="driver" className="w-16 h-16 object-cover" style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.2)' }} />
             </div>
-            {/* Driver info */}
             <div className="text-right">
               <p style={{ fontSize: '18px', fontWeight: 700, color: 'white', textTransform: 'none', letterSpacing: 0 }}>
-                {orderDetails.drivers?.full_name || 'كابتن محمد'}
+                {orderDetails.drivers?.full_name || 'الكابتن'}
               </p>
-              <p style={{ fontSize: '12px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0, marginTop: '2px' }}>
-                تويوتا كامري • بيضاء
-              </p>
+              {orderDetails.drivers?.phone_number && (
+                <p style={{ fontSize: '12px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0, marginTop: '2px' }}>
+                  {orderDetails.drivers.phone_number}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -481,49 +478,26 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
               <div key={step.key} className="flex gap-4 relative" id={`step_${step.key}`}>
                 <div className="flex flex-col items-center">
                   {done && !current ? (
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center z-10"
-                      style={{ background: 'var(--color-primary-fixed)' }}
-                    >
-                      <span
-                        className="material-symbols-outlined"
-                        style={{ fontSize: '14px', color: 'var(--color-on-primary-fixed)', fontVariationSettings: "'FILL' 1" }}
-                      >check</span>
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center z-10" style={{ background: 'var(--color-primary-fixed)' }}>
+                      <Check size={14} color="var(--color-on-primary-fixed)" strokeWidth={3} />
                     </div>
                   ) : current ? (
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center z-10 animate-pulse"
-                      style={{ border: '2px solid var(--color-primary-fixed)', background: '#111417' }}
-                    >
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center z-10 animate-pulse" style={{ border: '2px solid var(--color-primary-fixed)', background: '#111417' }}>
                       <div className="w-2 h-2 rounded-full" style={{ background: 'var(--color-primary-fixed)' }} />
                     </div>
                   ) : (
-                    <div
-                      className="w-6 h-6 rounded-full z-10"
-                      style={{ border: '2px solid rgba(65,74,55,0.3)', background: '#111417' }}
-                    />
+                    <div className="w-6 h-6 rounded-full z-10" style={{ border: '2px solid rgba(65,74,55,0.3)', background: '#111417' }} />
                   )}
                   {idx < STATUS_STEPS.length - 1 && (
-                    <div
-                      className="w-[2px] mt-1"
-                      style={{ height: '40px', background: done ? 'var(--color-primary-fixed)' : 'rgba(65,74,55,0.3)' }}
-                    />
+                    <div className="w-[2px] mt-1" style={{ height: '40px', background: done ? 'var(--color-primary-fixed)' : 'rgba(65,74,55,0.3)' }} />
                   )}
                 </div>
                 <div className="pt-0.5">
-                  <p
-                    style={{
-                      fontSize: '14px',
-                      fontWeight: done || current ? 600 : 400,
-                      color: done ? 'var(--color-primary-fixed)' : current ? 'white' : 'var(--color-on-surface-variant)',
-                      textTransform: 'none',
-                      letterSpacing: 0,
-                    }}
-                  >{step.label}</p>
+                  <p style={{ fontSize: '14px', fontWeight: done || current ? 600 : 400, color: done ? 'var(--color-primary-fixed)' : current ? 'white' : 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>
+                    {step.label}
+                  </p>
                   {step.key === 'on_the_way' && done && (
-                    <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>
-                      في الطريق إليك
-                    </p>
+                    <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>في الطريق إليك</p>
                   )}
                   {step.key === 'delivered' && !done && (
                     <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>
@@ -544,30 +518,28 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
               className="w-full py-3 rounded-full font-bold cursor-pointer text-center transition-colors"
               style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
               id="cancel_btn"
-            >
-              إلغاء الطلب (استرجاع المحفظة)
-            </button>
+            >إلغاء الطلب (استرجاع المحفظة)</button>
           )}
 
           <button
             onClick={() => setShowTicketInput(!showTicketInput)}
             className="w-full py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
-            style={{ background: 'var(--color-surface-container-high)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
+            style={{ background: 'rgba(29,32,35,0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
             id="support_btn"
           >
-            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>support_agent</span>
+            <Headphones size={18} strokeWidth={2} />
             مركز الدعم
           </button>
 
           {showTicketInput && (
-            <form onSubmit={handleOpenTicket} className="space-y-3 p-4 rounded-xl" style={{ background: 'var(--color-surface-container-high)' }}>
+            <form onSubmit={handleOpenTicket} className="space-y-3 p-4 rounded-xl" style={{ background: 'rgba(29,32,35,0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)' }}>
               <textarea
                 required
                 placeholder="مثال: تأخر التسليم، أو الطلب غير مكتمل..."
                 value={ticketSubject}
                 onChange={(e) => setTicketSubject(e.target.value)}
                 className="w-full p-3 rounded-lg resize-none focus:outline-none"
-                style={{ background: 'var(--color-surface-container-highest)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '14px', direction: 'rtl', textTransform: 'none', letterSpacing: 0 }}
+                style={{ background: 'rgba(17,20,23,0.7)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '14px', direction: 'rtl', textTransform: 'none', letterSpacing: 0 }}
                 rows={2}
               />
               <button
@@ -582,12 +554,12 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
           )}
 
           {/* Telemetry strip */}
-          <div className="grid grid-cols-2 gap-2 p-3 rounded-xl text-center" style={{ background: 'var(--color-surface-container-high)' }}>
+          <div className="grid grid-cols-2 gap-2 p-3 rounded-xl text-center" style={{ background: 'rgba(29,32,35,0.5)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.06)' }}>
             {[
-              { label: 'موقع المتجر',      val: `${merchantLoc.lat.toFixed(4)}, ${merchantLoc.lng.toFixed(4)}` },
-              { label: 'موقع المنزل',       val: `${customerLoc.lat.toFixed(4)}, ${customerLoc.lng.toFixed(4)}` },
-              { label: 'موقع المندوب',     val: `${riderLoc.lat.toFixed(4)}, ${riderLoc.lng.toFixed(4)}`, accent: true },
-              { label: 'المسافة المتبقية', val: `${((1 - courierProgress) * 4.2).toFixed(2)} كم` },
+              { label: 'موقع المتجر',      val: merchantLoc ? `${merchantLoc.lat.toFixed(4)}, ${merchantLoc.lng.toFixed(4)}` : 'غير محدد' },
+              { label: 'موقع المنزل',       val: customerLoc ? `${customerLoc.lat.toFixed(4)}, ${customerLoc.lng.toFixed(4)}` : 'غير محدد' },
+              { label: 'موقع المندوب',     val: riderLoc ? `${riderLoc.lat.toFixed(4)}, ${riderLoc.lng.toFixed(4)}` : 'في الانتظار', accent: true },
+              { label: 'المسافة المتبقية', val: riderLoc && customerLoc ? `${calculateDistanceKm(riderLoc.lat, riderLoc.lng, customerLoc.lat, customerLoc.lng).toFixed(2)} كم` : '—' },
             ].map(({ label, val, accent }) => (
               <div key={label}>
                 <span style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', display: 'block', textTransform: 'none', letterSpacing: 0 }}>{label}</span>

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Driver, Order, DriverEarning } from './types';
+import { Driver, Order, DriverEarning, ORDER_STATUSES, DRIVER_ACTIVE_STATUSES } from './types';
 
 export const driverService = {
   // Update offline/online delivery status of a courier
@@ -21,29 +21,23 @@ export const driverService = {
     return { data: data || [], error };
   },
 
-  // Assign order delivery package to a courier
+  // Assign order delivery package to a courier.
+  // Uses a single atomic UPDATE with a WHERE guard (driver_id IS NULL AND status='accepted')
+  // to eliminate the TOCTOU race where two drivers could both read driver_id=null
+  // and then both win the subsequent update. Zero affected rows means the job was already taken.
   async acceptDelivery(orderId: string, driverId: string): Promise<{ success: boolean; error: any }> {
-    // 1. Transaction check to verify order is still waiting for a driver
-    const { data: order } = await supabase
+    const { data: updated, error } = await supabase
       .from('orders')
-      .select('driver_id, status')
+      .update({ driver_id: driverId, status: ORDER_STATUSES.PREPARING })
       .eq('id', orderId)
-      .single();
-
-    if (!order || order.driver_id) {
-      return { success: false, error: new Error('لقد تم قبول هذا الطلب بالفعل من قبل مندوب آخر.') };
-    }
-
-    // 2. Assign driver
-    const { error } = await supabase
-      .from('orders')
-      .update({
-        driver_id: driverId,
-        status: 'preparing'
-      })
-      .eq('id', orderId);
+      .is('driver_id', null)
+      .eq('status', ORDER_STATUSES.ACCEPTED)
+      .select('id');
 
     if (error) return { success: false, error };
+    if (!updated || updated.length === 0) {
+      return { success: false, error: new Error('لقد تم قبول هذا الطلب بالفعل من قبل مندوب آخر.') };
+    }
 
     // Log tracking update
     await supabase.from('order_status_history').insert({
@@ -61,7 +55,7 @@ export const driverService = {
       .from('orders')
       .select('*, merchant_branches(*), customers(*)')
       .eq('driver_id', driverId)
-      .in('status', ['preparing', 'on_the_way']);
+      .in('status', [...DRIVER_ACTIVE_STATUSES]);
     
     return { data: data || [], error };
   },

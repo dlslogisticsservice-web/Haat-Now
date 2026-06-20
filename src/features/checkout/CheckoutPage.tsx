@@ -2,14 +2,22 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
-import { paymentService } from '../../services/payment.service';
+import { adminService } from '../../services/admin.service';
+import { useAppConfig } from '../../contexts/AppConfigContext';
+import { getCategoryThumb } from '../../utils/categoryImages';
+import {
+  ChevronLeft, Loader2, Star, UtensilsCrossed, BadgeCheck,
+  CheckCircle2, Circle, MapPin, Wallet, Smartphone, CreditCard,
+  Banknote, Plus, Minus, Check, ChevronsRight,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface CartItem {
   product: { id: string; name: string; price: number; branch_id: string };
   variant: { id: string; name: string; price_modifier: number } | null;
   quantity: number;
 }
-interface Address    { id: string; address_line: string; label: string; zone_id: string }
+interface Address    { id: string; address_line: string; label: string; zone_id: string; is_default?: boolean; latitude?: number | null; longitude?: number | null }
 interface Zone       { id: string; name: string }
 interface PaymentMethod { id: string; provider: string; is_default: boolean; provider_payment_method_id?: string | null }
 
@@ -22,19 +30,22 @@ interface CheckoutPageProps {
 }
 
 const MAP_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBGElXF80FqXsSBy_lETRDhEMvfpJEnisJCKyNYTwOuL6Dda0IlzC8QuXWiBDjX_A9_fRwumQfK_8pTd1TTvXSRpBSGBYnHbo0pm6BH8ETWhgD9TKiQY1dRNsjgnH0y3kE3PFTpUVt5baqvZSyLRR-3TvqOLD6SjfdTdhislXrwngNvVjTrRBlcidWwnOYPB8yYFWulkaOGFn4BfS-qlWbHMgUbJUz6ne0tbIZW6l33nTpSVDYpOHD-sXf9SKaD-PaX5m3USXE6XOEk';
-const PAYMENT_TYPES = [
-  { key: 'apple_pay', label: 'Apple Pay', icon: 'apps' },
-  { key: 'mada',      label: 'مدى',       icon: 'credit_card' },
-  { key: 'visa',      label: 'Visa',       icon: 'payments' },
+const PAYMENT_TYPES: { key: string; label: string; Icon: LucideIcon }[] = [
+  { key: 'apple_pay', label: 'Apple Pay', Icon: Smartphone },
+  { key: 'mada',      label: 'مدى',       Icon: CreditCard },
+  { key: 'visa',      label: 'Visa',       Icon: Banknote },
 ];
 
 export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, onBack }: CheckoutPageProps) => {
+  const { country, price: money } = useAppConfig();
+  const cur = country.currency.symbolAr;
   const [addresses,       setAddresses]       = useState<Address[]>([]);
   const [zones,           setZones]           = useState<Zone[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string>('');
   const [newAddressText,  setNewAddressText]  = useState('');
   const [selectedZoneId,  setSelectedZoneId]  = useState('');
   const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [branchCoords,    setBranchCoords]    = useState<{ latitude: number | null; longitude: number | null } | null>(null);
   const [productImages,   setProductImages]   = useState<Record<string, string>>({});
 
   const [paymentMethods,  setPaymentMethods]  = useState<PaymentMethod[]>([]);
@@ -45,6 +56,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const [cardHolder,      setCardHolder]      = useState('');
 
   const [couponCode,      setCouponCode]      = useState('');
+  const [couponId,        setCouponId]        = useState<string | null>(null);
   const [couponDiscount,  setCouponDiscount]  = useState(0);
   const [couponError,     setCouponError]     = useState('');
   const [couponSuccess,   setCouponSuccess]   = useState('');
@@ -61,23 +73,155 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const isDragging   = useRef(false);
   const startData    = useRef({ startX: 0, startPos: 8 });
 
-  const deliveryFee  = 10.00;
+  const [paymentStatus, setPaymentStatus] = useState<'idle' | 'verifying' | 'failed' | 'cancelled'>('idle');
+  const [paymentError,  setPaymentError]  = useState('');
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [deliveryFee, setDeliveryFee] = useState(10.00);
   const luxuryFee    = 5.00;
 
+  // EF2-14: Poll payment-verify every 5s (max 12 attempts).
+  // Called after the payment tab is opened. Reads coupon from sessionStorage to
+  // preserve the coupon usage insert after webhook confirms — not during redirect.
+  const startVerifyPolling = (attemptId: string, orderId: string | null) => {
+    let attempts = 0;
+    const MAX    = 12;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+    const stop = () => {
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+    };
+
+    const poll = async () => {
+      attempts++;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`${supabaseUrl}/functions/v1/payment-verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${session?.access_token ?? ''}`,
+            'apikey':        anonKey,
+          },
+          body: JSON.stringify({ paymentAttemptId: attemptId }),
+        });
+
+        if (!res.ok) return; // Network or 5xx — keep polling
+
+        const data = await res.json() as Record<string, unknown>;
+
+        if (data['orderPaymentStatus'] === 'paid' || data['status'] === 'captured') {
+          stop();
+          const pendingCoupon = sessionStorage.getItem('haat_pending_coupon_id');
+          sessionStorage.removeItem('haat_payment_attempt_id');
+          sessionStorage.removeItem('haat_pending_order_id');
+          sessionStorage.removeItem('haat_pending_coupon_id');
+          // Record coupon usage now that payment is confirmed (moved from handlePlaceOrder)
+          if (pendingCoupon && orderId) {
+            await supabase.from('coupon_usages').insert({ coupon_id: pendingCoupon, order_id: orderId });
+          }
+          setCompletedOrderId(orderId ?? '');
+          setPaymentStatus('idle');
+          setShowSuccessModal(true);
+          return;
+        }
+
+        if (data['status'] === 'failed' || data['status'] === 'cancelled') {
+          stop();
+          sessionStorage.removeItem('haat_payment_attempt_id');
+          sessionStorage.removeItem('haat_pending_order_id');
+          sessionStorage.removeItem('haat_pending_coupon_id');
+          setPaymentError('فشلت عملية الدفع أو تم إلغاؤها. حاول مجدداً.');
+          setPaymentStatus('failed');
+          setSwipeComplete(false);
+          setHandleLeft(8);
+          return;
+        }
+
+        if (attempts >= MAX) {
+          stop();
+          sessionStorage.removeItem('haat_payment_attempt_id');
+          sessionStorage.removeItem('haat_pending_order_id');
+          sessionStorage.removeItem('haat_pending_coupon_id');
+          setPaymentStatus('idle');
+          setPaymentError('جاري معالجة الدفع. سنُخطرك فور التأكيد.');
+          if (orderId) onOrderPlaced(orderId);
+        }
+      } catch (e) {
+        console.error('[payment-verify] poll error:', e);
+      }
+    };
+
+    void poll(); // Immediate first check
+    pollingRef.current = setInterval(() => { void poll(); }, 5_000);
+  };
+
   useEffect(() => { fetchCheckoutPreRequisites(); }, [customerId]);
+
+  // EF2-13: Detect return from Moyasar hosted page via URL query params.
+  // This fires when the SPA mounts with ?status= in the URL (e.g. callback_url redirect).
+  // Primary payment detection is via polling above; this handles direct-URL-return cases.
+  useEffect(() => {
+    const params    = new URLSearchParams(window.location.search);
+    const status    = params.get('status');
+    const attemptId = sessionStorage.getItem('haat_payment_attempt_id');
+    const pendingOrder = sessionStorage.getItem('haat_pending_order_id');
+
+    if (status && attemptId) {
+      window.history.replaceState({}, '', window.location.pathname);
+      if (status === 'paid' || status === 'authorized') {
+        setPaymentStatus('verifying');
+        startVerifyPolling(attemptId, pendingOrder);
+      } else if (status === 'failed') {
+        sessionStorage.removeItem('haat_payment_attempt_id');
+        sessionStorage.removeItem('haat_pending_order_id');
+        sessionStorage.removeItem('haat_pending_coupon_id');
+        setPaymentError('فشلت عملية الدفع. يمكنك المحاولة مجدداً.');
+        setPaymentStatus('failed');
+      } else {
+        sessionStorage.removeItem('haat_payment_attempt_id');
+        sessionStorage.removeItem('haat_pending_order_id');
+        sessionStorage.removeItem('haat_pending_coupon_id');
+        setPaymentError('تم إلغاء عملية الدفع.');
+        setPaymentStatus('cancelled');
+      }
+    }
+
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, []);
 
   const fetchCheckoutPreRequisites = async () => {
     try {
       setLoading(true);
       const { data: zoneData }    = await supabase.from('zones').select('*');
       if (zoneData) { setZones(zoneData); if (zoneData.length > 0) setSelectedZoneId(zoneData[0].id); }
-      const { data: addressData } = await supabase.from('addresses').select('*').eq('customer_id', customerId);
-      if (addressData) { setAddresses(addressData); if (addressData.length > 0) setSelectedAddress(addressData[0].id); }
+      const { data: addressData } = await supabase.from('addresses').select('*').eq('customer_id', customerId).order('is_default', { ascending: false });
+      if (addressData) {
+        setAddresses(addressData);
+        if (addressData.length > 0) {
+          const def = addressData.find((a: Address) => a.is_default);
+          setSelectedAddress(def ? def.id : addressData[0].id);
+        }
+      }
       const { data: pmData }      = await checkoutService.getPaymentMethods(customerId);
       if (pmData) {
         setPaymentMethods(pmData);
         if (pmData.length > 0) { const def = pmData.find(p => p.is_default); setSelectedPayment(def ? def.id : pmData[0].id); }
       }
+      const { data: feeConf } = await adminService.getAppConfig('MIN_DELIVERY_FEE');
+      if (feeConf) {
+        const parsed = parseFloat(feeConf.value);
+        if (!isNaN(parsed) && parsed > 0) setDeliveryFee(parsed);
+      }
+
+      const { data: branchData } = await supabase
+        .from('merchant_branches')
+        .select('latitude,longitude')
+        .eq('id', branchId)
+        .maybeSingle();
+      if (branchData) setBranchCoords({ latitude: branchData.latitude ?? null, longitude: branchData.longitude ?? null });
+
       const ids = cartItems.map(i => i.product.id);
       if (ids.length > 0) {
         const { data: imgData } = await supabase.from('product_images').select('product_id,url').in('product_id', ids);
@@ -126,9 +270,11 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const handleVerifyCoupon = async () => {
     setCouponError(''); setCouponSuccess('');
     if (!couponCode) return;
-    const { data, error } = await checkoutService.verifyCoupon(couponCode);
-    if (error || !data) { setCouponError('الكود غير صالح أو انتهت صلاحيته'); setCouponDiscount(0); }
-    else { setCouponSuccess(`خصم ${data.discount_percent}% مُفعّل!`); setCouponDiscount(data.discount_percent); }
+    try {
+      const { data, error } = await checkoutService.verifyCoupon(couponCode);
+      if (error || !data) { setCouponError(error?.message || 'الكود غير صالح أو انتهت صلاحيته'); setCouponDiscount(0); setCouponId(null); }
+      else { setCouponSuccess(`خصم ${data.discount_percent}% مُفعّل!`); setCouponDiscount(data.discount_percent); setCouponId(data.id); }
+    } catch (e) { console.error(e); setCouponError('حدث خطأ أثناء التحقق من الكوبون'); }
   };
 
   const getSubtotal = () => cartItems.reduce((t, i) => t + (i.product.price + (i.variant?.price_modifier ?? 0)) * i.quantity, 0);
@@ -137,8 +283,12 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const grandTotal  = Math.max(0, subtotal - discountVal + deliveryFee + luxuryFee);
 
   const handlePlaceOrder = async () => {
+    if (addresses.length === 0) { alert('لا يوجد عنوان توصيل. يُرجى إضافة عنوان من صفحة حسابك الشخصي.'); return; }
     if (!selectedAddress) { alert('الرجاء تحديد عنوان التوصيل'); return; }
     if (!selectedPayment)  { alert('الرجاء تحديد طريقة الدفع');   return; }
+    // Open the payment tab synchronously (before any async ops) — required by iOS Safari.
+    // Browsers allow window.open only in a direct user-gesture stack; async calls get blocked.
+    const paymentTabRef = window.open('about:blank', '_moyasar_payment');
     setActionLoading(true);
     try {
       const resolvedItems = [];
@@ -154,23 +304,76 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         }
         resolvedItems.push({ variantId: variantId || '', quantity: item.quantity, price: item.product.price + (item.variant?.price_modifier ?? 0) });
       }
-      const { data: orderData, error: orderErr } = await orderService.createOrder(customerId, branchId, grandTotal, resolvedItems);
-      if (orderErr) { alert(`خطأ في إنشاء الطلب: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
+      const selectedAddrObj = addresses.find(a => a.id === selectedAddress);
+      const { data: orderData, error: orderErr } = await orderService.createOrder(
+        customerId, branchId, grandTotal, resolvedItems,
+        {
+          addressId:         selectedAddress || null,
+          deliveryLat:       selectedAddrObj?.latitude  ?? null,
+          deliveryLng:       selectedAddrObj?.longitude ?? null,
+          branchLatSnapshot: branchCoords?.latitude     ?? null,
+          branchLngSnapshot: branchCoords?.longitude    ?? null,
+          deliveryFee:       deliveryFee,
+        },
+      );
+      if (orderErr) { paymentTabRef?.close(); alert(`خطأ في إنشاء الطلب: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
       if (orderData) {
-        const activePM  = paymentMethods.find(pm => pm.id === selectedPayment);
-        const providerName = activePM?.provider?.toLowerCase().includes('mada') ? 'mada'
-          : activePM?.provider?.toLowerCase().includes('stripe') ? 'stripe'
-          : activePM?.provider?.toLowerCase().includes('apple')  ? 'apple_pay'
-          : 'stripe';
-        const payRes = await paymentService.processPayment({
-          amount: grandTotal, currency: 'SAR', customerId, orderId: orderData.id,
-          provider: providerName as any, paymentMethodToken: activePM?.provider_payment_method_id ?? undefined,
+        // EF2-11: Call payment-initiate Edge Function with customer JWT
+        const { data: { session } } = await supabase.auth.getSession();
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+        const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+        const initiateRes = await fetch(`${supabaseUrl}/functions/v1/payment-initiate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${session?.access_token ?? ''}`,
+            'apikey':        anonKey,
+          },
+          body: JSON.stringify({ orderId: orderData.id, customerId, amount: grandTotal, currency: country.currency.code }),
         });
-        if (!payRes.success) { alert(`فشل الدفع: ${payRes.errorMessage || 'تحقق من بيانات البطاقة'}`); setSwipeComplete(false); setHandleLeft(8); return; }
-        setCompletedOrderId(orderData.id);
-        setShowSuccessModal(true);
+
+        const initiateData = await initiateRes.json() as Record<string, unknown>;
+
+        if (!initiateRes.ok || !initiateData['success']) {
+          paymentTabRef?.close();
+          const errMsg = (initiateData['error'] as Record<string, unknown> | undefined)?.['message']
+            ?? (initiateData['message'] as string | undefined)
+            ?? 'حاول مجدداً';
+          alert(`فشل في بدء عملية الدفع: ${errMsg}`);
+          setSwipeComplete(false); setHandleLeft(8);
+          return;
+        }
+
+        // EF2-12: Validate paymentUrl before redirecting
+        const gateway    = initiateData['gateway'] as Record<string, unknown> | undefined;
+        const paymentUrl = gateway?.['paymentUrl'] as string | null ?? null;
+
+        if (!paymentUrl) {
+          paymentTabRef?.close();
+          alert('لم يتم الحصول على رابط الدفع. حاول مجدداً.');
+          setSwipeComplete(false); setHandleLeft(8);
+          return;
+        }
+
+        // Save to sessionStorage — persists through the new-tab redirect and polling
+        sessionStorage.setItem('haat_payment_attempt_id', initiateData['paymentAttemptId'] as string);
+        sessionStorage.setItem('haat_pending_order_id', orderData.id);
+        if (couponId) sessionStorage.setItem('haat_pending_coupon_id', couponId);
+        // Coupon usage insert now happens inside startVerifyPolling after webhook confirms
+
+        // EF2-12: Navigate the pre-opened tab to Moyasar hosted payment page
+        if (paymentTabRef) {
+          paymentTabRef.location.href = paymentUrl;
+        } else {
+          window.open(paymentUrl, '_blank');
+        }
+
+        // EF2-14: Start 5s polling (max 12 attempts / 60s timeout)
+        setPaymentStatus('verifying');
+        startVerifyPolling(initiateData['paymentAttemptId'] as string, orderData.id);
       }
-    } catch (err) { console.error(err); alert('حدث خطأ داخلي.'); setSwipeComplete(false); setHandleLeft(8); }
+    } catch (err) { paymentTabRef?.close(); console.error(err); alert('حدث خطأ داخلي.'); setSwipeComplete(false); setHandleLeft(8); }
     finally { setActionLoading(false); }
   };
 
@@ -203,12 +406,14 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   };
 
   const selectedAddr = addresses.find(a => a.id === selectedAddress);
-  const heroImgUrl   = cartItems[0] ? (productImages[cartItems[0].product.id] || (cartItems[0].product as any).product_images?.[0]?.url) : null;
+  const heroImgUrl   = cartItems[0]
+    ? (productImages[cartItems[0].product.id] || (cartItems[0].product as any).product_images?.[0]?.url || getCategoryThumb(cartItems[0].product.name))
+    : null;
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-4">
-        <span className="material-symbols-outlined text-[var(--color-primary-fixed)] animate-spin-slow" style={{ fontSize: '36px' }}>refresh</span>
+        <Loader2 size={36} strokeWidth={2} className="text-[var(--color-primary-fixed)] animate-spin" />
         <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>جاري تحضير بيانات الطلب...</p>
       </div>
     );
@@ -227,7 +432,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors"
           style={{ background: 'var(--color-surface-container-highest)', border: '1px solid rgba(255,255,255,0.1)' }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: 'white' }}>arrow_back</span>
+          <ChevronLeft size={20} strokeWidth={2} color="white" />
         </button>
 
         <span
@@ -241,7 +446,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
           style={{ background: 'rgba(163,249,91,0.1)', border: '1px solid rgba(163,249,91,0.2)' }}
         >
-          <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--color-primary-fixed)', fontVariationSettings: "'FILL' 1" }}>stars</span>
+          <Star size={14} strokeWidth={0} fill="var(--color-primary-fixed)" color="var(--color-primary-fixed)" />
           <span style={{ color: 'var(--color-primary-fixed)', fontSize: '12px', fontWeight: 700 }}>2,450</span>
         </div>
       </div>
@@ -254,7 +459,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
             className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(163,249,91,0.1)', border: '1px solid rgba(163,249,91,0.2)' }}
           >
-            <span className="material-symbols-outlined" style={{ color: 'var(--color-primary-fixed)', fontSize: '24px' }}>restaurant</span>
+            <UtensilsCrossed size={24} strokeWidth={1.75} color="var(--color-primary-fixed)" />
           </div>
           <div className="flex-1">
             <h1 style={{ color: 'white', fontSize: '22px', fontWeight: 700, textTransform: 'none', letterSpacing: 0 }}>
@@ -267,7 +472,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
             </h1>
             <p style={{ color: 'var(--color-secondary)', fontSize: '26px', fontWeight: 700, direction: 'ltr', marginTop: '2px' }}>
               {grandTotal.toFixed(2)}{' '}
-              <span style={{ fontSize: '14px', fontWeight: 400 }}>ر.س</span>
+              <span style={{ fontSize: '14px', fontWeight: 400 }}>{cur}</span>
             </p>
           </div>
         </div>
@@ -289,7 +494,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
               <div className="space-y-4">
 
                 {/* Food hero */}
-                <div className="glass-panel rounded-xl overflow-hidden relative group" style={{ aspectRatio: '16/9' }}>
+                <div className="surface-z3 rounded-xl overflow-hidden relative group" style={{ aspectRatio: '16/9' }}>
                   {heroImgUrl ? (
                     <img
                       src={heroImgUrl}
@@ -298,7 +503,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--color-surface-container)' }}>
-                      <span className="material-symbols-outlined" style={{ fontSize: '64px', color: 'var(--color-on-surface-variant)', opacity: 0.3 }}>restaurant</span>
+                      <UtensilsCrossed size={64} strokeWidth={1.5} color="var(--color-on-surface-variant)" style={{ opacity: 0.3 }} />
                     </div>
                   )}
                   <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(17,20,23,0.85) 0%, transparent 55%)' }} />
@@ -306,13 +511,13 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full"
                     style={{ background: 'rgba(163,249,91,0.15)', border: '1px solid rgba(163,249,91,0.3)', backdropFilter: 'blur(10px)' }}
                   >
-                    <span className="material-symbols-outlined" style={{ fontSize: '14px', color: 'var(--color-primary-fixed)', fontVariationSettings: "'FILL' 1" }}>verified</span>
+                    <BadgeCheck size={14} strokeWidth={2} color="var(--color-primary-fixed)" />
                     <span style={{ color: 'var(--color-primary-fixed)', fontSize: '11px', fontWeight: 700 }}>Premium Ingredient</span>
                   </div>
                   <div className="absolute bottom-3 right-3 left-3 flex flex-col gap-1" dir="rtl">
                     {cartItems.slice(0, 2).map((item, idx) => (
                       <div key={idx} className="flex items-center gap-2">
-                        <span className="material-symbols-outlined" style={{ fontSize: '10px', color: 'var(--color-primary-fixed)' }}>circle</span>
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-0.5" style={{ background: 'var(--color-primary-fixed)' }} />
                         <span style={{ color: 'white', fontSize: '12px', textTransform: 'none', letterSpacing: 0 }}>
                           {item.product.name} ×{item.quantity}
                         </span>
@@ -322,7 +527,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                 </div>
 
                 {/* Preparation progress */}
-                <div className="glass-panel rounded-xl p-5">
+                <div className="surface-z3 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4" dir="rtl">
                     <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>مراحل التحضير</h3>
                     <div className="flex items-center gap-2">
@@ -346,9 +551,10 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                             border:     idx < 3 ? '1px solid rgba(163,249,91,0.4)' : '1px solid rgba(255,255,255,0.1)',
                           }}
                         >
-                          <span className="material-symbols-outlined" style={{ fontSize: '14px', color: idx < 3 ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)', fontVariationSettings: idx < 3 ? "'FILL' 1" : "'FILL' 0" }}>
-                            {idx < 3 ? 'check_circle' : 'radio_button_unchecked'}
-                          </span>
+                          {idx < 3
+                            ? <CheckCircle2 size={14} strokeWidth={2} color="var(--color-primary-fixed)" />
+                            : <Circle size={14} strokeWidth={2} color="var(--color-on-surface-variant)" />
+                          }
                         </div>
                         <span style={{ color: idx < 3 ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)', fontSize: '10px', textTransform: 'none', letterSpacing: 0 }}>{step}</span>
                       </div>
@@ -357,11 +563,11 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                 </div>
 
                 {/* Delivery address */}
-                <div className="glass-panel rounded-xl overflow-hidden" id="address_card">
+                <div className="surface-z3 rounded-xl overflow-hidden" id="address_card">
                   <div className="flex items-center justify-between px-4 pt-4 pb-2" dir="rtl">
                     <h3 className="flex items-center gap-2 font-bold" style={{ color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>
                       عنوان التوصيل
-                      <span className="material-symbols-outlined" style={{ color: 'var(--color-primary-fixed)', fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>location_on</span>
+                      <MapPin size={18} strokeWidth={2} color="var(--color-primary-fixed)" />
                     </h3>
                     <button
                       onClick={() => setIsAddingAddress(!isAddingAddress)}
@@ -385,7 +591,14 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                         </p>
                       </>
                     ) : (
-                      <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>لم يتم تحديد عنوان</p>
+                      <div className="py-2 flex flex-col items-end gap-2">
+                        <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>
+                          لم يتم تحديد عنوان توصيل
+                        </p>
+                        <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', opacity: 0.65, textTransform: 'none', letterSpacing: 0 }}>
+                          أضف عنوانك من صفحة الحساب الشخصي ثم عد للطلب
+                        </p>
+                      </div>
                     )}
                     {addresses.length > 1 && !isAddingAddress && (
                       <select
@@ -435,7 +648,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
               <div className="space-y-4">
 
                 {/* Delivery path SVG */}
-                <div className="glass-panel rounded-xl p-4 relative" style={{ aspectRatio: '1 / 1' }}>
+                <div className="surface-z3 rounded-xl p-4 relative" style={{ aspectRatio: '1 / 1' }}>
                   <div className="flex items-center justify-between mb-3" dir="rtl">
                     <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', textTransform: 'none', letterSpacing: 0 }}>التوصيل المتوقع: ~30 دقيقة</span>
                     <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>مسار التوصيل</h3>
@@ -454,7 +667,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                   </svg>
                   {/* Floating info card */}
                   <div
-                    className="absolute top-12 left-4 glass-panel p-2 rounded-lg"
+                    className="absolute top-12 left-4 surface-z3 p-2 rounded-lg"
                     style={{ border: '1px solid rgba(255,255,255,0.1)' }}
                   >
                     <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '10px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em' }}>السرعة</span>
@@ -463,9 +676,9 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                 </div>
 
                 {/* Payment method */}
-                <div className="glass-panel rounded-xl p-4" id="payment_section">
+                <div className="surface-z3 rounded-xl p-4" id="payment_section">
                   <h3 className="flex items-center justify-between mb-4" dir="rtl">
-                    <span className="material-symbols-outlined" style={{ color: 'var(--color-primary-fixed)', fontSize: '18px', fontVariationSettings: "'FILL' 1" }}>account_balance_wallet</span>
+                    <Wallet size={18} strokeWidth={1.75} color="var(--color-primary-fixed)" />
                     <span className="font-bold" style={{ color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>وسيلة الدفع</span>
                   </h3>
                   <div className="grid grid-cols-3 gap-2 mb-3" id="payment_grid">
@@ -480,9 +693,9 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                           id={`pay_type_${pt.key}`}
                         >
                           {isActive && (
-                            <span className="absolute top-1 right-1 material-symbols-outlined" style={{ fontSize: '12px', color: 'var(--color-secondary)', fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                            <CheckCircle2 size={12} strokeWidth={2} className="absolute top-1 right-1" color="var(--color-primary-fixed)" />
                           )}
-                          <span className="material-symbols-outlined" style={{ fontSize: '20px', color: isActive ? 'var(--color-primary-fixed)' : 'white', fontVariationSettings: pt.key === 'apple_pay' ? "'FILL' 1" : "'FILL' 0" }}>{pt.icon}</span>
+                          <pt.Icon size={20} strokeWidth={1.75} color={isActive ? 'var(--color-primary-fixed)' : 'white'} />
                           <span style={{ fontSize: '11px', color: isActive ? 'white' : 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{pt.label}</span>
                         </button>
                       );
@@ -510,7 +723,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     className="flex items-center gap-1.5 cursor-pointer"
                     style={{ color: 'var(--color-secondary)', fontSize: '13px', background: 'none', border: 'none', textTransform: 'none', letterSpacing: 0 }}
                   >
-                    <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>{isAddingCard ? 'remove' : 'add'}</span>
+                    {isAddingCard ? <Minus size={16} strokeWidth={2} /> : <Plus size={16} strokeWidth={2} />}
                     {isAddingCard ? 'إلغاء' : 'إضافة بطاقة'}
                   </button>
                   {isAddingCard && (
@@ -540,7 +753,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
 
                 {/* Checkout Summary */}
                 <div
-                  className="glass-panel rounded-xl p-5 space-y-3"
+                  className="surface-z3 rounded-xl p-5 space-y-3"
                   style={{ borderTop: '2px solid rgba(163,249,91,0.2)' }}
                   id="order_summary_section"
                 >
@@ -552,25 +765,25 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                       const ip = item.product.price + (item.variant?.price_modifier ?? 0);
                       return (
                         <div key={idx} className="flex justify-between text-sm">
-                          <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>{(ip * item.quantity).toFixed(2)} ر.س</span>
+                          <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>{money(ip * item.quantity)}</span>
                           <span style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{item.product.name} ×{item.quantity}</span>
                         </div>
                       );
                     })}
                     <div className="flex justify-between text-sm" style={{ direction: 'rtl' }}>
-                      <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>{deliveryFee.toFixed(2)} ر.س</span>
+                      <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>{money(deliveryFee)}</span>
                       <span style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>رسوم التوصيل</span>
                     </div>
                     <div className="flex justify-between text-sm" style={{ direction: 'rtl' }}>
-                      <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>{luxuryFee.toFixed(2)} ر.س</span>
+                      <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>{money(luxuryFee)}</span>
                       <span className="flex items-center gap-1.5" style={{ color: 'var(--color-secondary)', textTransform: 'none', letterSpacing: 0 }}>
                         رسوم الرفاهية
-                        <span className="material-symbols-outlined" style={{ fontSize: '14px', fontVariationSettings: "'FILL' 1" }}>verified</span>
+                        <BadgeCheck size={14} strokeWidth={2} color="var(--color-primary-fixed)" />
                       </span>
                     </div>
                     {couponDiscount > 0 && (
                       <div className="flex justify-between text-sm" style={{ direction: 'rtl' }}>
-                        <span style={{ color: 'var(--color-error)', textTransform: 'none', letterSpacing: 0 }}>-{discountVal.toFixed(2)} ر.س</span>
+                        <span style={{ color: 'var(--color-error)', textTransform: 'none', letterSpacing: 0 }}>-{money(discountVal)}</span>
                         <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>خصم {couponDiscount}%</span>
                       </div>
                     )}
@@ -593,7 +806,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                   {couponSuccess && <p style={{ color: 'var(--color-primary-fixed)', fontSize: '12px', textTransform: 'none', letterSpacing: 0 }}>{couponSuccess}</p>}
                   <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
                   <div className="flex justify-between items-center font-bold" style={{ direction: 'rtl' }}>
-                    <span style={{ color: 'var(--color-secondary)', fontSize: '22px', textTransform: 'none', letterSpacing: 0 }}>{grandTotal.toFixed(2)} ر.س</span>
+                    <span style={{ color: 'var(--color-secondary)', fontSize: '22px', textTransform: 'none', letterSpacing: 0 }}>{money(grandTotal)}</span>
                     <span style={{ color: 'white', fontSize: '15px', textTransform: 'none', letterSpacing: 0 }}>الإجمالي</span>
                   </div>
                 </div>
@@ -614,7 +827,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           />
           <div
             ref={containerRef}
-            className="relative glass-panel rounded-full p-2 h-16 flex items-center overflow-hidden"
+            className="relative surface-z3 rounded-full p-2 h-16 flex items-center overflow-hidden"
             style={{ border: '1px solid rgba(255,255,255,0.2)' }}
           >
             <div className="absolute inset-2 rounded-full overflow-hidden pointer-events-none">
@@ -633,7 +846,15 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                 transition: 'opacity 0.3s',
               }}
             >
-              {swipeComplete ? (actionLoading ? 'جاري المعالجة...' : 'تم التأكيد!') : 'اسحب لتأكيد الطلب'}
+              {swipeComplete
+                ? (actionLoading
+                    ? 'جاري المعالجة...'
+                    : paymentStatus === 'verifying'
+                      ? 'جاري التحقق من الدفع...'
+                      : paymentStatus === 'failed' || paymentStatus === 'cancelled'
+                        ? 'فشل الدفع — حاول مجدداً'
+                        : 'تم التأكيد!')
+                : 'اسحب لتأكيد الطلب'}
             </div>
             <div
               className="absolute w-12 h-12 rounded-full flex items-center justify-center z-10 cursor-grab active:cursor-grabbing"
@@ -649,20 +870,34 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
               onPointerUp={handlePointerUp}
               onPointerCancel={handlePointerUp}
             >
-              <span className="material-symbols-outlined" style={{ color: '#1e3700', fontWeight: 700, userSelect: 'none' }}>
-                {swipeComplete ? 'check' : 'keyboard_double_arrow_right'}
-              </span>
+              {swipeComplete
+                ? <Check size={22} strokeWidth={2.5} color="#1e3700" />
+                : <ChevronsRight size={22} strokeWidth={2.5} color="#1e3700" />
+              }
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Payment error toast ──────────────────────────── */}
+      {paymentError && (paymentStatus === 'failed' || paymentStatus === 'cancelled') && (
+        <div className="fixed left-4 right-4 z-50" style={{ bottom: '168px' }}>
+          <div
+            className="max-w-md mx-auto rounded-xl px-4 py-3 text-center"
+            style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', backdropFilter: 'blur(12px)' }}
+            dir="rtl"
+          >
+            <p style={{ color: '#fca5a5', fontSize: '13px', textTransform: 'none', letterSpacing: 0 }}>{paymentError}</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Success Modal ─────────────────────────────────── */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0" style={{ background: 'rgba(17,20,23,0.92)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }} />
           <div
-            className="relative glass-panel rounded-2xl p-8 max-w-sm w-full text-center"
+            className="relative surface-z3 rounded-2xl p-8 max-w-sm w-full text-center"
             style={{ border: '2px solid rgba(163,249,91,0.3)' }}
             id="modal-content"
           >
@@ -670,9 +905,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
               className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
               style={{ background: 'rgba(163,249,91,0.2)' }}
             >
-              <span className="material-symbols-outlined" style={{ color: 'var(--color-secondary)', fontSize: '48px', fontVariationSettings: "'FILL' 1" }}>
-                check_circle
-              </span>
+              <CheckCircle2 size={48} strokeWidth={1.5} color="var(--color-primary-fixed)" />
             </div>
             <h2 className="font-bold mb-2" style={{ color: 'var(--color-primary-fixed)', fontSize: '28px', textTransform: 'none', letterSpacing: 0 }}>
               تم تأكيد الطلب

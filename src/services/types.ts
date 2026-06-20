@@ -1,5 +1,24 @@
 // Database types and API payloads for Haat Now Enterprise Platform
 
+// ── Order status machine — single source of truth ──────────────────────────
+export const ORDER_STATUSES = {
+  PENDING:    'pending',
+  ACCEPTED:   'accepted',
+  PREPARING:  'preparing',
+  ON_THE_WAY: 'on_the_way',
+  DELIVERED:  'delivered',
+  CANCELLED:  'cancelled',
+} as const;
+
+export type OrderStatusValue = typeof ORDER_STATUSES[keyof typeof ORDER_STATUSES];
+
+// Statuses where a driver has an active obligation on the order
+export const DRIVER_ACTIVE_STATUSES = [ORDER_STATUSES.PREPARING, ORDER_STATUSES.ON_THE_WAY] as const;
+// Statuses visible to the merchant as actionable / in-progress
+export const MERCHANT_ACTIVE_STATUSES = [ORDER_STATUSES.PENDING, ORDER_STATUSES.ACCEPTED, ORDER_STATUSES.PREPARING, ORDER_STATUSES.ON_THE_WAY] as const;
+// Terminal statuses — order is no longer actionable
+export const ARCHIVED_STATUSES = [ORDER_STATUSES.DELIVERED, ORDER_STATUSES.CANCELLED] as const;
+
 export interface Country {
   id: string;
   name: string;
@@ -23,6 +42,8 @@ export interface Customer {
   phone_number: string;
   full_name: string | null;
   email: string | null;
+  avatar_url?: string | null;
+  created_at?: string | null;
 }
 
 export interface Address {
@@ -31,11 +52,15 @@ export interface Address {
   zone_id: string;
   address_line: string;
   label: string;
+  is_default?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface Merchant {
   id: string;
   business_name: string;
+  logo_url?: string | null;
 }
 
 export interface MerchantBranch {
@@ -43,6 +68,10 @@ export interface MerchantBranch {
   merchant_id: string;
   zone_id: string;
   name: string;
+  cover_image_url?: string | null;
+  is_active?: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface Category {
@@ -56,6 +85,7 @@ export interface Product {
   category_id: string;
   name: string;
   price: number;
+  description?: string | null;
 }
 
 export interface ProductVariant {
@@ -83,6 +113,7 @@ export interface DriverLocation {
   id: string;
   driver_id: string;
   coords: { x: number; y: number } | string;
+  recorded_at?: string | null;
 }
 
 export interface Order {
@@ -90,9 +121,58 @@ export interface Order {
   customer_id: string;
   branch_id: string;
   driver_id: string | null;
-  status: 'pending' | 'accepted' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
+  status: OrderStatusValue;
   total_amount: number;
+  delivery_fee?: number;
+  payment_status?: 'unpaid' | 'paid' | 'refunded' | 'partially_refunded';
   created_at?: string;
+  // Location fields added in 0005_location_foundation
+  address_id?: string | null;
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
+  branch_lat_snapshot?: number | null;
+  branch_lng_snapshot?: number | null;
+}
+
+export interface PaymentAttempt {
+  id: string;
+  order_id: string;
+  customer_id: string | null;
+  provider: string;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'captured' | 'failed' | 'cancelled';
+  idempotency_key: string;
+  gateway_reference: string | null;
+  raw_response?: Record<string, any> | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Refund {
+  id: string;
+  order_id: string | null;
+  payment_attempt_id: string | null;
+  amount: number;
+  currency: string;
+  reason: string | null;
+  status: 'pending' | 'refunded' | 'failed';
+  gateway_refund_ref: string | null;
+  initiated_by: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WebhookEvent {
+  id: string;
+  provider: string;
+  event_type: string;
+  idempotency_key: string;
+  payload: Record<string, any>;
+  processed: boolean;
+  processed_at: string | null;
+  error: string | null;
+  received_at?: string;
 }
 
 export interface OrderItem {
@@ -134,6 +214,9 @@ export interface Coupon {
   id: string;
   code: string;
   discount_percent: number;
+  is_active: boolean;
+  start_date: string | null;
+  end_date: string | null;
 }
 
 export interface CouponUsage {
@@ -241,6 +324,7 @@ export interface Offer {
   start_date: string;
   end_date: string;
   is_active: boolean;
+  image_url?: string | null;
 }
 
 export interface Banner {

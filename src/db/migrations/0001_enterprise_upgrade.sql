@@ -174,9 +174,78 @@ alter table banners enable row level security;
 alter table push_tokens enable row level security;
 alter table app_config enable row level security;
 
--- Sample High-level Roles & Security Policies
-create policy "Admins can manage configuration" on app_config for all using (true);
+-- =====================================================================
+-- Security Policies
+-- =====================================================================
+
+-- app_config: public read, authenticated write only
+-- SECURITY FIX: original `for all using (true)` granted anonymous write access
+create policy "Anyone can read config" on app_config
+  for select using (true);
+create policy "Authenticated users can write config" on app_config
+  for all to authenticated using (true) with check (true);
+
+-- banners / offers: public read (unchanged)
 create policy "Customers can see active banners" on banners for select using (is_active = true);
-create policy "Customers can see active offers" on offers for select using (is_active = true);
-create policy "Customers can access own support ticket history" on support_tickets for all using (auth.uid() = customer_id);
-create policy "Customers can see own payment methods" on payment_methods for all using (auth.uid() = customer_id);
+create policy "Customers can see active offers"  on offers  for select using (is_active = true);
+
+-- support_tickets / payment_methods: scoped to owner (unchanged)
+create policy "Customers can access own support ticket history" on support_tickets
+  for all using (auth.uid() = customer_id);
+create policy "Customers can see own payment methods" on payment_methods
+  for all using (auth.uid() = customer_id);
+
+-- =====================================================================
+-- Missing RLS policies for tables that require write access
+-- =====================================================================
+
+-- roles: authenticated users need SELECT to resolve role names during login
+create policy "Authenticated users can read roles" on roles
+  for select to authenticated using (true);
+
+-- user_roles: authenticated users can read only their own role assignment
+create policy "Users can read own role assignment" on user_roles
+  for select to authenticated using (auth.uid() = user_id);
+
+-- order_status_history: append-only audit log
+-- INSERT: any authenticated party to an order (customer, driver, merchant)
+-- SELECT: scoped via RLS on orders — subquery returns only rows the caller can access
+create policy "Authenticated users can insert order status" on order_status_history
+  for insert to authenticated with check (true);
+create policy "Authenticated users can read accessible order history" on order_status_history
+  for select to authenticated using (
+    order_id in (select id from orders)
+  );
+
+-- support_messages: customers open threads; admins reply
+-- INSERT: any authenticated user (customer or admin sending reply)
+-- SELECT: scoped to tickets owned by the caller
+create policy "Authenticated users can insert support messages" on support_messages
+  for insert to authenticated with check (true);
+create policy "Users can read messages on own tickets" on support_messages
+  for select to authenticated using (
+    ticket_id in (select id from support_tickets where customer_id = auth.uid())
+  );
+
+-- driver_earnings: drivers record and read their own delivery earnings
+-- Assumes drivers.id = auth.uid() per the auth model in 0004_security_hardening.sql
+create policy "Drivers can insert own earnings" on driver_earnings
+  for insert to authenticated with check (driver_id = auth.uid());
+create policy "Drivers can read own earnings" on driver_earnings
+  for select to authenticated using (driver_id = auth.uid());
+
+-- payment_transactions: payment service records transactions during checkout
+-- INSERT: any authenticated user (customer completing checkout)
+-- SELECT: scoped via RLS on orders — subquery returns only accessible orders
+create policy "Authenticated users can insert payment transactions" on payment_transactions
+  for insert to authenticated with check (true);
+create policy "Users can read own payment transactions" on payment_transactions
+  for select to authenticated using (
+    order_id in (select id from orders)
+  );
+
+-- push_tokens: users register and manage their own device push tokens
+create policy "Users can manage own push tokens" on push_tokens
+  for all to authenticated
+  using  (user_id = auth.uid())
+  with check (user_id = auth.uid());

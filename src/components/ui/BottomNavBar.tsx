@@ -36,11 +36,12 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
       <div
         className="mx-auto max-w-sm mb-4 rounded-[var(--radius-2xl)] flex items-center justify-around py-2 px-2"
         style={{
-          background: 'rgba(17, 20, 23, 0.92)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          background: 'linear-gradient(180deg, #16191c 0%, #0c0f11 100%)',
+          borderTop:    '1px solid rgba(255,255,255,0.10)',
+          borderLeft:   '1px solid rgba(255,255,255,0.06)',
+          borderRight:  '1px solid rgba(255,255,255,0.06)',
+          borderBottom: '1px solid rgba(255,255,255,0.03)',
+          boxShadow: '0 -8px 30px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.45)',
         }}
       >
         {items.map((item) => {
@@ -62,18 +63,11 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
               aria-label={item.label}
               aria-current={isActive ? 'page' : undefined}
             >
-              {/* Active background pill */}
-              {isActive && (
-                <div
-                  className="absolute inset-0 rounded-[var(--radius-lg)]"
-                  style={{
-                    background: 'rgba(163, 249, 91, 0.1)',
-                  }}
-                />
-              )}
-
-              {/* Icon */}
-              <div className="relative z-10">
+              {/* Icon — lime drop-shadow glow when active (VB §9: color-only active state) */}
+              <div
+                className="relative z-10"
+                style={isActive ? { filter: 'drop-shadow(0 0 8px rgba(158,212,66,0.6))' } : undefined}
+              >
                 {item.badge && item.badge > 0 ? (
                   <div className="relative">
                     <Icon
@@ -105,14 +99,6 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
               >
                 {item.label}
               </span>
-
-              {/* Active indicator dot */}
-              {isActive && (
-                <span
-                  className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                  style={{ background: 'var(--color-primary-container)' }}
-                />
-              )}
             </button>
           );
         })}

@@ -1,182 +1,117 @@
 import { supabase } from '../lib/supabase';
 import { User } from '../features/auth/types';
+import { toE164 } from '../utils/phone';
 
-const isSandbox = () => {
-  const mode = import.meta.env.VITE_AUTH_MODE || (typeof process !== 'undefined' ? process.env.AUTH_MODE : '');
-  // By default, if the deployment is not explicitly set to production and auth mode is sandbox or development
-  return mode === 'sandbox' || import.meta.env.MODE === 'development';
+// ─────────────────────────────────────────────────────────────────────────────
+// Dual-mode authentication.
+//   VITE_AUTH_MODE=sandbox   → local demo OTP (123456) + fixed demo accounts.
+//   VITE_AUTH_MODE=supabase  → real Supabase phone OTP (production).
+// The mode is selected ONLY by the env var (not by dev/prod build), so the
+// production implementation is never removed.
+// ─────────────────────────────────────────────────────────────────────────────
+const AUTH_MODE = import.meta.env.VITE_AUTH_MODE || 'supabase';
+const isSandbox = () => AUTH_MODE === 'sandbox';
+
+export const SANDBOX_OTP = '123456';
+const SANDBOX_SESSION_KEY = 'haat_sandbox_session';
+
+interface DemoAccount { id: string; role: User['role']; country: 'EG' | 'SA'; name: string; scope?: 'super' | 'country' }
+
+// Demo accounts (E.164 keyed). UUID ids are valid so uuid-typed queries never 22P02.
+export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
+  '+201000000001': { id: '11111111-0000-0000-0000-000000000001', role: 'customer', country: 'EG', name: 'عميل مصر' },
+  '+966500000001': { id: '11111111-0000-0000-0000-000000000002', role: 'customer', country: 'SA', name: 'عميل السعودية' },
+  '+201000000002': { id: '22222222-0000-0000-0000-000000000001', role: 'merchant', country: 'EG', name: 'تاجر مصر' },
+  '+966500000002': { id: '22222222-0000-0000-0000-000000000002', role: 'merchant', country: 'SA', name: 'تاجر السعودية' },
+  '+201000000003': { id: '33333333-0000-0000-0000-000000000001', role: 'driver',   country: 'EG', name: 'كابتن مصر' },
+  '+966500000003': { id: '33333333-0000-0000-0000-000000000002', role: 'driver',   country: 'SA', name: 'كابتن السعودية' },
+  '+201000000004': { id: '44444444-0000-0000-0000-000000000001', role: 'admin',     country: 'EG', name: 'مدير مصر',     scope: 'country' },
+  '+966500000004': { id: '44444444-0000-0000-0000-000000000002', role: 'admin',     country: 'SA', name: 'مدير السعودية', scope: 'country' },
+  '+201000000005': { id: '55555555-0000-0000-0000-000000000005', role: 'admin',     country: 'EG', name: 'المدير العام',  scope: 'super' },
 };
 
+// Resolves the highest-priority role for a user from the database (supabase mode).
+async function resolveHighestRole(userId: string): Promise<User['role']> {
+  const { data } = await supabase
+    .from('user_roles')
+    .select('roles(name, priority)')
+    .eq('user_id', userId)
+    .order('priority', { ascending: false, referencedTable: 'roles' })
+    .limit(1)
+    .maybeSingle();
+  const name = (data as any)?.roles?.name as string | undefined;
+  return (name === 'admin' || name === 'merchant' || name === 'driver' || name === 'customer') ? name : 'customer';
+}
+
+function readSandboxSession(): User | null {
+  if (typeof localStorage === 'undefined') return null;
+  const raw = localStorage.getItem(SANDBOX_SESSION_KEY);
+  if (!raw) return null;
+  try { return JSON.parse(raw) as User; } catch { return null; }
+}
+
 export const authService = {
-  // Mobile OTP Request
+  // ── Request OTP ────────────────────────────────────────────────────────────
   async sendOtp(phoneNumber: string): Promise<{ error: any }> {
+    const phone = toE164(phoneNumber);
     if (isSandbox()) {
-      console.log(`[AUTH SANDBOX] Simulated sending OTP to: ${phoneNumber}`);
+      if (!DEMO_ACCOUNTS[phone]) {
+        return { error: { message: 'رقم غير مسجّل في وضع التجربة. استخدم أحد أرقام الحسابات التجريبية.' } };
+      }
       return { error: null };
     }
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: phoneNumber,
-    });
+    const { error } = await supabase.auth.signInWithOtp({ phone });
     return { error };
   },
 
-  // Verify OTP SMS Code
+  // ── Verify OTP → establish session ──────────────────────────────────────────
   async verifyOtp(phoneNumber: string, token: string): Promise<{ data: { user: User | null }; error: any }> {
+    const phone = toE164(phoneNumber);
+
     if (isSandbox()) {
-      console.log(`[AUTH SANDBOX] Simulated OTP code: ${token} for phone: ${phoneNumber}`);
-      
-      // Determine user ID based on phone number for state consistency
-      const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
-      const mockUserId = '11111111-2222-3333-4444-' + cleanPhone.padEnd(12, '0').slice(-12);
-      
-      // Check for custom roles based on phone extension
-      let matchedRole: 'customer' | 'merchant' | 'driver' | 'admin' = 'customer';
-      if (cleanPhone.endsWith('9')) matchedRole = 'admin';
-      else if (cleanPhone.endsWith('8')) matchedRole = 'merchant';
-      else if (cleanPhone.endsWith('7')) matchedRole = 'driver';
-
-      // Insert profiles into the database so mock orders can be placed under this user ID correctly
-      try {
-        if (matchedRole === 'customer') {
-          const { data: profile } = await supabase
-            .from('customers')
-            .select('id')
-            .eq('id', mockUserId)
-            .maybeSingle();
-          
-          if (!profile) {
-            await supabase.from('customers').insert({
-              id: mockUserId,
-              phone_number: phoneNumber,
-              full_name: 'عميل تجريبي (صندوق الرمل)',
-              email: null
-            });
-          }
-        } else if (matchedRole === 'driver') {
-          const { data: driver } = await supabase
-            .from('drivers')
-            .select('id')
-            .eq('id', mockUserId)
-            .maybeSingle();
-          
-          if (!driver) {
-            await supabase.from('drivers').insert({
-              id: mockUserId,
-              phone_number: phoneNumber,
-              full_name: 'كابتن تجريبي (صندوق الرمل)',
-              is_online: true
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('[AUTH SANDBOX] Silently skipped sandbox developer-profile auto-insertion:', err);
+      const acct = DEMO_ACCOUNTS[phone];
+      if (!acct) return { data: { user: null }, error: { message: 'رقم غير مسجّل في وضع التجربة.' } };
+      if (token !== SANDBOX_OTP) return { data: { user: null }, error: { message: `رمز غير صحيح. استخدم ${SANDBOX_OTP}.` } };
+      const user: User = { id: acct.id, phone_number: phone, role: acct.role };
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(SANDBOX_SESSION_KEY, JSON.stringify(user));
+        // Align the active country with the demo account's country.
+        localStorage.setItem('haat_country', acct.country);
+        localStorage.setItem('haat_country_manual', '1');
       }
-
-      const mappedUser: User = {
-        id: mockUserId,
-        phone_number: phoneNumber,
-        role: matchedRole
-      };
-
-      return {
-        data: { user: mappedUser },
-        error: null
-      };
+      return { data: { user }, error: null };
     }
 
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone: phoneNumber,
-      token,
-      type: 'sms',
-    });
-
-    if (error) {
-      return { data: { user: null }, error };
-    }
-
+    const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+    if (error) return { data: { user: null }, error };
     const sbUser = data.user;
-    if (!sbUser) {
-      return { data: { user: null }, error: new Error('User not generated') };
-    }
-
-    // Try to retrieve user custom roles or configure custom profile on first login
-    const { data: roleAssigned } = await supabase
-      .from('user_roles')
-      .select('roles(name)')
-      .eq('user_id', sbUser.id)
-      .single();
-
-    const matchedRole = (roleAssigned as any)?.roles?.name || 'customer';
-
-    // Auto-create customer profile if it doesn't exist
-    if (matchedRole === 'customer') {
-      const { data: profile } = await supabase
-        .from('customers')
-        .select('id')
-        .eq('id', sbUser.id)
-        .single();
-      
+    if (!sbUser) return { data: { user: null }, error: new Error('No authenticated user returned') };
+    const role = await resolveHighestRole(sbUser.id);
+    if (role === 'customer') {
+      const { data: profile } = await supabase.from('customers').select('id').eq('id', sbUser.id).maybeSingle();
       if (!profile) {
-        await supabase.from('customers').insert({
-          id: sbUser.id,
-          phone_number: phoneNumber,
-          full_name: 'عميل جديد',
-          email: null
-        });
+        await supabase.from('customers').insert({ id: sbUser.id, phone_number: sbUser.phone || phone, full_name: 'عميل جديد', email: null });
       }
     }
-
-    const mappedUser: User = {
-      id: sbUser.id,
-      phone_number: sbUser.phone || phoneNumber,
-      role: matchedRole
-    };
-
-    return {
-      data: { user: mappedUser },
-      error: null
-    };
+    return { data: { user: { id: sbUser.id, phone_number: sbUser.phone || phone, role } }, error: null };
   },
 
-  // Get current active session user
+  // ── Resolve current user (session recovery after refresh) ───────────────────
   async getCurrentUser(): Promise<User | null> {
-    if (isSandbox()) {
-      const saved = localStorage.getItem('haat_session');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (_) {
-          return null;
-        }
-      }
-      return null;
-    }
-
+    if (isSandbox()) return readSandboxSession();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
-
-    const { data: roleAssigned } = await supabase
-      .from('user_roles')
-      .select('roles(name)')
-      .eq('user_id', user.id)
-      .single();
-
-    const matchedRole = (roleAssigned as any)?.roles?.name || 'customer';
-
-    return {
-      id: user.id,
-      phone_number: user.phone || '',
-      role: matchedRole
-    };
+    const role = await resolveHighestRole(user.id);
+    return { id: user.id, phone_number: user.phone || '', role };
   },
 
-  // Log user out
+  // ── Logout ──────────────────────────────────────────────────────────────────
   async signOut(): Promise<{ error: any }> {
     if (isSandbox()) {
-      localStorage.removeItem('haat_session');
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(SANDBOX_SESSION_KEY);
       return { error: null };
     }
     const { error } = await supabase.auth.signOut();
     return { error };
-  }
+  },
 };

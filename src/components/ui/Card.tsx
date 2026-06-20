@@ -1,6 +1,6 @@
 import React from 'react';
 
-type CardVariant = 'glass' | 'glass-sm' | 'glass-heavy' | 'surface' | 'elevated';
+type CardVariant = 'glass' | 'glass-sm' | 'glass-heavy' | 'surface' | 'elevated' | 'z2' | 'z3' | 'z4';
 type CardRadius = 'sm' | 'base' | 'lg' | 'xl' | '2xl';
 
 interface CardProps {
@@ -44,6 +44,27 @@ const variantStyles: Record<CardVariant, React.CSSProperties> = {
     background: 'var(--color-surface-container-high)',
     border: '1px solid rgba(255, 255, 255, 0.07)',
     boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4)',
+  },
+  z2: {
+    background: 'linear-gradient(180deg, #1e2227 0%, #15181b 100%)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
+  },
+  z3: {
+    background: 'linear-gradient(180deg, #24282c 0%, #15181b 100%)',
+    borderTop: '1px solid rgba(255,255,255,0.14)',
+    borderLeft: '1px solid rgba(255,255,255,0.07)',
+    borderRight: '1px solid rgba(255,255,255,0.07)',
+    borderBottom: '1px solid rgba(255,255,255,0.03)',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)',
+  },
+  z4: {
+    background: 'linear-gradient(180deg, #24282c 0%, #15181b 100%)',
+    borderTop: '1px solid rgba(255,255,255,0.18)',
+    borderLeft: '1px solid rgba(255,255,255,0.07)',
+    borderRight: '1px solid rgba(255,255,255,0.07)',
+    borderBottom: '1px solid rgba(255,255,255,0.03)',
+    boxShadow: '0 18px 50px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)',
   },
 };
 
@@ -117,7 +138,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   className = '',
 }) => {
   return (
-    <Card variant="glass" radius="xl" padding="p-5" className={className}>
+    <Card variant="z3" radius="xl" padding="p-5" className={className}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <p className="text-label-sm text-[var(--color-on-surface-variant)]">{label}</p>

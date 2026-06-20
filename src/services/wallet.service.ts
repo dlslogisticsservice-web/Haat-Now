@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { notificationService } from './notification.service';
 import { Wallet, WalletTransaction } from './types';
 
 export const walletService = {
@@ -39,31 +40,31 @@ export const walletService = {
     return { data: data || [], error };
   },
 
-  // Atomic server-side balance adjustments to lock rows and prevent race conditions (Priority 3)
-  async adjustBalance(
-    ownerType: 'customer' | 'driver' | 'merchant',
-    ownerId: string,
-    amount: number, // positive for credit, negative for debit
-    type: 'deposit' | 'withdrawal' | 'payment_refund' | 'payout'
-  ): Promise<{ data: any | null; error: any }> {
+  // Phase 15 — single atomic call: status transition + earnings + wallet credit + ledger in one DB transaction.
+  // The RPC reads delivery_fee from orders.delivery_fee; the caller supplies no amounts.
+  async completeDelivery(
+    orderId: string,
+    driverId: string
+  ): Promise<{ error: any }> {
     try {
-      const { data, error } = await supabase.rpc('adjust_wallet_balance', {
-        p_owner_type: ownerType,
-        p_owner_id: ownerId,
-        p_amount: amount,
-        p_type: type
+      const { data, error } = await supabase.rpc('complete_delivery', {
+        p_order_id:  orderId,
+        p_driver_id: driverId,
       });
-
       if (error) {
-        console.error('Wallet RPC adjustment error:', error);
-        return { data: null, error };
+        console.error('complete_delivery RPC error:', error);
+        return { error };
       }
-
-      return { data, error: null };
+      if (data && !data.already_processed && data.customer_id) {
+        notificationService
+          .sendNotification(data.customer_id, 'تم توصيل طلبك بنجاح. شكراً لك!', 'order')
+          .catch((e: any) => console.error('delivery notification failed:', e));
+      }
+      return { error: null };
     } catch (err: any) {
-      console.error('adjustBalance RPC failed, utilizing secure client-side atomic lock fallback:', err);
-      // Fallback safe implementation with client locks
-      return { data: null, error: err };
+      console.error('complete_delivery failed:', err);
+      return { error: err };
     }
-  }
+  },
+
 };

@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import './i18n';
+import { AppConfigProvider } from './contexts/AppConfigContext';
 import { MISSING_SUPABASE_VARS } from './lib/supabase';
 
 function MissingConfigScreen({ vars }: { vars: string[] }) {
@@ -24,7 +26,9 @@ createRoot(document.getElementById('root')!).render(
     {MISSING_SUPABASE_VARS.length > 0 ? (
       <MissingConfigScreen vars={MISSING_SUPABASE_VARS} />
     ) : (
-      <App />
+      <AppConfigProvider>
+        <App />
+      </AppConfigProvider>
     )}
   </StrictMode>,
 );

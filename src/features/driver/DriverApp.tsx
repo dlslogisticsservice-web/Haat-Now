@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { driverService } from '../../services/driver.service';
 import { orderService } from '../../services/order.service';
 import { trackingService } from '../../services/tracking.service';
 import { walletService } from '../../services/wallet.service';
+import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Icon } from '../../components/ui/Icon';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -28,6 +29,8 @@ interface OrdersFeed {
 interface DriverAppProps { driverId: string }
 
 export const DriverApp = ({ driverId }: DriverAppProps) => {
+  const { country, price: money } = useAppConfig();
+  const cur = country.currency.symbolAr;
   // ── State (unchanged) ─────────────────────────────────────
   const [driverProfile,           setDriverProfile]           = useState<any>(null);
   const [isOnline,                setIsOnline]                = useState(false);
@@ -36,51 +39,113 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
   const [earnings,                setEarnings]                = useState<any[]>([]);
   const [loading,                 setLoading]                 = useState(true);
   const [actionLoading,           setActionLoading]           = useState(false);
-  const [simCoordinatesIndex,     setSimCoordinatesIndex]     = useState(0);
+  const feedChannelRef = useRef<any>(null);
+  const watchIdRef     = useRef<number | null>(null);
 
   useEffect(() => { fetchDriverCore(); }, [driverId]);
+
+  // G-02 — Realtime: refresh available feed on any order UPDATE.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`driver-orders-feed-${driverId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => {
+        reloadDriverState(driverId);
+      })
+      .subscribe();
+    feedChannelRef.current = channel;
+    return () => {
+      supabase.removeChannel(channel);
+      feedChannelRef.current = null;
+    };
+  }, [driverId]);
+
+  // GPS tracking helpers
+  const startGPSTracking = (drvId: string) => {
+    if (watchIdRef.current !== null) return;
+    if (!navigator.geolocation) {
+      alert('تحديد الموقع غير مدعوم في هذا المتصفح');
+      return;
+    }
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        trackingService.updateDriverLocation(drvId, pos.coords.latitude, pos.coords.longitude);
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          alert('لم تُمنح صلاحية تحديد الموقع. يُرجى تفعيلها من إعدادات المتصفح.');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+    watchIdRef.current = id;
+  };
+
+  const stopGPSTracking = () => {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  };
+
+  // Auto-start GPS when an on_the_way job is active (handles page refresh mid-delivery).
+  useEffect(() => {
+    if (!driverProfile) return;
+    const hasOnTheWayJob = activeJobs.some(j => j.status === 'on_the_way');
+    if (hasOnTheWayJob) startGPSTracking(driverProfile.id);
+    else stopGPSTracking();
+  }, [activeJobs, driverProfile]);
+
+  // Stop GPS and clean up channel on unmount.
+  useEffect(() => {
+    return () => { stopGPSTracking(); };
+  }, []);
 
   // ── Business logic (ALL UNCHANGED) ───────────────────────
   const fetchDriverCore = async () => {
     try {
       setLoading(true);
-      let dProfile;
       const { data, error } = await supabase.from('drivers').select('*').eq('id', driverId).maybeSingle();
       if (error || !data) {
-        const { data: newDr } = await supabase.from('drivers')
-          .insert({ id: driverId, phone_number: '0500000002', full_name: 'الكابتن أحمد المندوب', is_online: true })
-          .select().single();
-        dProfile = newDr;
-      } else { dProfile = data; }
-      if (dProfile) { setDriverProfile(dProfile); setIsOnline(dProfile.is_online); await reloadDriverState(dProfile.id); }
+        setDriverProfile(null);
+        return;
+      }
+      setDriverProfile(data);
+      setIsOnline(data.is_online);
+      await reloadDriverState(data.id);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
   const reloadDriverState = async (drvId: string) => {
-    const { data: feed } = await supabase.from('orders').select('*, merchant_branches(*, zones(*))').eq('status', 'accepted').is('driver_id', null);
-    if (feed) setAvailableFeed(feed as unknown as OrdersFeed[]);
-    const { data: active } = await driverService.getActiveJobs(drvId);
-    if (active) setActiveJobs(active as unknown as ActiveOrder[]);
-    const { data: earn } = await driverService.getEarnings(drvId);
-    if (earn) setEarnings(earn);
+    try {
+      const { data: feed } = await supabase.from('orders').select('*, merchant_branches(*, zones(*))').eq('status', 'accepted').is('driver_id', null);
+      if (feed) setAvailableFeed(feed as unknown as OrdersFeed[]);
+      const { data: active } = await driverService.getActiveJobs(drvId);
+      if (active) setActiveJobs(active as unknown as ActiveOrder[]);
+      const { data: earn } = await driverService.getEarnings(drvId);
+      if (earn) setEarnings(earn);
+    } catch (e) { console.error(e); }
   };
 
   const handleToggleOnline = async () => {
     setActionLoading(true);
-    const targetState = !isOnline;
-    const { error } = await driverService.toggleOnline(driverProfile.id, targetState);
-    setActionLoading(false);
-    if (!error) setIsOnline(targetState); else alert((error as any).message);
+    try {
+      const targetState = !isOnline;
+      const { error } = await driverService.toggleOnline(driverProfile.id, targetState);
+      if (!error) setIsOnline(targetState); else alert((error as any).message);
+    } catch (e) { console.error(e); }
+    finally { setActionLoading(false); }
   };
 
   const handleAcceptJob = async (orderId: string) => {
     if (!isOnline) { alert('الرجاء الانتقال إلى وضع الاتصال أولاً!'); return; }
     setActionLoading(true);
-    const { success, error } = await driverService.acceptDelivery(orderId, driverProfile.id);
-    setActionLoading(false);
-    if (error) alert(`فشل قبول الطلب: ${(error as any).message || error}`);
-    else if (success) { alert('تم قبول الطلب بنجاح!'); await reloadDriverState(driverProfile.id); }
+    try {
+      const { success, error } = await driverService.acceptDelivery(orderId, driverProfile.id);
+      if (error) alert(`فشل قبول الطلب: ${(error as any).message || error}`);
+      else if (success) { alert('تم قبول الطلب بنجاح!'); await reloadDriverState(driverProfile.id); }
+    } catch (e) { console.error(e); }
+    finally { setActionLoading(false); }
   };
 
   const handleAdvanceActiveJob = async (job: ActiveOrder) => {
@@ -88,33 +153,21 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
     try {
       if (job.status === 'preparing') {
         const { error } = await orderService.updateOrderStatus(job.id, 'on_the_way', 'الطلب في الطريق.');
-        if (!error) { await trackingService.updateDriverLocation(driverProfile.id, 24.7136, 46.6753); alert('تم استلام الشحنة وتفعيل بث الإحداثيات 🚴'); }
-      } else if (job.status === 'on_the_way') {
-        const { error } = await orderService.updateOrderStatus(job.id, 'delivered', 'تم التسليم بنجاح.');
         if (!error) {
-          await supabase.from('driver_earnings').insert({ driver_id: driverProfile.id, order_id: job.id, delivery_fee_earned: 10.00, tip_earned: 0.00, bonus_earned: 0.00 });
-          const { error: adjustErr } = await walletService.adjustBalance('driver', driverProfile.id, 10.00, 'payout');
-          if (adjustErr) console.error('Failed atomic driver payout:', adjustErr);
-          alert('تم تسليم الشحنة وتسجيل مكافأة 10 ر.س بمحفظتك! 🏁');
+          startGPSTracking(driverProfile.id);
+          alert('تم استلام الشحنة وتفعيل بث الإحداثيات 🚴');
+        }
+      } else if (job.status === 'on_the_way') {
+        // Phase 15: single atomic RPC — status transition + earnings + wallet in one transaction.
+        const { error: deliveryError } = await walletService.completeDelivery(job.id, driverProfile.id);
+        if (!deliveryError) {
+          stopGPSTracking();
+          alert('تم تسليم الشحنة وتسجيل مكافأة بمحفظتك! 🏁');
         }
       }
       await reloadDriverState(driverProfile.id);
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
-  };
-
-  const handleSimulateGPSMove = async (job: ActiveOrder) => {
-    const coordinates = [
-      { lat: 24.7136, lng: 46.6753 }, { lat: 24.7290, lng: 46.6620 },
-      { lat: 24.7450, lng: 46.6500 }, { lat: 24.7610, lng: 46.6410 },
-      { lat: 24.7820, lng: 46.6340 }, { lat: 24.8100, lng: 46.6260 },
-    ];
-    const nextIdx = (simCoordinatesIndex + 1) % coordinates.length;
-    setSimCoordinatesIndex(nextIdx);
-    const targetPos = coordinates[nextIdx];
-    const { error } = await trackingService.updateDriverLocation(driverProfile.id, targetPos.lat, targetPos.lng);
-    if (error) alert((error as any).message);
-    else alert(`📡 تم تحديث الإحداثيات: ${targetPos.lat}, ${targetPos.lng}`);
   };
 
   const completedCount  = earnings.length;
@@ -129,50 +182,79 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
     );
   }
 
-  return (
-    <div className="min-h-screen p-6 md:p-8 space-y-8" id="driver_app_container">
+  if (!driverProfile) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4" id="driver_not_registered">
+        <p className="text-body-md text-[var(--color-on-surface-variant)]">لم يتم تسجيلك كسائق. يرجى التواصل مع الإدارة.</p>
+      </div>
+    );
+  }
 
-      {/* ── Header / Presence Bar ────────────────────────────── */}
-      <Card variant="glass" radius="xl" padding="p-5" className="flex items-center justify-between gap-4 flex-wrap" id="driver_presence_head">
+  return (
+    <div className="min-h-screen p-6 md:p-8 space-y-5" id="driver_app_container">
+
+      {/* ══════════════════════════════════════════════════════
+          PRIMARY — Command Center: Online Status Hero
+      ══════════════════════════════════════════════════════ */}
+      <Card variant="z4" radius="xl" padding="p-7" className="flex flex-col items-center text-center gap-6" id="driver_presence_head">
+        {/* Identity */}
+        <div className="flex items-center gap-2.5" id="driver_badge_box">
+          <Icon name="local_shipping" size={20} className="text-[var(--color-primary-container)]" fill={1} />
+          <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
+            {driverProfile?.full_name || 'الكابتن'}
+          </h3>
+          <span className="text-label-sm text-[var(--color-on-surface-variant)]" style={{ textTransform: 'none', letterSpacing: 0 }}>
+            #{driverProfile?.id.slice(-6).toUpperCase()}
+          </span>
+        </div>
+
+        {/* Primary toggle — the command */}
         <button
           onClick={handleToggleOnline}
           disabled={actionLoading}
           className={[
-            'flex items-center gap-2.5 px-5 h-11 rounded-full text-label-md font-semibold cursor-pointer transition-all',
-            isOnline
-              ? 'neon-glow-sm'
-              : 'opacity-70',
+            'flex items-center gap-4 px-10 py-5 rounded-[var(--radius-sheet)] text-headline-sm font-bold cursor-pointer transition-all duration-300',
+            isOnline ? 'neon-glow-sm' : 'opacity-80',
           ].join(' ')}
           style={{
-            background: isOnline ? 'rgba(163,249,91,0.1)' : 'var(--color-surface-container-high)',
-            border: isOnline ? '1px solid rgba(163,249,91,0.4)' : '1px solid rgba(255,255,255,0.08)',
-            color: isOnline ? 'var(--color-primary-container)' : 'var(--color-on-surface-variant)',
+            background: isOnline ? 'rgba(158,212,66,0.14)' : 'rgba(255,255,255,0.05)',
+            borderTop: isOnline ? '1px solid rgba(158,212,66,0.5)' : '1px solid rgba(255,255,255,0.1)',
+            borderLeft: '1px solid rgba(255,255,255,0.06)',
+            borderRight: '1px solid rgba(255,255,255,0.06)',
+            borderBottom: '1px solid rgba(255,255,255,0.02)',
+            color: isOnline ? 'var(--color-lime-vb, #9ed442)' : 'var(--color-t3, #aab0b6)',
+            boxShadow: isOnline ? '0 0 40px rgba(158,212,66,0.22)' : 'none',
+            minWidth: '260px',
           }}
           id="toggle_online_presence"
         >
-          <Icon name={isOnline ? 'wifi' : 'wifi_off'} size={18} fill={isOnline ? 1 : 0} />
-          <span>{isOnline ? 'متصل — نشط' : 'غير متصل'}</span>
+          <Icon name={isOnline ? 'wifi' : 'wifi_off'} size={28} fill={isOnline ? 1 : 0} />
+          <span>{isOnline ? 'متصل — نشط' : 'اضغط للاتصال'}</span>
         </button>
 
-        <div className="text-end" id="driver_badge_box">
-          <div className="flex items-center gap-2.5 justify-end">
-            <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-              {driverProfile?.full_name || 'الكابتن'}
-            </h3>
-            <Icon name="local_shipping" size={22} className="text-[var(--color-primary-container)]" fill={1} />
+        {/* Supporting metrics row — secondary inside primary card */}
+        <div className="grid grid-cols-3 gap-6 w-full max-w-sm border-t border-[rgba(255,255,255,0.06)] pt-5">
+          <div className="text-center">
+            <p className="text-headline-sm font-bold" style={{ color: 'var(--color-lime-vb, #9ed442)' }}>{totalEarned.toFixed(0)}</p>
+            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>ريال اليوم</p>
           </div>
-          <p className="text-label-sm text-[var(--color-on-surface-variant)]" style={{ textTransform: 'none', letterSpacing: 0 }}>
-            #{driverProfile?.id.slice(-6).toUpperCase()}
-          </p>
+          <div className="text-center">
+            <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{activeJobs.length}</p>
+            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>شحنة نشطة</p>
+          </div>
+          <div className="text-center">
+            <p className="text-headline-sm font-bold" style={{ color: availableFeed.length > 0 ? 'var(--color-lime-vb, #9ed442)' : 'var(--color-t3, #aab0b6)' }}>{availableFeed.length}</p>
+            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>طلب متاح</p>
+          </div>
         </div>
       </Card>
 
-      {/* ── Stats Row ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="الشحنات النشطة"    value={activeJobs.length}           icon={<Icon name="inventory_2" size={18} fill={1} />} accentColor="var(--color-primary-container)" />
-        <StatCard label="الطلبات المتاحة"   value={availableFeed.length}        icon={<Icon name="storefront"  size={18} fill={1} />} accentColor="var(--color-secondary)" />
-        <StatCard label="الرحلات المكتملة"  value={completedCount}              icon={<Icon name="task_alt"    size={18} fill={1} />} accentColor="var(--color-tertiary-container)" />
-        <StatCard label="إجمالي الأرباح"    value={`${totalEarned.toFixed(0)} ر.س`} icon={<Icon name="payments" size={18} fill={1} />} accentColor="var(--color-neon)" />
+      {/* TERTIARY — Compact stat chips */}
+      <div className="grid grid-cols-4 gap-3">
+        <StatCard label="نشطة"     value={activeJobs.length}               icon={<Icon name="inventory_2" size={16} fill={1} />} accentColor="var(--color-primary-container)" />
+        <StatCard label="متاحة"    value={availableFeed.length}             icon={<Icon name="storefront"  size={16} fill={1} />} accentColor="var(--color-secondary)" />
+        <StatCard label="مكتملة"   value={completedCount}                   icon={<Icon name="task_alt"    size={16} fill={1} />} accentColor="var(--color-tertiary-container)" />
+        <StatCard label="الأرباح"  value={money(totalEarned)} icon={<Icon name="payments"    size={16} fill={1} />} accentColor="var(--color-neon)" />
       </div>
 
       {/* ── Main Grid ─────────────────────────────────────────── */}
@@ -192,7 +274,7 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
             activeJobs.map((job) => (
               <Card
                 key={job.id}
-                variant="glass"
+                variant="z3"
                 radius="xl"
                 padding="p-5"
                 className="space-y-4"
@@ -234,18 +316,7 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
 
                 {/* Actions */}
                 <div className="flex flex-wrap gap-2 justify-end pt-1 border-t border-[rgba(255,255,255,0.06)]" id="active_job_actions">
-                  {job.status === 'on_the_way' && (
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleSimulateGPSMove(job)}
-                      leftIcon={<Icon name="navigation" size={16} className="animate-spin" />}
-                      id="sim_gps_trigger"
-                    >
-                      محاكاة GPS
-                    </Button>
-                  )}
-                  <Button
                     variant="primary"
                     size="sm"
                     loading={actionLoading}
@@ -268,7 +339,7 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
           </h3>
 
           {!isOnline ? (
-            <Card variant="glass" radius="xl" padding="p-6" className="text-center space-y-3" id="driver_offline_alert">
+            <Card variant="z3" radius="xl" padding="p-6" className="text-center space-y-3" id="driver_offline_alert">
               <Icon name="wifi_off" size={36} className="text-[var(--color-error)] mx-auto opacity-60" />
               <p className="text-body-md text-[var(--color-on-surface-variant)]">
                 قم بتفعيل الاتصال لعرض الطلبات المتاحة
@@ -281,7 +352,7 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
               {availableFeed.map((f) => (
                 <Card
                   key={f.id}
-                  variant="glass"
+                  variant="z3"
                   radius="xl"
                   padding="p-4"
                   className="space-y-3"
@@ -301,7 +372,7 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
 
                   <div className="flex items-center justify-between">
                     <span className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>
-                      10.00 ر.س
+                      {money(10)}
                     </span>
                     <span className="text-label-md text-[var(--color-on-surface-variant)]">أجرة التوصيل</span>
                   </div>
@@ -322,24 +393,24 @@ export const DriverApp = ({ driverId }: DriverAppProps) => {
           )}
 
           {/* Earnings summary */}
-          <Card variant="glass" radius="xl" padding="p-5" className="space-y-4" id="driver_earnings_summary_card">
+          <Card variant="z3" radius="xl" padding="p-5" className="space-y-4" id="driver_earnings_summary_card">
             <h4 className="text-headline-sm font-semibold text-[var(--color-on-surface)] text-end pb-3 border-b border-[rgba(255,255,255,0.06)]">
               ملخص المحفظة
             </h4>
             <div className="grid grid-cols-2 gap-3 text-center" id="driver_earnings_analytics">
-              <div className="p-3 rounded-[var(--radius-lg)]" style={{ background: 'var(--color-surface-container-high)' }} id="earn_1">
+              <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_1">
                 <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">الرحلات</p>
                 <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{completedCount}</p>
               </div>
-              <div className="p-3 rounded-[var(--radius-lg)]" style={{ background: 'var(--color-surface-container-high)' }} id="earn_2">
+              <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_2">
                 <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">الأرباح</p>
                 <p className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>
-                  {totalEarned.toFixed(0)} ر.س
+                  {money(totalEarned)}
                 </p>
               </div>
             </div>
             <p className="text-label-sm text-[var(--color-on-surface-variant)] text-center leading-relaxed" style={{ textTransform: 'none', letterSpacing: 0 }}>
-              10 ر.س أجرة ثابتة لكل رحلة مكتملة
+              {money(10)} أجرة ثابتة لكل رحلة مكتملة
             </p>
           </Card>
         </div>
