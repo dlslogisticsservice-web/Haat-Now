@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { customerService, AddressWithZone, ZoneHierarchy } from '../../services/customer.service';
 import { storageService } from '../../services/storage.service';
+import { useAppConfig } from '../../contexts/AppConfigContext';
+import { COUNTRIES } from '../../config/countries';
 import {
   ChevronRight, ChevronLeft, LogOut, Bell, BellRing, User, MapPin, MapPinned,
   MapPinOff, Loader2, UserCircle2, Camera, Crown, PenLine, AlertCircle,
@@ -44,6 +46,175 @@ const LBL: React.CSSProperties = {
   textTransform: 'uppercase', color: 'var(--color-on-surface-variant)',
   display: 'block', marginBottom: '5px',
 };
+
+// ─── Notification preferences (local, persisted) ───────────────────────────
+const NOTIF_KEY = 'haat_notif_prefs';
+type NotifPrefs = { orders: boolean; offers: boolean; news: boolean };
+const DEFAULT_NOTIF: NotifPrefs = { orders: true, offers: true, news: false };
+function loadNotifPrefs(): NotifPrefs {
+  try { return { ...DEFAULT_NOTIF, ...JSON.parse(localStorage.getItem(NOTIF_KEY) || '{}') }; }
+  catch { return DEFAULT_NOTIF; }
+}
+
+const ACCENT = 'var(--color-primary-fixed)';
+const cardStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.85rem', padding: '14px' };
+
+function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick} aria-pressed={on} style={{
+      width: '44px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer',
+      background: on ? 'rgba(163,249,91,0.85)' : 'rgba(255,255,255,0.12)', position: 'relative', transition: 'background 180ms', flexShrink: 0,
+    }}>
+      <span style={{ position: 'absolute', top: '3px', insetInlineStart: on ? '21px' : '3px', width: '20px', height: '20px', borderRadius: '50%', background: on ? '#0a0a0a' : '#fff', transition: 'inset-inline-start 180ms' }} />
+    </button>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px 2px' }}>
+      <span style={{ color: 'white', fontSize: '14px', fontWeight: 500 }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+// Functional settings detail (replaces the old "coming soon" placeholder).
+function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => void }) {
+  const { Icon, title, subtitle } = SETTINGS_INFO[page];
+  const { lang, setLang, country, setCountry } = useAppConfig();
+  const [notif, setNotif] = useState<NotifPrefs>(loadNotifPrefs);
+  const saveNotif = (patch: Partial<NotifPrefs>) => {
+    const next = { ...notif, ...patch };
+    setNotif(next);
+    try { localStorage.setItem(NOTIF_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+  const T = (ar: string, en: string) => (lang === 'ar' ? ar : en);
+
+  return (
+    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(163,249,91,0.07)', border: '1px solid rgba(163,249,91,0.15)', flexShrink: 0 }}>
+          <Icon size={24} color={ACCENT} strokeWidth={1.6} />
+        </div>
+        <div>
+          <h2 style={{ color: 'white', fontSize: '16px', fontWeight: 700, marginBottom: '2px' }}>{title}</h2>
+          <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', lineHeight: 1.45 }}>{subtitle}</p>
+        </div>
+      </div>
+
+      {/* ── LANGUAGE & REGION ── */}
+      {page === 'language' && (
+        <>
+          <div style={cardStyle}>
+            <span style={LBL}>{T('لغة التطبيق', 'App language')}</span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {(['ar', 'en'] as const).map(l => (
+                <button key={l} id={`set_lang_${l}`} onClick={() => setLang(l)} style={{
+                  flex: 1, height: '42px', borderRadius: '0.7rem', cursor: 'pointer', fontSize: '14px', fontWeight: 700,
+                  background: lang === l ? 'rgba(163,249,91,0.12)' : 'rgba(255,255,255,0.03)',
+                  border: lang === l ? '1px solid rgba(163,249,91,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                  color: lang === l ? ACCENT : 'white',
+                }}>{l === 'ar' ? 'العربية' : 'English'}</button>
+              ))}
+            </div>
+          </div>
+          <div style={cardStyle}>
+            <span style={LBL}>{T('الدولة والعملة', 'Country & currency')}</span>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {Object.values(COUNTRIES).map(c => (
+                <button key={c.code} id={`set_country_${c.code}`} onClick={() => setCountry(c.code, { manual: true })} style={{
+                  display: 'flex', alignItems: 'center', gap: '8px', height: '44px', padding: '0 12px', borderRadius: '0.7rem', cursor: 'pointer',
+                  background: country.code === c.code ? 'rgba(163,249,91,0.1)' : 'rgba(255,255,255,0.03)',
+                  border: country.code === c.code ? '1px solid rgba(163,249,91,0.35)' : '1px solid rgba(255,255,255,0.07)',
+                }}>
+                  <span style={{ fontSize: '18px' }}>{c.flag}</span>
+                  <span style={{ color: 'white', fontSize: '13px', fontWeight: 600, textAlign: 'start' }}>{lang === 'ar' ? c.nameAr : c.nameEn}</span>
+                  <span style={{ marginInlineStart: 'auto', fontSize: '11px', color: 'var(--color-on-surface-variant)' }}>{lang === 'ar' ? c.currency.symbolAr : c.currency.symbolEn}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── NOTIFICATIONS ── */}
+      {page === 'notifications' && (
+        <div style={cardStyle}>
+          <Row label={T('تحديثات الطلبات', 'Order updates')}><Toggle on={notif.orders} onClick={() => saveNotif({ orders: !notif.orders })} /></Row>
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+          <Row label={T('العروض والخصومات', 'Offers & discounts')}><Toggle on={notif.offers} onClick={() => saveNotif({ offers: !notif.offers })} /></Row>
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+          <Row label={T('الأخبار والجديد', 'News & updates')}><Toggle on={notif.news} onClick={() => saveNotif({ news: !notif.news })} /></Row>
+          <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', lineHeight: 1.5, marginTop: '8px' }}>
+            {T('تُحفظ تفضيلاتك على هذا الجهاز وتُطبَّق على إشعارات حالة الطلب.', 'Preferences are saved on this device and applied to order-status alerts.')}
+          </p>
+        </div>
+      )}
+
+      {/* ── PAYMENT METHODS ── */}
+      {page === 'payment' && (
+        <div style={cardStyle}>
+          <span style={LBL}>{T('طرق الدفع المدعومة', 'Supported methods')}</span>
+          {[T('الدفع عند الاستلام (نقداً)', 'Cash on delivery'), T('بطاقة ائتمان / مدى', 'Credit / debit card'), T('محفظة هات ناو', 'HAAT wallet')].map(m => (
+            <div key={m} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 2px' }}>
+              <CheckCircle2 size={17} color={ACCENT} strokeWidth={2} />
+              <span style={{ color: 'white', fontSize: '14px' }}>{m}</span>
+            </div>
+          ))}
+          <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', lineHeight: 1.55, marginTop: '6px' }}>
+            {T('تُضاف البطاقات بشكل آمن ومشفّر عند إتمام الطلب، ولا نخزّن بيانات بطاقتك على أجهزتنا.', 'Cards are added securely at checkout; we never store your card details on our servers.')}
+          </p>
+        </div>
+      )}
+
+      {/* ── PRIVACY & SECURITY ── */}
+      {page === 'privacy' && (
+        <div style={cardStyle}>
+          {[
+            T('بياناتك مشفّرة ومحمية وتُستخدم فقط لتنفيذ طلباتك.', 'Your data is encrypted and used only to fulfil your orders.'),
+            T('لا نشارك رقم هاتفك أو عنوانك مع أطراف خارجية للتسويق.', 'We never share your phone or address with third parties for marketing.'),
+            T('يمكنك طلب حذف حسابك وبياناتك في أي وقت.', 'You can request deletion of your account and data at any time.'),
+          ].map(line => (
+            <div key={line} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '9px 2px' }}>
+              <Shield size={16} color={ACCENT} strokeWidth={1.8} style={{ marginTop: '2px', flexShrink: 0 }} />
+              <span style={{ color: 'white', fontSize: '13px', lineHeight: 1.55 }}>{line}</span>
+            </div>
+          ))}
+          <a href="mailto:support@hatnow.com?subject=Account%20deletion%20request" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '44px', marginTop: '8px',
+            borderRadius: '0.7rem', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.25)', color: '#ff8a8a', fontSize: '13px', fontWeight: 600, textDecoration: 'none',
+          }}>
+            <Trash2 size={16} strokeWidth={2} />{T('طلب حذف الحساب', 'Request account deletion')}
+          </a>
+        </div>
+      )}
+
+      {/* ── SUPPORT ── */}
+      {page === 'support' && (
+        <div style={cardStyle}>
+          {[
+            { Icon: Headphones, label: T('البريد الإلكتروني', 'Email'), val: 'support@hatnow.com', href: 'mailto:support@hatnow.com' },
+            { Icon: Bell, label: T('واتساب', 'WhatsApp'), val: '+20 100 000 0000', href: 'https://wa.me/201000000000' },
+          ].map(({ Icon: RowIcon, label, val, href }) => (
+            <a key={label} href={href} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 2px', textDecoration: 'none' }}>
+              <RowIcon size={18} color={ACCENT} strokeWidth={1.8} />
+              <span style={{ color: 'white', fontSize: '14px', fontWeight: 500 }}>{label}</span>
+              <span dir="ltr" style={{ marginInlineStart: 'auto', color: 'var(--color-on-surface-variant)', fontSize: '12px' }}>{val}</span>
+            </a>
+          ))}
+          <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', lineHeight: 1.55, marginTop: '6px' }}>
+            {T('فريق الدعم متاح يومياً من 9 صباحاً حتى 12 منتصف الليل.', 'Support is available daily, 9 AM – 12 midnight.')}
+          </p>
+        </div>
+      )}
+
+      <button onClick={onBack} className="flex items-center gap-1.5 px-5 h-11 rounded-xl cursor-pointer" style={{ alignSelf: 'flex-start', background: 'rgba(163,249,91,0.09)', border: '1px solid rgba(163,249,91,0.18)', color: ACCENT, fontSize: '14px', fontWeight: 600 }}>
+        <ChevronRight size={17} strokeWidth={2} />{lang === 'ar' ? 'العودة' : 'Back'}
+      </button>
+    </div>
+  );
+}
 
 const READ_ROW: React.CSSProperties = {
   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -298,43 +469,9 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
         {/* ══════════════════════════════════════════════════
             SETTINGS SUB-PAGE
         ══════════════════════════════════════════════════ */}
-        {inSettingsPage && settingsPage && (() => {
-          const PageIcon = SETTINGS_INFO[settingsPage].Icon;
-          return (
-            <div className="settings-placeholder animate-fade-in">
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center"
-                style={{ background: 'rgba(163,249,91,0.07)', border: '1px solid rgba(163,249,91,0.15)' }}
-              >
-                <PageIcon size={30} color="var(--color-primary-fixed)" strokeWidth={1.5} />
-              </div>
-
-              <div>
-                <h2 style={{ color: 'white', fontSize: '17px', fontWeight: 700, letterSpacing: '-0.01em', marginBottom: '4px' }}>
-                  {SETTINGS_INFO[settingsPage].title}
-                </h2>
-                <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px', lineHeight: 1.55 }}>
-                  {SETTINGS_INFO[settingsPage].subtitle}
-                </p>
-              </div>
-
-              <div className="w-full max-w-xs rounded-xl px-4 py-3.5" style={{ background: 'rgba(163,249,91,0.04)', border: '1px solid rgba(163,249,91,0.1)' }}>
-                <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px', lineHeight: 1.65 }}>
-                  {SETTINGS_INFO[settingsPage].hint}
-                </p>
-              </div>
-
-              <button
-                onClick={() => setSettingsPage(null)}
-                className="flex items-center gap-1.5 px-5 h-11 rounded-xl cursor-pointer"
-                style={{ background: 'rgba(163,249,91,0.09)', border: '1px solid rgba(163,249,91,0.18)', color: 'var(--color-primary-fixed)', fontSize: '14px', fontWeight: 600 }}
-              >
-                <ChevronRight size={17} strokeWidth={2} />
-                العودة
-              </button>
-            </div>
-          );
-        })()}
+        {inSettingsPage && settingsPage && (
+          <SettingsDetail page={settingsPage} onBack={() => setSettingsPage(null)} />
+        )}
 
         {/* ══════════════════════════════════════════════════
             TAB: PROFILE INFO
