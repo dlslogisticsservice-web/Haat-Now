@@ -32,7 +32,7 @@ Status: ✅ done · ◐ partial · ✗ missing · 🔒 coded-but-backend-gated
 | 6 | Inventory Mgmt | ✗ (no stock tracking) | Med | Med | ~1–2d | products schema (stock col) |
 | 7 | Product Mgmt | ✅ (basic add/edit) | Low | — | done | — |
 | 8 | Analytics | ✅ (basic KPIs) | Low | — | done | — |
-| 9 | **Reviews & Ratings** | ◐ → **implementing now** (service exists, no UI) | **High** | Low | ~0.5d | reviews table (exists) |
+| 9 | **Reviews & Ratings** | ✅ **DONE this sprint** (star UI on delivered orders; sandbox + real path) | **High** | Low | done | reviews table (exists) |
 | 10 | Loyalty / Rewards | ✗ (types only, no UI) | Low | High | ~3–4d | points schema + rules |
 | 11 | Coupons & Promotions | ◐ (apply at checkout ✅; admin mgmt ✗) | Med | Med | ~1–2d | coupons table (exists) |
 | 12 | Country Scoping | 🔒 (coded; needs DEFINER fix) | High | Low | done | runbook PART 3 |
@@ -55,8 +55,10 @@ Status: ✅ done · ◐ partial · ✗ missing · 🔒 coded-but-backend-gated
 7. **Interactive map** (LocationPicker) — needs Google Maps key (external).
 
 ## Work executed this sprint
-- ✅ **ProfileScreen: 5 settings made functional** (was "coming soon"): Language & Region (live AR/EN + 8-country/currency switch), Notification preferences (persisted toggles), Payment methods (info + security note), Privacy (statement + deletion request), Support (real email/WhatsApp). `tsc` clean, build exit 0, committed.
-- 🟢 **Reviews & Ratings UI** — in progress (see git history after this report).
+- ✅ **ProfileScreen: 5 settings made functional** (was "coming soon"): Language & Region (live AR/EN + 8-country/currency switch), Notification preferences (persisted toggles), Payment methods (info + security note), Privacy (statement + deletion request), Support (real email/WhatsApp). `tsc` clean, build exit 0, committed `~`.
+- ✅ **Reviews & Ratings** (area #9): star rating + comment on delivered orders; sandbox→`sandboxStore`, real→`productService.submitReview`; loads existing review. **Runtime-verified** (5-star review persisted).
+- ✅ **Fixed broken flow:** `fetchOrderDetails` had no sandbox branch → order detail/tracking view never rendered in sandbox. Added sandbox mapping; the tracking view now works in dev/sandbox.
+- After these: source readiness ↑ to **~88%**. The remaining items are blocked on the **paused Supabase cutover** (areas 1–4, 12–14) or **external keys** (push → FCM/APNs, maps → Google Maps), or are optional features (inventory, coupon-admin, loyalty).
 
 ## Recommended Next Sprint
 **"Real-Data Cutover & Operator Polish"** — once you're ready to resume Supabase:
