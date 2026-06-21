@@ -4,7 +4,7 @@ import { merchantService } from '../../services/merchant.service';
 import { orderService } from '../../services/order.service';
 import { storageService } from '../../services/storage.service';
 import { Icon } from '../../components/ui/Icon';
-import { sandboxStore } from '../../services/sandboxStore';
+import { sandboxStore, SbProduct } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -36,15 +36,16 @@ interface Product {
 interface Category    { id: string; name: string }
 interface MerchantData { id: string; business_name: string; logo_url?: string | null }
 
-type MerchantTab = 'incoming' | 'catalog' | 'wallet' | 'profile';
+type MerchantTab = 'incoming' | 'catalog' | 'inventory' | 'wallet' | 'profile';
 
 const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     items: [
-      { id: 'incoming', label: 'الطلبات النشطة',  icon: 'notifications_active' },
-      { id: 'catalog',  label: 'المنيو والأسعار',  icon: 'restaurant_menu' },
-      { id: 'wallet',   label: 'تقارير الأرباح',   icon: 'payments' },
-      { id: 'profile',  label: 'الملف التجاري',    icon: 'store' },
+      { id: 'incoming',  label: 'الطلبات النشطة',  icon: 'notifications_active' },
+      { id: 'catalog',   label: 'المنيو والأسعار',  icon: 'restaurant_menu' },
+      { id: 'inventory', label: 'المخزون',          icon: 'inventory_2' },
+      { id: 'wallet',    label: 'تقارير الأرباح',   icon: 'payments' },
+      { id: 'profile',   label: 'الملف التجاري',    icon: 'store' },
     ],
   },
 ];
@@ -103,6 +104,14 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
   const [isAddingProduct,    setIsAddingProduct]    = useState(false);
   const [activeTab,          setActiveTab]          = useState<MerchantTab>('incoming');
   const [earnings,           setEarnings]           = useState(0);
+  const [inventory,          setInventory]          = useState<SbProduct[]>([]);
+  const [stockHistoryFor,    setStockHistoryFor]    = useState<string | null>(null);
+
+  const refreshInventory = () => setInventory(sandboxStore.getProducts(merchantId));
+  const handleAdjustStock = (productId: string, delta: number) => {
+    sandboxStore.adjustStock(productId, delta, delta > 0 ? 'إضافة يدوية' : 'خصم يدوي');
+    refreshInventory();
+  };
 
   // ── Media state ─────────────────────────────────────────────────────────
   const [merchantData,       setMerchantData]       = useState<MerchantData | null>(null);
@@ -176,10 +185,8 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         setSelectedBranchId(demoBranch.id);
         setCategories([{ id: 'c1', name: 'مطاعم' } as any]);
         setSelectedCategoryId('c1');
-        setProducts([
-          { id: 'p1', name: 'كبسة لحم فاخرة', price: 45, product_images: [] },
-          { id: 'p2', name: 'مندي دجاج', price: 38, product_images: [] },
-        ] as any);
+        setProducts(sandboxStore.getProducts(merchantId).map(p => ({ id: p.id, name: p.name, price: p.price, product_images: [] })) as any);
+        setInventory(sandboxStore.getProducts(merchantId));
         const sbOrders = sandboxStore.getMerchantOrders();
         setOrders(sbOrders.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, customers: { full_name: o.customer_name } })) as any);
         setEarnings(sbOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total_amount - o.delivery_fee), 0));
@@ -405,10 +412,11 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
   }
 
   const tabLabels: Record<MerchantTab, string> = {
-    incoming: `الطلبات النشطة${activeOrdersList.length > 0 ? ` (${activeOrdersList.length})` : ''}`,
-    catalog:  'المنيو والأسعار',
-    wallet:   'تقارير الأرباح',
-    profile:  'الملف التجاري',
+    incoming:  `الطلبات النشطة${activeOrdersList.length > 0 ? ` (${activeOrdersList.length})` : ''}`,
+    catalog:   'المنيو والأسعار',
+    inventory: 'إدارة المخزون',
+    wallet:    'تقارير الأرباح',
+    profile:   'الملف التجاري',
   };
 
   // ── Cover image shown for currently selected branch ──────────────────────
@@ -857,6 +865,68 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
         {/* ══════════════════════════════════════════════════════════ */}
         {/* TAB: WALLET / EARNINGS                                    */}
+        {/* ══════════════════════ INVENTORY ══════════════════════ */}
+        {activeTab === 'inventory' && (() => {
+          const stats = SANDBOX ? sandboxStore.getInventoryStats(merchantId) : { total: inventory.length, low: 0, out: 0, units: 0 };
+          return (
+          <div id="merchant_inventory_tab" className="space-y-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {[
+                { label: 'إجمالي المنتجات', val: stats.total, color: 'var(--color-primary-container)' },
+                { label: 'إجمالي الوحدات', val: stats.units, color: 'var(--color-primary-container)' },
+                { label: 'مخزون منخفض', val: stats.low, color: '#fbbf24' },
+                { label: 'نفد المخزون', val: stats.out, color: '#f87171' },
+              ].map(s => (
+                <Card key={s.label} variant="z2" radius="xl" padding="p-4">
+                  <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{s.label}</p>
+                  <p className="text-headline-md font-bold" style={{ color: s.color }}>{s.val}</p>
+                </Card>
+              ))}
+            </div>
+            <Card variant="z2" radius="xl" padding="p-0" className="overflow-hidden">
+              {inventory.map(p => {
+                const state = p.stock === 0 ? 'out' : p.stock <= p.low_threshold ? 'low' : 'ok';
+                const badge = state === 'out' ? { t: 'نفد', c: '#f87171' } : state === 'low' ? { t: 'منخفض', c: '#fbbf24' } : { t: 'متوفر', c: '#4ade80' };
+                return (
+                  <div key={p.id} className="p-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white truncate">{p.name}</p>
+                        <p className="text-label-sm text-[var(--color-on-surface-variant)]">{p.price} {cur} · {p.category}</p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold shrink-0" style={{ background: `${badge.c}22`, color: badge.c }}>{badge.t}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 mt-3">
+                      <div className="flex items-center gap-2">
+                        <button id={`stock_minus_${p.id}`} onClick={() => handleAdjustStock(p.id, -1)} className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer" style={{ background: 'rgba(255,255,255,0.05)', color: 'white', fontSize: '18px' }}>−</button>
+                        <span className="font-bold text-white w-12 text-center" style={{ fontSize: '17px' }}>{p.stock}</span>
+                        <button id={`stock_plus_${p.id}`} onClick={() => handleAdjustStock(p.id, +1)} className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer" style={{ background: 'rgba(163,249,91,0.12)', color: 'var(--color-primary-fixed)', fontSize: '18px' }}>+</button>
+                        <button onClick={() => handleAdjustStock(p.id, +10)} className="px-2.5 h-8 rounded-lg cursor-pointer text-xs font-semibold" style={{ background: 'rgba(163,249,91,0.08)', color: 'var(--color-primary-fixed)' }}>+10</button>
+                      </div>
+                      <button onClick={() => setStockHistoryFor(stockHistoryFor === p.id ? null : p.id)} className="text-xs font-semibold cursor-pointer" style={{ color: 'var(--color-on-surface-variant)' }}>
+                        {stockHistoryFor === p.id ? 'إخفاء السجل' : 'السجل'}
+                      </button>
+                    </div>
+                    {stockHistoryFor === p.id && (
+                      <div className="mt-3 space-y-1.5 pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                        {sandboxStore.getStockHistory(p.id).slice(0, 6).map(m => (
+                          <div key={m.id} className="flex justify-between text-xs">
+                            <span style={{ color: 'var(--color-on-surface-variant)' }}>{m.reason}</span>
+                            <span style={{ color: m.delta >= 0 ? '#4ade80' : '#f87171', fontWeight: 700 }}>{m.delta >= 0 ? '+' : ''}{m.delta}</span>
+                          </div>
+                        ))}
+                        {sandboxStore.getStockHistory(p.id).length === 0 && <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>لا يوجد سجل بعد.</p>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {inventory.length === 0 && <p className="p-6 text-center text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>لا توجد منتجات في المخزون.</p>}
+            </Card>
+          </div>
+          );
+        })()}
+
         {/* ══════════════════════════════════════════════════════════ */}
         {activeTab === 'wallet' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="merchant_wallet_tab">

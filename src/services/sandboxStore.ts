@@ -22,13 +22,23 @@ export interface SbOrder {
   created_at: string;
   history: { status: SbStatus; at: string }[];
 }
-export interface SbNotif { id: string; target_user_id: string; message: string; created_at: string }
+export interface SbNotif { id: string; target_user_id: string; message: string; created_at: string; read?: boolean }
 export interface SbReview { id: string; order_id: string; rating: number; comment: string; created_at: string }
+export interface SbProduct { id: string; merchant_id: string; name: string; price: number; stock: number; low_threshold: number; category: string; active: boolean }
+export interface SbStockMove { id: string; product_id: string; delta: number; reason: string; at: string }
+export interface SbCoupon { id: string; code: string; discount_percent: number; max_uses: number; used: number; expires_at: string; country: string | null; active: boolean; created_at: string }
+export interface SbLoyaltyTxn { id: string; customer_id: string; points: number; reason: string; at: string }
+export interface SbPushToken { id: string; user_id: string; token: string; platform: string; created_at: string }
 
 const ORDERS_KEY = 'haat_sb_orders';
 const WALLET_KEY = 'haat_sb_wallets';
 const NOTIF_KEY  = 'haat_sb_notifs';
 const REVIEW_KEY = 'haat_sb_reviews';
+const PROD_KEY   = 'haat_sb_products';
+const STOCK_KEY  = 'haat_sb_stock_moves';
+const COUPON_KEY = 'haat_sb_coupons';
+const LOYAL_KEY  = 'haat_sb_loyalty';
+const PUSH_KEY   = 'haat_sb_push_tokens';
 const SEQ_KEY    = 'haat_sb_seq';
 
 function read<T>(k: string, def: T): T {
@@ -145,5 +155,123 @@ export const sandboxStore = {
     list.unshift(review);
     write(REVIEW_KEY, list);
     return review;
+  },
+  markNotifRead(notifId: string) {
+    const list = read<SbNotif[]>(NOTIF_KEY, []).map(n => n.id === notifId ? { ...n, read: true } : n);
+    write(NOTIF_KEY, list);
+  },
+  markAllNotifsRead(userId: string) {
+    const list = read<SbNotif[]>(NOTIF_KEY, []).map(n => n.target_user_id === userId ? { ...n, read: true } : n);
+    write(NOTIF_KEY, list);
+  },
+
+  // ── Inventory / products ─────────────────────────────────────────────────────
+  getProducts(merchantId: string): SbProduct[] {
+    let list = read<SbProduct[]>(PROD_KEY, []).filter(p => p.merchant_id === merchantId);
+    if (list.length === 0) {
+      list = [
+        { id: 'p1', merchant_id: merchantId, name: 'كبسة لحم فاخرة', price: 45, stock: 24, low_threshold: 8, category: 'مطاعم', active: true },
+        { id: 'p2', merchant_id: merchantId, name: 'مندي دجاج',       price: 38, stock: 6,  low_threshold: 8, category: 'مطاعم', active: true },
+        { id: 'p3', merchant_id: merchantId, name: 'عصير برتقال طازج',  price: 12, stock: 0,  low_threshold: 5, category: 'مشروبات', active: true },
+      ];
+      write(PROD_KEY, [...read<SbProduct[]>(PROD_KEY, []), ...list]);
+    }
+    return list;
+  },
+  addProduct(merchantId: string, name: string, price: number, stock: number, category: string): SbProduct {
+    const all = read<SbProduct[]>(PROD_KEY, []);
+    const prod: SbProduct = { id: nextId('p'), merchant_id: merchantId, name, price, stock, low_threshold: 5, category, active: true };
+    all.push(prod); write(PROD_KEY, all);
+    this.recordStockMove(prod.id, stock, 'إنشاء المنتج');
+    return prod;
+  },
+  adjustStock(productId: string, delta: number, reason: string): SbProduct | undefined {
+    const all = read<SbProduct[]>(PROD_KEY, []);
+    const p = all.find(x => x.id === productId);
+    if (!p) return undefined;
+    p.stock = Math.max(0, p.stock + delta);
+    write(PROD_KEY, all);
+    this.recordStockMove(productId, delta, reason);
+    return p;
+  },
+  setProductActive(productId: string, active: boolean) {
+    const all = read<SbProduct[]>(PROD_KEY, []);
+    const p = all.find(x => x.id === productId); if (p) { p.active = active; write(PROD_KEY, all); }
+  },
+  recordStockMove(productId: string, delta: number, reason: string) {
+    const list = read<SbStockMove[]>(STOCK_KEY, []);
+    list.unshift({ id: nextId('sm'), product_id: productId, delta, reason, at: nowISO() });
+    write(STOCK_KEY, list.slice(0, 200));
+  },
+  getStockHistory(productId: string): SbStockMove[] {
+    return read<SbStockMove[]>(STOCK_KEY, []).filter(m => m.product_id === productId);
+  },
+  getInventoryStats(merchantId: string): { total: number; low: number; out: number; units: number } {
+    const ps = this.getProducts(merchantId);
+    return {
+      total: ps.length,
+      low: ps.filter(p => p.stock > 0 && p.stock <= p.low_threshold).length,
+      out: ps.filter(p => p.stock === 0).length,
+      units: ps.reduce((s, p) => s + p.stock, 0),
+    };
+  },
+
+  // ── Coupons ──────────────────────────────────────────────────────────────────
+  getCoupons(): SbCoupon[] {
+    let list = read<SbCoupon[]>(COUPON_KEY, []);
+    if (list.length === 0) {
+      list = [{ id: 'cp1', code: 'HAAT20', discount_percent: 20, max_uses: 100, used: 12, expires_at: '2026-12-31', country: null, active: true, created_at: nowISO() }];
+      write(COUPON_KEY, list);
+    }
+    return list;
+  },
+  createCoupon(c: Omit<SbCoupon, 'id' | 'used' | 'created_at'>): SbCoupon {
+    const list = read<SbCoupon[]>(COUPON_KEY, []);
+    const coupon: SbCoupon = { ...c, id: nextId('cp'), used: 0, created_at: nowISO() };
+    list.unshift(coupon); write(COUPON_KEY, list);
+    return coupon;
+  },
+  updateCoupon(id: string, patch: Partial<SbCoupon>) {
+    const list = read<SbCoupon[]>(COUPON_KEY, []).map(c => c.id === id ? { ...c, ...patch } : c);
+    write(COUPON_KEY, list);
+  },
+  validateCoupon(code: string, country: string): { ok: boolean; coupon?: SbCoupon; reason?: string } {
+    const c = this.getCoupons().find(x => x.code.toUpperCase() === code.toUpperCase());
+    if (!c) return { ok: false, reason: 'كوبون غير موجود' };
+    if (!c.active) return { ok: false, reason: 'الكوبون غير مفعّل' };
+    if (c.expires_at && new Date(c.expires_at) < new Date(nowISO())) return { ok: false, reason: 'انتهت صلاحية الكوبون' };
+    if (c.max_uses > 0 && c.used >= c.max_uses) return { ok: false, reason: 'تم استنفاد الكوبون' };
+    if (c.country && c.country !== country) return { ok: false, reason: 'الكوبون غير متاح في بلدك' };
+    return { ok: true, coupon: c };
+  },
+
+  // ── Loyalty / rewards ────────────────────────────────────────────────────────
+  getPoints(customerId: string): number {
+    return read<SbLoyaltyTxn[]>(LOYAL_KEY, []).filter(t => t.customer_id === customerId).reduce((s, t) => s + t.points, 0);
+  },
+  getLoyaltyHistory(customerId: string): SbLoyaltyTxn[] {
+    return read<SbLoyaltyTxn[]>(LOYAL_KEY, []).filter(t => t.customer_id === customerId);
+  },
+  addPoints(customerId: string, points: number, reason: string): SbLoyaltyTxn {
+    const list = read<SbLoyaltyTxn[]>(LOYAL_KEY, []);
+    const txn: SbLoyaltyTxn = { id: nextId('lp'), customer_id: customerId, points, reason, at: nowISO() };
+    list.unshift(txn); write(LOYAL_KEY, list);
+    return txn;
+  },
+  redeemPoints(customerId: string, points: number, reason: string): { ok: boolean; reason?: string } {
+    if (this.getPoints(customerId) < points) return { ok: false, reason: 'نقاط غير كافية' };
+    this.addPoints(customerId, -points, reason);
+    return { ok: true };
+  },
+
+  // ── Push tokens ──────────────────────────────────────────────────────────────
+  registerPushToken(userId: string, token: string, platform: string): SbPushToken {
+    const list = read<SbPushToken[]>(PUSH_KEY, []).filter(t => t.token !== token);
+    const rec: SbPushToken = { id: nextId('pt'), user_id: userId, token, platform, created_at: nowISO() };
+    list.unshift(rec); write(PUSH_KEY, list);
+    return rec;
+  },
+  getPushTokens(userId: string): SbPushToken[] {
+    return read<SbPushToken[]>(PUSH_KEY, []).filter(t => t.user_id === userId);
   },
 };
