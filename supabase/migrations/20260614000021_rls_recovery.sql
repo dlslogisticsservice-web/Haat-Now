@@ -19,6 +19,25 @@
 -- Idempotent: every policy is dropped-if-exists then created. NOT executed here.
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- ── ordering safety ─────────────────────────────────────────────────────────
+-- This file is numbered before 0022 but its "Admins read orders by scope" policy
+-- calls order_country_code(), which must be SECURITY DEFINER at QUERY time to avoid
+-- RLS recursion on orders. To make 0021 self-safe regardless of apply order, assert
+-- the DEFINER form here first (identical to 0022; idempotent create-or-replace).
+-- Verified safe: orders is NOT force-RLS and the function owner (postgres) has
+-- rolbypassrls=true, so the function's internal read of orders bypasses RLS.
+create or replace function public.order_country_code(p_order_id uuid) returns varchar
+  language sql stable security definer set search_path = public as $$
+  select co.code from orders o
+  join merchant_branches mb on mb.id = o.branch_id
+  join zones z   on z.id  = mb.zone_id
+  join cities ci on ci.id = z.city_id
+  join countries co on co.id = ci.country_id
+  where o.id = p_order_id;
+$$;
+revoke all on function public.order_country_code(uuid) from public;
+grant execute on function public.order_country_code(uuid) to authenticated;
+
 -- ── helper: writes go through SECURITY DEFINER RPCs; money tables stay read-only ──
 
 -- ============================== ORDERS ==============================
@@ -110,10 +129,13 @@ create policy "Update own reviews" on public.reviews
   for update to authenticated using (customer_id = auth.uid()) with check (customer_id = auth.uid());
 
 -- ============================== DRIVERS ==============================
--- Readable by authenticated (order tracking shows driver name/phone; 0019 granted select).
+-- Scoped read (PII): a driver sees own profile; others see only the driver
+-- attached to an order THEY can see (the orders subquery is filtered by orders RLS,
+-- so customers→own order's driver, merchants→branch order's driver, admins→scoped).
 drop policy if exists "Read drivers" on public.drivers;
 create policy "Read drivers" on public.drivers
-  for select to authenticated using (true);
+  for select to authenticated
+  using (id = auth.uid() or id in (select driver_id from public.orders where driver_id is not null));
 
 drop policy if exists "Drivers insert own profile" on public.drivers;
 create policy "Drivers insert own profile" on public.drivers
@@ -124,9 +146,11 @@ create policy "Drivers update own profile" on public.drivers
   for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
 
 -- ============================== DRIVER_LOCATIONS ==============================
+-- Scoped read: own location, or the location of a driver on an order you can see.
 drop policy if exists "Read driver locations" on public.driver_locations;
 create policy "Read driver locations" on public.driver_locations
-  for select to authenticated using (true);
+  for select to authenticated
+  using (driver_id = auth.uid() or driver_id in (select driver_id from public.orders where driver_id is not null));
 
 drop policy if exists "Drivers insert own location" on public.driver_locations;
 create policy "Drivers insert own location" on public.driver_locations
