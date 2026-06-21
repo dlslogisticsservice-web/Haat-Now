@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { walletService } from '../../services/wallet.service';
 import { Wallet, WalletTransaction } from '../../services/types';
 import { sandboxStore, SbLoyaltyTxn } from '../../services/sandboxStore';
+import { loyaltyService } from '../../services/loyalty.service';
+
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import {
   RefreshCw, MoreVertical, AlertCircle, Loader2, Plus,
@@ -59,15 +62,30 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
   const [loyaltyHist,    setLoyaltyHist]    = useState<SbLoyaltyTxn[]>([]);
   const [redeemMsg,      setRedeemMsg]      = useState<string | null>(null);
   const REDEEM_COST = 500; // points → 25 currency credit
-  const refreshLoyalty = () => { setPoints(sandboxStore.getPoints(customerId)); setLoyaltyHist(sandboxStore.getLoyaltyHistory(customerId)); };
+  const refreshLoyalty = async () => {
+    if (SANDBOX) { setPoints(sandboxStore.getPoints(customerId)); setLoyaltyHist(sandboxStore.getLoyaltyHistory(customerId)); return; }
+    const [{ points: pts }, { data: hist }] = await Promise.all([
+      loyaltyService.getPoints(customerId),
+      loyaltyService.getHistory(customerId),
+    ]);
+    setPoints(pts);
+    setLoyaltyHist((hist || []).map(t => ({ id: t.id, customer_id: t.customer_id, points: t.points, reason: t.reason || '', at: t.created_at })));
+  };
   useEffect(() => { refreshLoyalty(); }, [customerId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const handleRedeem = () => {
-    const res = sandboxStore.redeemPoints(customerId, REDEEM_COST, 'استبدال نقاط برصيد محفظة');
-    if (!res.ok) { setRedeemMsg(res.reason || 'تعذّر الاستبدال'); return; }
-    const bal = sandboxStore.creditWallet('customer', customerId, 25);
+  const handleRedeem = async () => {
+    if (SANDBOX) {
+      const res = sandboxStore.redeemPoints(customerId, REDEEM_COST, 'استبدال نقاط برصيد محفظة');
+      if (!res.ok) { setRedeemMsg(res.reason || 'تعذّر الاستبدال'); return; }
+      const bal = sandboxStore.creditWallet('customer', customerId, 25);
+      setWallet(w => (w ? { ...w, balance: bal } as any : w));
+    } else {
+      const res = await loyaltyService.redeemPoints(customerId, REDEEM_COST, 'استبدال نقاط برصيد محفظة');
+      if (!res.ok) { setRedeemMsg('نقاط غير كافية'); return; }
+      // Wallet credit on redemption is applied server-side; reload the balance.
+      loadWalletData();
+    }
     setRedeemMsg('تم استبدال 500 نقطة بـ 25 رصيد محفظة 🎉');
     refreshLoyalty();
-    setWallet(w => (w ? { ...w, balance: bal } as any : w));
   };
 
   // P5 — balance count-up animation state
