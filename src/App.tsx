@@ -143,7 +143,9 @@ export default function App() {
       const { data } = await notificationService.getUserNotifications(session.id);
       if (data) {
         setNotifications(data);
-        countUnseen(data);
+        // Prefer server-side is_read count (H3, post-0020); fall back to last-seen.
+        const { count, error } = await notificationService.getUnreadCount(session.id);
+        if (!error) setUnreadCount(count); else countUnseen(data);
       }
     };
 
@@ -235,6 +237,11 @@ export default function App() {
   const handleMarkNotifsAsRead = () => {
     localStorage.setItem('haat_notifications_last_seen', new Date().toISOString());
     setUnreadCount(0);
+    // Persist read-state (H3): sandbox → shared store; supabase → notifications.is_read.
+    if (session?.id) {
+      if (import.meta.env.VITE_AUTH_MODE === 'sandbox') sandboxStore.markAllNotifsRead(session.id);
+      else notificationService.markAllRead(session.id).catch(() => { /* non-blocking */ });
+    }
   };
 
   const handleNavigateToCheckout = () => {
