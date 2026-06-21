@@ -86,6 +86,10 @@ export interface Product {
   name: string;
   price: number;
   description?: string | null;
+  // Added by migration 0020 (feature persistence).
+  stock?: number;
+  low_stock_threshold?: number;
+  is_active?: boolean;
 }
 
 export interface ProductVariant {
@@ -217,6 +221,12 @@ export interface Coupon {
   is_active: boolean;
   start_date: string | null;
   end_date: string | null;
+  // Added by migration 0020 (feature persistence).
+  max_uses?: number;
+  used_count?: number;
+  expires_at?: string | null;
+  country_code?: string | null;
+  created_at?: string;
 }
 
 export interface CouponUsage {
@@ -237,6 +247,24 @@ export interface Notification {
   message: string;
   type: string;
   created_at?: string;
+  is_read?: boolean; // Added by migration 0020.
+}
+
+// Added by migration 0020 (feature persistence).
+export interface StockMovement {
+  id: string;
+  product_id: string;
+  delta: number;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface LoyaltyTransaction {
+  id: string;
+  customer_id: string;
+  points: number;
+  reason: string | null;
+  created_at: string;
 }
 
 export interface Review {

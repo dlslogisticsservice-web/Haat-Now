@@ -38,7 +38,29 @@ export const notificationService = {
         token: tokenPayload.token,
         device_type: tokenPayload.device_type
       }, { onConflict: 'token' });
-    
+
     return { error };
+  },
+
+  // Mark a single notification as read (migration 0020 adds notifications.is_read).
+  async markRead(notificationId: string): Promise<{ error: any }> {
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId);
+    return { error };
+  },
+
+  // Mark all of a user's notifications as read.
+  async markAllRead(userId: string): Promise<{ error: any }> {
+    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('target_user_id', userId);
+    return { error };
+  },
+
+  // Count unread notifications for a user.
+  async getUnreadCount(userId: string): Promise<{ count: number; error: any }> {
+    const { count, error } = await supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('target_user_id', userId)
+      .eq('is_read', false);
+    return { count: count ?? 0, error };
   }
 };
