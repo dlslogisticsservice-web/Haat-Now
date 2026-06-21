@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { EnterpriseSidebar, SidebarSection } from '../../components/ui/EnterpriseSidebar';
-import { sandboxStore } from '../../services/sandboxStore';
+import { sandboxStore, SbCoupon } from '../../services/sandboxStore';
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 
 // ── Types (unchanged) ─────────────────────────────────────────
@@ -26,12 +26,13 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'config' | 'support';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support';
 
 const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
     items: [
       { id: 'kpi',     label: 'الإحصائيات',   icon: 'bar_chart' },
+      { id: 'coupons', label: 'الكوبونات',     icon: 'sell' },
       { id: 'config',  label: 'المتغيرات',     icon: 'tune' },
       { id: 'support', label: 'Helpdesk',      icon: 'support_agent' },
     ],
@@ -58,8 +59,26 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [loading,           setLoading]           = useState(true);
   const [payoutLoading,     setPayoutLoading]     = useState(false);
   const [activeTab,         setActiveTab]         = useState<AdminTab>('kpi');
+  // ── Coupon administration ──
+  const [coupons,           setCoupons]           = useState<SbCoupon[]>([]);
+  const [cForm,             setCForm]             = useState({ code: '', discount: '15', maxUses: '100', expires: '2026-12-31', country: '' });
+  const refreshCoupons = () => setCoupons(sandboxStore.getCoupons());
+  const handleCreateCoupon = () => {
+    if (!cForm.code.trim()) return;
+    sandboxStore.createCoupon({
+      code: cForm.code.trim().toUpperCase(),
+      discount_percent: Math.max(1, Math.min(100, parseInt(cForm.discount) || 0)),
+      max_uses: parseInt(cForm.maxUses) || 0,
+      expires_at: cForm.expires,
+      country: cForm.country || null,
+      active: true,
+    });
+    setCForm({ code: '', discount: '15', maxUses: '100', expires: '2026-12-31', country: '' });
+    refreshCoupons();
+  };
+  const toggleCoupon = (id: string, active: boolean) => { sandboxStore.updateCoupon(id, { active }); refreshCoupons(); };
 
-  useEffect(() => { fetchAdminModuleData(); }, []);
+  useEffect(() => { fetchAdminModuleData(); refreshCoupons(); }, []);
 
   // ── Business logic (ALL UNCHANGED) ───────────────────────
   const fetchAdminModuleData = async () => {
@@ -373,6 +392,57 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         )}
 
         {/* ═══════════════════════════════════════════════════ */}
+        {/* TAB: COUPONS                                       */}
+        {/* ═══════════════════════════════════════════════════ */}
+        {activeTab === 'coupons' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="admin_coupons_tab">
+            {/* Create coupon */}
+            <Card variant="z3" radius="xl" padding="p-6" className="space-y-4" id="coupon_create_box">
+              <h3 className="text-title-md font-bold text-white text-end">إنشاء كوبون جديد</h3>
+              <div className="space-y-3">
+                <input id="coupon_code_input" value={cForm.code} onChange={e => setCForm({ ...cForm, code: e.target.value })} placeholder="كود الكوبون (مثال: HAAT20)" dir="ltr"
+                  className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">نسبة الخصم %</label>
+                    <input type="number" value={cForm.discount} onChange={e => setCForm({ ...cForm, discount: e.target.value })} className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
+                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">حد الاستخدام</label>
+                    <input type="number" value={cForm.maxUses} onChange={e => setCForm({ ...cForm, maxUses: e.target.value })} className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">تاريخ الانتهاء</label>
+                    <input type="date" value={cForm.expires} onChange={e => setCForm({ ...cForm, expires: e.target.value })} className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
+                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">الدولة</label>
+                    <select value={cForm.country} onChange={e => setCForm({ ...cForm, country: e.target.value })} className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <option value="">كل الدول</option><option value="EG">مصر</option><option value="SA">السعودية</option>
+                    </select></div>
+                </div>
+                <button id="coupon_create_btn" onClick={handleCreateCoupon} className="w-full h-11 rounded-xl font-bold cursor-pointer" style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }}>إنشاء الكوبون</button>
+              </div>
+            </Card>
+            {/* Coupon list */}
+            <Card variant="z3" radius="xl" padding="p-0" className="overflow-hidden" id="coupon_list_box">
+              <div className="p-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}><h3 className="text-title-md font-bold text-white text-end">الكوبونات ({coupons.length})</h3></div>
+              {coupons.map(c => {
+                const expired = new Date(c.expires_at) < new Date('2026-06-20');
+                return (
+                  <div key={c.id} id={`coupon_row_${c.id}`} className="p-4 border-b flex items-center justify-between gap-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <button onClick={() => toggleCoupon(c.id, !c.active)} className="px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0" style={{ background: c.active ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.06)', color: c.active ? '#4ade80' : 'var(--color-on-surface-variant)' }}>
+                      {c.active ? 'مفعّل' : 'معطّل'}
+                    </button>
+                    <div className="text-end min-w-0">
+                      <p className="font-bold text-white" dir="ltr" style={{ textAlign: 'end' }}>{c.code} · {c.discount_percent}%</p>
+                      <p className="text-label-sm text-[var(--color-on-surface-variant)]">
+                        {c.used}/{c.max_uses || '∞'} استُخدم · {c.country || 'كل الدول'} · {expired ? 'منتهٍ' : `حتى ${c.expires_at}`}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              {coupons.length === 0 && <p className="p-6 text-center text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>لا توجد كوبونات.</p>}
+            </Card>
+          </div>
+        )}
+
         {/* TAB: APP CONFIG                                    */}
         {/* ═══════════════════════════════════════════════════ */}
         {activeTab === 'config' && (
