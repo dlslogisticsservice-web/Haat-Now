@@ -109,7 +109,10 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
   const refreshInventory = () => setInventory(sandboxStore.getProducts(merchantId));
   const handleAdjustStock = (productId: string, delta: number) => {
-    sandboxStore.adjustStock(productId, delta, delta > 0 ? 'إضافة يدوية' : 'خصم يدوي');
+    const p = sandboxStore.adjustStock(productId, delta, delta > 0 ? 'إضافة يدوية' : 'خصم يدوي');
+    // Out-of-stock workflow: a product with 0 stock is auto-removed from ordering;
+    // restocking re-enables it.
+    if (p) sandboxStore.setProductActive(productId, p.stock > 0);
     refreshInventory();
   };
 
@@ -896,6 +899,9 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                       </div>
                       <span className="px-2.5 py-1 rounded-lg text-xs font-bold shrink-0" style={{ background: `${badge.c}22`, color: badge.c }}>{badge.t}</span>
                     </div>
+                    {(!p.active || p.stock === 0) && (
+                      <p className="text-xs mt-2" style={{ color: '#f87171' }}>⛔ متوقف عن الطلب — أعد التزويد لإتاحته</p>
+                    )}
                     <div className="flex items-center justify-between gap-3 mt-3">
                       <div className="flex items-center gap-2">
                         <button id={`stock_minus_${p.id}`} onClick={() => handleAdjustStock(p.id, -1)} className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer" style={{ background: 'rgba(255,255,255,0.05)', color: 'white', fontSize: '18px' }}>−</button>
@@ -929,7 +935,27 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
         {/* ══════════════════════════════════════════════════════════ */}
         {activeTab === 'wallet' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="merchant_wallet_tab">
+          <div className="space-y-4" id="merchant_wallet_tab">
+            {SANDBOX && (() => {
+              const a = sandboxStore.getMerchantAnalytics();
+              const cards = [
+                { label: 'إجمالي الطلبات', val: a.orders },
+                { label: 'طلبات مكتملة', val: a.delivered },
+                { label: 'صافي الإيراد', val: `${a.revenue} ${cur}` },
+                { label: 'متوسط الطلب', val: `${a.avgOrder} ${cur}` },
+              ];
+              return (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" id="merchant_analytics_row">
+                  {cards.map(c => (
+                    <Card key={c.label} variant="z2" radius="xl" padding="p-4">
+                      <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{c.label}</p>
+                      <p className="text-title-lg font-bold" style={{ color: 'var(--color-primary-container)' }}>{c.val}</p>
+                    </Card>
+                  ))}
+                </div>
+              );
+            })()}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card variant="z3" radius="xl" padding="p-6" className="flex flex-col justify-between gap-6" id="earnings_balance_box">
               <div className="text-end">
                 <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-3">رصيد الأرباح القابل للسحب</p>
@@ -972,6 +998,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                 ))}
               </div>
             </Card>
+          </div>
           </div>
         )}
 

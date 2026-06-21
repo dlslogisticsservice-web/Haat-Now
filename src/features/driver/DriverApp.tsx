@@ -449,6 +449,14 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                   {money(totalEarned)}
                 </p>
               </div>
+              <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_3">
+                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">متوسط الرحلة</p>
+                <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{money(completedCount ? totalEarned / completedCount : 0)}</p>
+              </div>
+              <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_4">
+                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">قيد التوصيل</p>
+                <p className="text-headline-sm font-bold" style={{ color: '#fbbf24' }}>{activeJobs.length}</p>
+              </div>
             </div>
             <p className="text-label-sm text-[var(--color-on-surface-variant)] text-center leading-relaxed" style={{ textTransform: 'none', letterSpacing: 0 }}>
               {money(10)} أجرة ثابتة لكل رحلة مكتملة

@@ -156,6 +156,27 @@ export const sandboxStore = {
     return read<SbNotif[]>(NOTIF_KEY, []).filter(n => n.target_user_id === userId);
   },
 
+  // ── Analytics (platform / merchant / driver) ─────────────────────────────────
+  getPlatformAnalytics(): { totalOrders: number; delivered: number; cancelled: number; revenue: number; avgOrder: number; activeOrders: number } {
+    const all = this.getOrders();
+    const delivered = all.filter(o => o.status === 'delivered');
+    const revenue = delivered.reduce((s, o) => s + o.total_amount, 0);
+    return {
+      totalOrders: all.length,
+      delivered: delivered.length,
+      cancelled: all.filter(o => o.status === 'cancelled').length,
+      revenue,
+      avgOrder: delivered.length ? Math.round(revenue / delivered.length) : 0,
+      activeOrders: all.filter(o => ['pending', 'accepted', 'preparing', 'on_the_way'].includes(o.status)).length,
+    };
+  },
+  getMerchantAnalytics(): { orders: number; delivered: number; revenue: number; avgOrder: number } {
+    const all = this.getMerchantOrders();
+    const delivered = all.filter(o => o.status === 'delivered');
+    const revenue = delivered.reduce((s, o) => s + (o.total_amount - o.delivery_fee), 0);
+    return { orders: all.length, delivered: delivered.length, revenue, avgOrder: delivered.length ? Math.round(revenue / delivered.length) : 0 };
+  },
+
   // ── Reviews & ratings ────────────────────────────────────────────────────────
   getReview(orderId: string): SbReview | undefined {
     return read<SbReview[]>(REVIEW_KEY, []).find(r => r.order_id === orderId);

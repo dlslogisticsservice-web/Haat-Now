@@ -277,6 +277,28 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
               </div>
             </div>
 
+            {/* Expanded analytics */}
+            {(() => {
+              const a = sandboxStore.getPlatformAnalytics();
+              const cards = [
+                { label: 'إجمالي الإيرادات', val: `${a.revenue} ${cur}`, color: 'var(--color-primary-container)' },
+                { label: 'طلبات مكتملة', val: a.delivered, color: '#4ade80' },
+                { label: 'متوسط قيمة الطلب', val: `${a.avgOrder} ${cur}`, color: 'var(--color-t2, #f2f4f6)' },
+                { label: 'طلبات نشطة', val: a.activeOrders, color: '#fbbf24' },
+                { label: 'طلبات ملغاة', val: a.cancelled, color: '#f87171' },
+              ];
+              return (
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3" id="admin_expanded_analytics">
+                  {cards.map(c => (
+                    <Card key={c.label} variant="z2" radius="xl" padding="p-4">
+                      <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1" style={{ textTransform: 'none' }}>{c.label}</p>
+                      <p className="text-title-lg font-bold" style={{ color: c.color }}>{c.val}</p>
+                    </Card>
+                  ))}
+                </div>
+              );
+            })()}
+
             {/* ── ASYMMETRIC KPI AREA: dominant orders (col-7) + stacked metrics (col-5) ── */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5" id="admin_kpis_grid">
 
