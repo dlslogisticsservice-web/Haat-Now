@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import { notificationService } from './services/notification.service';
+import { sandboxStore } from './services/sandboxStore';
 import { cartService } from './services/cart.service';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { HomeScreen } from './features/home/HomeScreen';
@@ -122,13 +123,27 @@ export default function App() {
   useEffect(() => {
     if (!session?.id || session.role !== 'customer') return;
 
+    const countUnseen = (list: any[]) => {
+      const lastSeen   = localStorage.getItem('haat_notifications_last_seen');
+      const lastSeenTs = lastSeen ? new Date(lastSeen).getTime() : 0;
+      setUnreadCount(list.filter(n => new Date(n.created_at || 0).getTime() > lastSeenTs).length);
+    };
+
+    // Sandbox: read the shared notification store (delivery + loyalty events) and
+    // register a push token (push-architecture scaffold) — poll for new events.
+    if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
+      sandboxStore.registerPushToken(session.id, `web-${session.id.slice(0, 8)}`, 'web');
+      const sync = () => { const list = sandboxStore.getNotifications(session.id); setNotifications(list); countUnseen(list); };
+      sync();
+      const iv = setInterval(sync, 4000);
+      return () => clearInterval(iv);
+    }
+
     const loadAndCount = async () => {
       const { data } = await notificationService.getUserNotifications(session.id);
       if (data) {
         setNotifications(data);
-        const lastSeen   = localStorage.getItem('haat_notifications_last_seen');
-        const lastSeenTs = lastSeen ? new Date(lastSeen).getTime() : 0;
-        setUnreadCount(data.filter(n => new Date(n.created_at || 0).getTime() > lastSeenTs).length);
+        countUnseen(data);
       }
     };
 
