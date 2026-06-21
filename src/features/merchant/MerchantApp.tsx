@@ -5,6 +5,8 @@ import { orderService } from '../../services/order.service';
 import { storageService } from '../../services/storage.service';
 import { Icon } from '../../components/ui/Icon';
 import { sandboxStore, SbProduct } from '../../services/sandboxStore';
+import { inventoryService } from '../../services/inventory.service';
+import { analyticsService } from '../../services/analytics.service';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -106,14 +108,36 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
   const [earnings,           setEarnings]           = useState(0);
   const [inventory,          setInventory]          = useState<SbProduct[]>([]);
   const [stockHistoryFor,    setStockHistoryFor]    = useState<string | null>(null);
+  const [historyRows,        setHistoryRows]        = useState<{ id: string; delta: number; reason: string | null }[]>([]);
+  const [merchantStats,      setMerchantStats]      = useState({ orders: 0, delivered: 0, revenue: 0, avgOrder: 0 });
 
-  const refreshInventory = () => setInventory(sandboxStore.getProducts(merchantId));
-  const handleAdjustStock = (productId: string, delta: number) => {
-    const p = sandboxStore.adjustStock(productId, delta, delta > 0 ? 'إضافة يدوية' : 'خصم يدوي');
-    // Out-of-stock workflow: a product with 0 stock is auto-removed from ordering;
-    // restocking re-enables it.
-    if (p) sandboxStore.setProductActive(productId, p.stock > 0);
-    refreshInventory();
+  // Real inventory product → SbProduct-shaped row the inventory render expects.
+  const mapInvRow = (p: { id: string; name: string; price: number; stock?: number; low_stock_threshold?: number; is_active?: boolean }): SbProduct => ({
+    id: p.id, merchant_id: merchantId, name: p.name, price: p.price,
+    stock: p.stock ?? 0, low_threshold: p.low_stock_threshold ?? 5, category: '', active: p.is_active ?? true,
+  });
+  const refreshInventory = async () => {
+    if (SANDBOX) { setInventory(sandboxStore.getProducts(merchantId)); return; }
+    if (!selectedBranchId) return;
+    const { data } = await inventoryService.getInventory(selectedBranchId);
+    setInventory((data || []).map(mapInvRow));
+  };
+  const handleAdjustStock = async (productId: string, delta: number) => {
+    if (SANDBOX) {
+      const p = sandboxStore.adjustStock(productId, delta, delta > 0 ? 'إضافة يدوية' : 'خصم يدوي');
+      // Out-of-stock workflow: a product with 0 stock is auto-removed from ordering.
+      if (p) sandboxStore.setProductActive(productId, p.stock > 0);
+    } else {
+      await inventoryService.adjustStock(productId, delta, delta > 0 ? 'إضافة يدوية' : 'خصم يدوي');
+    }
+    await refreshInventory();
+  };
+  const openHistory = async (productId: string) => {
+    if (stockHistoryFor === productId) { setStockHistoryFor(null); return; }
+    setStockHistoryFor(productId);
+    if (SANDBOX) { setHistoryRows(sandboxStore.getStockHistory(productId)); return; }
+    const { data } = await inventoryService.getStockHistory(productId);
+    setHistoryRows((data || []).map(m => ({ id: m.id, delta: m.delta, reason: m.reason })));
   };
 
   // ── Media state ─────────────────────────────────────────────────────────
@@ -190,6 +214,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         setSelectedCategoryId('c1');
         setProducts(sandboxStore.getProducts(merchantId).map(p => ({ id: p.id, name: p.name, price: p.price, product_images: [] })) as any);
         setInventory(sandboxStore.getProducts(merchantId));
+        setMerchantStats(sandboxStore.getMerchantAnalytics());
         const sbOrders = sandboxStore.getMerchantOrders();
         setOrders(sbOrders.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, customers: { full_name: o.customer_name } })) as any);
         setEarnings(sbOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total_amount - o.delivery_fee), 0));
@@ -224,6 +249,11 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         .select('*, product_images(*)')
         .eq('branch_id', bId);
       if (prodData) setProducts(prodData as Product[]);
+      // Inventory (C1) + merchant analytics (H2) from real services.
+      const { data: invData } = await inventoryService.getInventory(bId);
+      setInventory((invData || []).map(mapInvRow));
+      const { data: mStats } = await analyticsService.getMerchantAnalytics(bId);
+      if (mStats) setMerchantStats(mStats);
     } catch (ex) { console.error(ex); }
   };
 
@@ -870,7 +900,12 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         {/* TAB: WALLET / EARNINGS                                    */}
         {/* ══════════════════════ INVENTORY ══════════════════════ */}
         {activeTab === 'inventory' && (() => {
-          const stats = SANDBOX ? sandboxStore.getInventoryStats(merchantId) : { total: inventory.length, low: 0, out: 0, units: 0 };
+          const stats = SANDBOX ? sandboxStore.getInventoryStats(merchantId) : {
+            total: inventory.length,
+            low: inventory.filter(p => p.stock > 0 && p.stock <= p.low_threshold).length,
+            out: inventory.filter(p => p.stock === 0).length,
+            units: inventory.reduce((s, p) => s + p.stock, 0),
+          };
           return (
           <div id="merchant_inventory_tab" className="space-y-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -909,19 +944,19 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                         <button id={`stock_plus_${p.id}`} onClick={() => handleAdjustStock(p.id, +1)} className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer" style={{ background: 'rgba(163,249,91,0.12)', color: 'var(--color-primary-fixed)', fontSize: '18px' }}>+</button>
                         <button onClick={() => handleAdjustStock(p.id, +10)} className="px-2.5 h-8 rounded-lg cursor-pointer text-xs font-semibold" style={{ background: 'rgba(163,249,91,0.08)', color: 'var(--color-primary-fixed)' }}>+10</button>
                       </div>
-                      <button onClick={() => setStockHistoryFor(stockHistoryFor === p.id ? null : p.id)} className="text-xs font-semibold cursor-pointer" style={{ color: 'var(--color-on-surface-variant)' }}>
+                      <button onClick={() => openHistory(p.id)} className="text-xs font-semibold cursor-pointer" style={{ color: 'var(--color-on-surface-variant)' }}>
                         {stockHistoryFor === p.id ? 'إخفاء السجل' : 'السجل'}
                       </button>
                     </div>
                     {stockHistoryFor === p.id && (
                       <div className="mt-3 space-y-1.5 pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                        {sandboxStore.getStockHistory(p.id).slice(0, 6).map(m => (
+                        {historyRows.slice(0, 6).map(m => (
                           <div key={m.id} className="flex justify-between text-xs">
                             <span style={{ color: 'var(--color-on-surface-variant)' }}>{m.reason}</span>
                             <span style={{ color: m.delta >= 0 ? '#4ade80' : '#f87171', fontWeight: 700 }}>{m.delta >= 0 ? '+' : ''}{m.delta}</span>
                           </div>
                         ))}
-                        {sandboxStore.getStockHistory(p.id).length === 0 && <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>لا يوجد سجل بعد.</p>}
+                        {historyRows.length === 0 && <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>لا يوجد سجل بعد.</p>}
                       </div>
                     )}
                   </div>
@@ -936,8 +971,8 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         {/* ══════════════════════════════════════════════════════════ */}
         {activeTab === 'wallet' && (
           <div className="space-y-4" id="merchant_wallet_tab">
-            {SANDBOX && (() => {
-              const a = sandboxStore.getMerchantAnalytics();
+            {(() => {
+              const a = merchantStats;
               const cards = [
                 { label: 'إجمالي الطلبات', val: a.orders },
                 { label: 'طلبات مكتملة', val: a.delivered },

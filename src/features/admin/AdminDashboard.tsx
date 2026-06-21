@@ -9,6 +9,10 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { EnterpriseSidebar, SidebarSection } from '../../components/ui/EnterpriseSidebar';
 import { sandboxStore, SbCoupon } from '../../services/sandboxStore';
+import { couponService } from '../../services/coupon.service';
+import { analyticsService } from '../../services/analytics.service';
+
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 
 // ── Types (unchanged) ─────────────────────────────────────────
@@ -62,21 +66,34 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   // ── Coupon administration ──
   const [coupons,           setCoupons]           = useState<SbCoupon[]>([]);
   const [cForm,             setCForm]             = useState({ code: '', discount: '15', maxUses: '100', expires: '2026-12-31', country: '' });
-  const refreshCoupons = () => setCoupons(sandboxStore.getCoupons());
-  const handleCreateCoupon = () => {
-    if (!cForm.code.trim()) return;
-    sandboxStore.createCoupon({
-      code: cForm.code.trim().toUpperCase(),
-      discount_percent: Math.max(1, Math.min(100, parseInt(cForm.discount) || 0)),
-      max_uses: parseInt(cForm.maxUses) || 0,
-      expires_at: cForm.expires,
-      country: cForm.country || null,
-      active: true,
-    });
-    setCForm({ code: '', discount: '15', maxUses: '100', expires: '2026-12-31', country: '' });
-    refreshCoupons();
+  // ── Expanded platform analytics (H2) ──
+  const [platformStats,     setPlatformStats]     = useState({ totalOrders: 0, delivered: 0, cancelled: 0, revenue: 0, avgOrder: 0, activeOrders: 0 });
+  const refreshCoupons = async () => {
+    if (SANDBOX) { setCoupons(sandboxStore.getCoupons()); return; }
+    const { data } = await couponService.listCoupons();
+    setCoupons((data || []).map(c => ({
+      id: c.id, code: c.code, discount_percent: c.discount_percent,
+      max_uses: c.max_uses ?? 0, used: c.used_count ?? 0, expires_at: c.expires_at || '',
+      country: c.country_code ?? null, active: c.is_active, created_at: c.created_at || '',
+    })));
   };
-  const toggleCoupon = (id: string, active: boolean) => { sandboxStore.updateCoupon(id, { active }); refreshCoupons(); };
+  const handleCreateCoupon = async () => {
+    if (!cForm.code.trim()) return;
+    const discount = Math.max(1, Math.min(100, parseInt(cForm.discount) || 0));
+    const max_uses = parseInt(cForm.maxUses) || 0;
+    if (SANDBOX) {
+      sandboxStore.createCoupon({ code: cForm.code.trim().toUpperCase(), discount_percent: discount, max_uses, expires_at: cForm.expires, country: cForm.country || null, active: true });
+    } else {
+      await couponService.createCoupon({ code: cForm.code.trim().toUpperCase(), discount_percent: discount, max_uses, expires_at: cForm.expires || null, country_code: cForm.country || null });
+    }
+    setCForm({ code: '', discount: '15', maxUses: '100', expires: '2026-12-31', country: '' });
+    await refreshCoupons();
+  };
+  const toggleCoupon = async (id: string, active: boolean) => {
+    if (SANDBOX) sandboxStore.updateCoupon(id, { active });
+    else await couponService.updateCoupon(id, { is_active: active });
+    await refreshCoupons();
+  };
 
   useEffect(() => { fetchAdminModuleData(); refreshCoupons(); }, []);
 
@@ -84,14 +101,17 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const fetchAdminModuleData = async () => {
     try {
       setLoading(true);
-      if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
+      if (SANDBOX) {
         const sb = sandboxStore.getOrders();
         setAnalytics({ totalOrders: sb.length, totalMerchants: 1, totalDrivers: 1 });
+        setPlatformStats(sandboxStore.getPlatformAnalytics());
         setTickets([]);
         return;
       }
       const { data: analyticsData } = await adminService.getGlobalAnalytics();
       if (analyticsData) setAnalytics(analyticsData);
+      const { data: platform } = await analyticsService.getPlatformAnalytics();
+      if (platform) setPlatformStats(platform);
       const { data: feeConf } = await adminService.getAppConfig('MIN_DELIVERY_FEE');
       if (feeConf) setConfigFee(feeConf.value);
       const { data: bnrConf } = await adminService.getAppConfig('WELCOME_SMS_MESSAGE');
@@ -279,7 +299,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
 
             {/* Expanded analytics */}
             {(() => {
-              const a = sandboxStore.getPlatformAnalytics();
+              const a = platformStats;
               const cards = [
                 { label: 'إجمالي الإيرادات', val: `${a.revenue} ${cur}`, color: 'var(--color-primary-container)' },
                 { label: 'طلبات مكتملة', val: a.delivered, color: '#4ade80' },
