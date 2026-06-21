@@ -1,0 +1,19 @@
+{
+  "//": "Copy to .mcp.json (gitignored) and supply the token. Or set SUPABASE_ACCESS_TOKEN in your shell before launching Claude Code and keep the ${...} expansion below.",
+  "mcpServers": {
+    "supabase": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=umwbzradvbsirsybfxfb"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+      }
+    }
+  }
+}
