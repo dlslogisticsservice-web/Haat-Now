@@ -125,6 +125,12 @@ export const sandboxStore = {
     const newBalance = this.getWallet('driver', driverId) + (o?.delivery_fee ?? 10);
     setWallet(key, newBalance);
     pushNotif(driverId, `تمت إضافة ${o?.delivery_fee ?? 10} لمحفظتك من توصيل #${o?.id.toUpperCase()} 💰`);
+    // Loyalty: customer earns 1 point per currency unit of order value on delivery.
+    if (o) {
+      const pts = Math.round(o.total_amount);
+      this.addPoints(o.customer_id, pts, `طلب #${o.id.toUpperCase()}`);
+      pushNotif(o.customer_id, `ربحت ${pts} نقطة من طلبك #${o.id.toUpperCase()} 🎁`);
+    }
     return { order: o, newBalance };
   },
 
@@ -134,6 +140,11 @@ export const sandboxStore = {
     const key = `${ownerType}:${ownerId}`;
     if (w[key] === undefined) { w[key] = ownerType === 'customer' ? 250 : 0; write(WALLET_KEY, w); }
     return w[key];
+  },
+  creditWallet(ownerType: 'customer' | 'driver', ownerId: string, amount: number): number {
+    const bal = this.getWallet(ownerType, ownerId) + amount;
+    setWallet(`${ownerType}:${ownerId}`, bal);
+    return bal;
   },
   getDriverEarnings(driverId: string): { count: number; total: number } {
     const delivered = this.getDriverDelivered(driverId);

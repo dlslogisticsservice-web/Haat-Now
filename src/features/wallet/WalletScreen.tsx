@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { walletService } from '../../services/wallet.service';
 import { Wallet, WalletTransaction } from '../../services/types';
-import { sandboxStore } from '../../services/sandboxStore';
+import { sandboxStore, SbLoyaltyTxn } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import {
   RefreshCw, MoreVertical, AlertCircle, Loader2, Plus,
@@ -53,6 +53,22 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
   const [transactions,   setTransactions]   = useState<WalletTransaction[]>([]);
   const [walletLoading,  setWalletLoading]  = useState(true);
   const [walletError,    setWalletError]    = useState<string | null>(null);
+
+  // ── Loyalty / rewards ──
+  const [points,         setPoints]         = useState(0);
+  const [loyaltyHist,    setLoyaltyHist]    = useState<SbLoyaltyTxn[]>([]);
+  const [redeemMsg,      setRedeemMsg]      = useState<string | null>(null);
+  const REDEEM_COST = 500; // points → 25 currency credit
+  const refreshLoyalty = () => { setPoints(sandboxStore.getPoints(customerId)); setLoyaltyHist(sandboxStore.getLoyaltyHistory(customerId)); };
+  useEffect(() => { refreshLoyalty(); }, [customerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const handleRedeem = () => {
+    const res = sandboxStore.redeemPoints(customerId, REDEEM_COST, 'استبدال نقاط برصيد محفظة');
+    if (!res.ok) { setRedeemMsg(res.reason || 'تعذّر الاستبدال'); return; }
+    const bal = sandboxStore.creditWallet('customer', customerId, 25);
+    setRedeemMsg('تم استبدال 500 نقطة بـ 25 رصيد محفظة 🎉');
+    refreshLoyalty();
+    setWallet(w => (w ? { ...w, balance: bal } as any : w));
+  };
 
   // P5 — balance count-up animation state
   const [displayBalance, setDisplayBalance] = useState(0);
@@ -154,6 +170,37 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
       </header>
 
       <main className="relative z-10 px-4 py-6 space-y-4">
+
+        {/* ── Loyalty / rewards ── */}
+        <div className="glass-shine rounded-2xl p-5" id="loyalty_card" style={{ border: '1px solid rgba(163,249,91,0.15)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', letterSpacing: '0.05em' }}>{lang === 'ar' ? 'نقاط هات ناو' : 'HAAT points'}</p>
+              <p style={{ fontSize: '30px', fontWeight: 800, color: 'var(--color-primary-fixed)', lineHeight: 1.1 }} id="loyalty_points">{points} <span style={{ fontSize: '14px', fontWeight: 500 }}>{lang === 'ar' ? 'نقطة' : 'pts'}</span></p>
+            </div>
+            <button id="loyalty_redeem_btn" onClick={handleRedeem} disabled={points < REDEEM_COST}
+              className="px-4 h-11 rounded-xl cursor-pointer font-bold"
+              style={{ background: points < REDEEM_COST ? 'rgba(163,249,91,0.2)' : 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontSize: '13px', opacity: points < REDEEM_COST ? 0.6 : 1 }}>
+              {lang === 'ar' ? `استبدل ${REDEEM_COST}` : `Redeem ${REDEEM_COST}`}
+            </button>
+          </div>
+          <div className="w-full h-1.5 rounded-full overflow-hidden mb-2" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <div className="h-full rounded-full" style={{ width: `${Math.min(100, (points / REDEEM_COST) * 100)}%`, background: 'var(--color-primary-fixed)' }} />
+          </div>
+          <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)' }}>{lang === 'ar' ? `كل ${REDEEM_COST} نقطة = 25 ${cur} رصيد محفظة` : `${REDEEM_COST} pts = 25 ${cur} wallet credit`}</p>
+          {redeemMsg && <p style={{ fontSize: '12px', color: 'var(--color-primary-fixed)', marginTop: '6px' }}>{redeemMsg}</p>}
+          {loyaltyHist.length > 0 && (
+            <div className="mt-3 pt-3 space-y-1.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              {loyaltyHist.slice(0, 4).map(t => (
+                <div key={t.id} className="flex justify-between" style={{ fontSize: '12px' }}>
+                  <span style={{ color: 'var(--color-on-surface-variant)' }}>{t.reason}</span>
+                  <span style={{ color: t.points >= 0 ? '#4ade80' : '#f87171', fontWeight: 700 }}>{t.points >= 0 ? '+' : ''}{t.points}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
 
         {/* ── Balance card — Z3 metallic surface ── */}
         <div
