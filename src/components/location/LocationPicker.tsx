@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps';
+
+const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 
 export interface PickedLocation {
   latitude: number;
@@ -57,25 +60,38 @@ export const LocationPicker = ({ initialAddress = '', onConfirm, onCancel }: Loc
   return (
     <div className="glass-panel rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
 
-      {/* Map placeholder */}
+      {/* Interactive map (real when a Maps key is configured) */}
       <div className="relative" style={{ height: '180px' }}>
-        <img src={MAP_PLACEHOLDER} alt="خريطة" className="w-full h-full object-cover" style={{ filter: 'grayscale(60%) brightness(0.5)' }} />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <span
-              className="material-symbols-outlined"
-              style={{ fontSize: '36px', color: 'var(--color-primary-fixed)', fontVariationSettings: "'FILL' 1", filter: 'drop-shadow(0 0 8px rgba(163,249,91,0.6))' }}
+        {MAPS_KEY ? (
+          <APIProvider apiKey={MAPS_KEY}>
+            <Map
+              center={{ lat, lng }}
+              defaultZoom={15}
+              gestureHandling="greedy"
+              disableDefaultUI
+              style={{ width: '100%', height: '100%' }}
+              onClick={(e) => { const ll = e.detail.latLng; if (ll) { setLat(ll.lat); setLng(ll.lng); } }}
             >
-              location_on
-            </span>
-            <span
-              className="px-3 py-1 rounded-full text-xs font-bold"
-              style={{ background: 'rgba(163,249,91,0.15)', border: '1px solid rgba(163,249,91,0.3)', color: 'var(--color-primary-fixed)' }}
-            >
-              الخريطة التفاعلية قريباً
-            </span>
-          </div>
-        </div>
+              <Marker
+                position={{ lat, lng }}
+                draggable
+                onDragEnd={(e) => { const ll = e.latLng; if (ll) { setLat(ll.lat()); setLng(ll.lng()); } }}
+              />
+            </Map>
+          </APIProvider>
+        ) : (
+          <>
+            <img src={MAP_PLACEHOLDER} alt="خريطة" className="w-full h-full object-cover" style={{ filter: 'grayscale(60%) brightness(0.5)' }} />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="flex flex-col items-center gap-2">
+                <span className="material-symbols-outlined" style={{ fontSize: '36px', color: 'var(--color-primary-fixed)', fontVariationSettings: "'FILL' 1", filter: 'drop-shadow(0 0 8px rgba(163,249,91,0.6))' }}>location_on</span>
+                <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: 'rgba(163,249,91,0.15)', border: '1px solid rgba(163,249,91,0.3)', color: 'var(--color-primary-fixed)' }}>
+                  استخدم موقعي الحالي لتحديد الإحداثيات
+                </span>
+              </div>
+            </div>
+          </>
+        )}
         {/* Coordinates chip */}
         <div
           className="absolute bottom-3 left-3 px-2 py-1 rounded-lg"
