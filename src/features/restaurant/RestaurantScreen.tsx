@@ -48,7 +48,7 @@ export const RestaurantScreen = ({
   const [loading,         setLoading]         = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<any | null>(null);
-  const [activeTab,       setActiveTab]       = useState('الكل');
+  const [activeTab,       setActiveTab]       = useState(TABS[0]);
   const [favorite,        setFavorite]        = useState(false);
 
   useEffect(() => {
@@ -229,9 +229,8 @@ export const RestaurantScreen = ({
         })}
       </div>
 
-      {/* ════════════════════════════════════════════
-          PROMO CARD
-      ════════════════════════════════════════════ */}
+      {/* ═══ OFFERS TAB ═══ */}
+      {activeTab === 'العروض' && (<>
       <div className="flex items-center justify-between mb-4 mt-6">
         <span style={{ color: 'var(--color-primary-fixed)', fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'none' }}>عرض الكل</span>
         <h3 className="text-headline-sm font-semibold" style={{ color: 'white', textTransform: 'none', letterSpacing: 0 }}>العروض المميزة</h3>
@@ -263,10 +262,11 @@ export const RestaurantScreen = ({
         </div>
       </div>
 
-      {/* ════════════════════════════════════════════
-          MENU ITEMS
-      ════════════════════════════════════════════ */}
-      <div className="mt-6 space-y-3" id="menu_list">
+      </>)}
+
+      {/* ═══ MEALS TAB ═══ */}
+      {activeTab === 'الوجبات' && (
+      <div className="mt-6 space-y-3" id="menu_list" style={{ paddingBottom: '160px' }}>
         <h3 className="text-headline-sm font-semibold text-right" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>الوجبات الأكثر طلباً</h3>
 
         {loading ? (
@@ -333,6 +333,38 @@ export const RestaurantScreen = ({
           })
         )}
       </div>
+      )}
+
+      {/* ═══ REVIEWS TAB ═══ */}
+      {activeTab === 'التقييمات' && (
+        <div className="mt-6 space-y-3" style={{ paddingBottom: '160px' }}>
+          <h3 className="text-headline-sm font-semibold text-right" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>آراء العملاء</h3>
+          <div className="glass rounded-2xl p-6 text-center" style={{ color: 'var(--color-on-surface-variant)' }}>
+            <p style={{ fontSize: '14px' }}>لا توجد تقييمات بعد. كن أول من يقيّم بعد استلام طلبك.</p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ABOUT TAB ═══ */}
+      {activeTab === 'عن المطعم' && (
+        <div className="mt-6 space-y-3 text-right" style={{ paddingBottom: '160px' }}>
+          <h3 className="text-headline-sm font-semibold" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>عن المتجر</h3>
+          <div className="glass rounded-2xl p-5 space-y-3">
+            {[
+              ['الاسم', restaurantName],
+              ['الفئة', branchCategory || '—'],
+              ['التوصيل', '٢٥–٤٠ دقيقة'],
+              ['الحد الأدنى للطلب', price(20)],
+              ['الحالة', 'مفتوح الآن'],
+            ].map(([k, v]) => (
+              <div key={k as string} className="flex items-center justify-between" style={{ fontSize: '14px' }}>
+                <span style={{ color: 'var(--color-on-surface)', fontWeight: 600 }}>{v as string}</span>
+                <span style={{ color: 'var(--color-on-surface-variant)' }}>{k as string}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════
           FLOATING CART PILL

@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import {
   Star, Clock, SearchX, Search, X, Zap, Bike, Shield, Tag,
   UtensilsCrossed, ShoppingCart, Pill, Coffee, CakeSlice, Gift, Flower2, Smartphone,
-  ChevronLeft,
+  ChevronLeft, LayoutGrid, LayoutList,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { CATEGORY_IMAGES, getCategoryCover, type CategoryKey } from '../../utils/categoryImages';
@@ -109,6 +109,8 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
   const [loading,        setLoading]        = useState(true);
   const [selectedCat,    setSelectedCat]    = useState<string | null>(null);
   const [searchQuery,    setSearchQuery]    = useState('');
+  const [viewMode,       setViewMode]       = useState<'large' | 'compact'>(() => (typeof localStorage !== 'undefined' && localStorage.getItem('haat_view_mode') === 'compact') ? 'compact' : 'large');
+  const toggleViewMode = () => setViewMode(m => { const next = m === 'large' ? 'compact' : 'large'; try { localStorage.setItem('haat_view_mode', next); } catch { /* ignore */ } return next; });
   const [activeOfferIdx, setActiveOfferIdx] = useState(0);
 
   useEffect(() => { fetchAllData(); }, []);
@@ -331,7 +333,12 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
       {/* ══ 5. RESTAURANTS ══ */}
       <section className="mb-4" id="home_restaurants" style={{ position: 'relative', zIndex: 2 }}>
         <div className="flex items-center justify-between mb-3">
-          {!isFiltering && <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px' }}>
+          <button type="button" onClick={toggleViewMode} id="view_mode_toggle" aria-label="تبديل العرض"
+            className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--color-primary-fixed)' }}>
+            {viewMode === 'large' ? <LayoutGrid size={16} strokeWidth={2} /> : <LayoutList size={16} strokeWidth={2} />}
+          </button>
+          {!isFiltering && <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px', marginInlineStart: 'auto', marginInlineEnd: '8px' }}>
             المزيد <ChevronLeft size={14} strokeWidth={2.5} />
           </button>}
           <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>
@@ -348,7 +355,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
             <button onClick={() => { setSearchQuery(''); setSelectedCat(null); }} style={{ padding: '8px 20px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(170,176,182,0.80)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>عرض كل المتاجر</button>
           </div>
         ) : (
-          <div className="space-y-3" id="restaurants_list">
+          <div className={viewMode === 'compact' ? 'grid grid-cols-2 gap-3' : 'space-y-3'} id="restaurants_list">
             {(showMock ? MOCK_RESTAURANTS : (isFiltering ? filteredBranches : filteredBranches.slice(0, 4))).map((item, idx) => {
               const isMock   = 'type' in item;
               const r        = isMock ? item as typeof MOCK_RESTAURANTS[0] : null;
@@ -364,6 +371,26 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
               const typeKey  = isMock ? r!.type     : undefined;
               const id       = isMock ? r!.id       : branch!.id;
               const logoUrl  = !isMock ? branch!.merchants?.logo_url : null;
+              if (viewMode === 'compact') return (
+                <div key={id} onClick={() => onSelectRestaurant(id, name)}
+                  className="rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
+                  id={isMock ? undefined : `branch_${id}`}
+                  style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'linear-gradient(180deg,#1c2026,#13171a)' }}>
+                  <div className="relative" style={{ height: '92px', background: '#060a0e' }}>
+                    {logoUrl ? <img src={logoUrl} alt={name} className="w-full h-full object-cover" /> : <RestaurantPhoto type={typeKey} name={name} />}
+                    <div className="absolute top-2 start-2 flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'rgba(8,12,16,0.72)', backdropFilter: 'blur(12px)' }}>
+                      <Star size={10} color="#f0c840" fill="#f0c840" strokeWidth={0} /><span style={{ fontSize: '10px', color: 'white', fontWeight: 800 }}>{rating}</span>
+                    </div>
+                  </div>
+                  <div className="px-2.5 py-2">
+                    <h3 className="truncate" style={{ color: '#f2f4f6', fontSize: '13px', fontWeight: 700, textAlign: 'right', margin: 0 }}>{name}</h3>
+                    <p className="truncate" style={{ color: 'rgba(160,165,170,0.65)', fontSize: '10px', textAlign: 'right' }}>{cuisine}</p>
+                    <div className="flex items-center justify-between mt-1" style={{ fontSize: '10px', color: 'rgba(170,176,182,0.8)' }}>
+                      <span>{minOrd}</span><span>{eta}</span>
+                    </div>
+                  </div>
+                </div>
+              );
               return (
                 <div key={id} onClick={() => onSelectRestaurant(id, name)}
                   className="rounded-2xl overflow-hidden cursor-pointer active:scale-[0.99] transition-transform" id={isMock ? undefined : `branch_${id}`}
