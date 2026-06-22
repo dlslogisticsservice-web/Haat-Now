@@ -9,3 +9,8 @@ coverage/
 
 # Supabase MCP config (contains access token — do not commit)
 .mcp.json
+
+# build/preview artifacts & stray files
+preview.log
+preview_err.log
+tatus

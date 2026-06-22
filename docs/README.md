@@ -14,20 +14,26 @@ docs/
 ├── README.md                  ← you are here (index)
 ├── PROJECT_STRUCTURE_REPORT.md ← move log (old path → new path)
 ├── SAFE_AREA_AUDIT_REPORT.md  ← latest hotfix audit
-├── audits/        ← blockers, impact analysis, MCP / DB audits, cutover readiness
+├── audits/        ← blockers, impact analysis, MCP / DB audits, cutover readiness, db-audit scripts
 ├── reports/       ← verification, status, readiness & completion reports
 ├── deployment/    ← deployment plans, certifications, go-live checklists, env/config
-├── testing/       ← test plans
+├── testing/       ← test plans, screenshot/capture scripts, screenshots/
 ├── operations/    ← runbooks, recovery plans, step-by-step execution guides
-├── architecture/  ← data model, auth migration packages, demo accounts
-├── archive/       ← superseded / historical documents
+├── architecture/  ← data model, demo accounts
+├── migrations/    ← migration ledger + auth migration packages
+├── archive/       ← superseded / historical documents, branding asset archives
 ├── plans/         ← pre-existing planning docs (backlog, redesign/migration plans)
 └── verification/  ← pre-existing runtime / auth verification records
 ```
 
 > `audits/`, `reports/`, `plans/` and `verification/` already existed from a previous cleanup.
-> This pass consolidated the root-level documents into them and added `deployment/`,
-> `testing/`, `operations/`, `architecture/` and `archive/`.
+> Subsequent passes consolidated the root-level documents into them and added `deployment/`,
+> `testing/`, `operations/`, `architecture/`, `migrations/` and `archive/`.
+>
+> Non-runtime dev tooling was also relocated from the root: `__db_audit.cjs` / `__db_check.cjs`
+> → `audits/`; `screenshot*.cjs` / `capture_login.mjs` → `testing/`; the branding `.zip` →
+> `archive/`. The repository root now holds only runtime/config files
+> (`index.html`, `package.json`, `tsconfig.json`, `vite.config.ts`, `vercel.json`, `metadata.json`, `README.md`).
 
 ## Where to find things
 
