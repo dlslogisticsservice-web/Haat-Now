@@ -9,6 +9,7 @@ import type { LucideIcon } from 'lucide-react';
 import { CATEGORY_IMAGES, getCategoryCover, type CategoryKey } from '../../utils/categoryImages';
 import { MarketplaceHero } from './MarketplaceHero';
 import { useAppConfig } from '../../contexts/AppConfigContext';
+import { campaignService, Campaign } from '../../services/campaign.service';
 import { useTranslation } from 'react-i18next';
 
 // Map a marketplace category key to the on-screen category filter id.
@@ -102,6 +103,14 @@ interface HomeScreenProps {
 /* ─── Main Component ─────────────────────────────────────────── */
 export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
   const { country } = useAppConfig();
+  // PHASE G/H — active hero campaign for this country + impression tracking.
+  const [heroCampaign, setHeroCampaign] = useState<Campaign | null>(null);
+  useEffect(() => {
+    campaignService.getActiveByPlacement('hero', country.code).then(cs => {
+      const c = cs[0] || null; setHeroCampaign(c);
+      if (c) campaignService.track(c.id, 'impression');
+    }).catch(() => { /* ignore */ });
+  }, [country.code]);
   const { t } = useTranslation();
   const cur = country.currency.symbolAr;
   const [branches,       setBranches]       = useState<BranchWithMerchant[]>([]);
@@ -173,9 +182,25 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
     <div id="home_screen_portal" dir="rtl" style={{ position: 'relative' }}>
 
       {/* ══ 1. MARKETPLACE HERO — rotating multi-vertical carousel ══ */}
-      {!isFiltering && (
+      {!isFiltering && (<>
         <MarketplaceHero onShop={(c) => setSelectedCat(CAT_KEY_TO_ID[c] ?? null)} />
-      )}
+
+        {/* PHASE G — dynamic hero campaign banner (Super-Admin managed) */}
+        {heroCampaign && (
+          <section className="mb-3" id="home_campaign_hero" style={{ position: 'relative', zIndex: 2 }}>
+            <div id="campaign_hero_banner" onClick={() => { campaignService.track(heroCampaign.id, 'click'); if (heroCampaign.destination_url) window.open(heroCampaign.destination_url, '_blank'); }}
+              className="glass glass-shine rounded-2xl overflow-hidden cursor-pointer relative active:scale-[0.99] transition-transform" style={{ minHeight: '116px', border: '1px solid rgba(163,249,91,0.2)' }}>
+              {heroCampaign.image_url && <img src={heroCampaign.image_url} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: 0.45 }} />}
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(to left, rgba(8,11,14,0.92), rgba(8,11,14,0.55))' }} />
+              <div className="relative p-5 text-right">
+                <h3 style={{ color: 'white', fontSize: '20px', fontWeight: 800, letterSpacing: '-0.01em' }}>{heroCampaign.title}</h3>
+                {heroCampaign.subtitle && <p style={{ color: 'rgba(225,226,231,0.85)', fontSize: '13px', marginTop: '4px' }}>{heroCampaign.subtitle}</p>}
+                {heroCampaign.cta_label && <button style={{ marginTop: '10px', background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', padding: '7px 16px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', border: 'none', cursor: 'pointer' }}>{heroCampaign.cta_label}</button>}
+              </div>
+            </div>
+          </section>
+        )}
+      </>)}
 
       {/* ══ 2. SEARCH — polished silver §4 ══ */}
       <section className="mb-4" id="home_search" style={{ position: 'relative', zIndex: 2 }}>

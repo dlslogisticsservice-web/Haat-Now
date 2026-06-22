@@ -15,6 +15,7 @@ import { analyticsService } from '../../services/analytics.service';
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 import { DesignCenter } from './DesignCenter';
+import { CampaignCenter } from './CampaignCenter';
 
 // ── Types (unchanged) ─────────────────────────────────────────
 interface Ticket {
@@ -31,7 +32,7 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns';
 
 const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
@@ -105,7 +106,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   }, [adminId]);
   const navSections = SIDEBAR_SECTIONS.map(s => ({
     ...s,
-    items: isSuper ? [...s.items, { id: 'design', label: 'مركز التصميم', icon: 'palette' }] : s.items,
+    items: isSuper ? [...s.items, { id: 'campaigns', label: 'الحملات', icon: 'campaign' }, { id: 'design', label: 'مركز التصميم', icon: 'palette' }] : s.items,
   }));
 
   useEffect(() => { fetchAdminModuleData(); refreshCoupons(); }, []);
@@ -500,6 +501,9 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
 
         {/* TAB: DESIGN CENTER (super admin only)             */}
         {activeTab === 'design' && isSuper && <DesignCenter />}
+
+        {/* TAB: CAMPAIGN CENTER (super admin only)           */}
+        {activeTab === 'campaigns' && isSuper && <CampaignCenter />}
 
         {/* TAB: APP CONFIG                                    */}
         {/* ═══════════════════════════════════════════════════ */}
