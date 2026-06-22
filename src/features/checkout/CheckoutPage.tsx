@@ -903,7 +903,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
 
       {/* ── Payment error toast ──────────────────────────── */}
       {paymentError && (paymentStatus === 'failed' || paymentStatus === 'cancelled') && (
-        <div className="fixed left-4 right-4 z-50" style={{ bottom: '168px' }}>
+        <div className="fixed left-4 right-4 z-50" style={{ bottom: 'calc(168px + env(safe-area-inset-bottom, 0px))' }}>
           <div
             className="max-w-md mx-auto rounded-xl px-4 py-3 text-center"
             style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', backdropFilter: 'blur(12px)' }}

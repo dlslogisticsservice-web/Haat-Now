@@ -490,8 +490,8 @@ export default function App() {
           {currentScreen === 'home' && (
             <button
               onClick={handleOpenChat}
-              className="fixed bottom-[84px] end-4 w-12 h-12 rounded-full z-40 cursor-pointer transition-all hover:scale-110 active:scale-95 flex items-center justify-center animate-pulse-glow"
-              style={{ background: 'var(--color-primary-fixed)', boxShadow: '0 4px 20px rgba(163,249,91,0.50)' }}
+              className="fixed end-4 w-12 h-12 rounded-full z-40 cursor-pointer transition-all hover:scale-110 active:scale-95 flex items-center justify-center animate-pulse-glow"
+              style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', background: 'var(--color-primary-fixed)', boxShadow: '0 4px 20px rgba(163,249,91,0.50)' }}
               id="fab_chat"
               aria-label="الإشعارات والدعم"
             >
