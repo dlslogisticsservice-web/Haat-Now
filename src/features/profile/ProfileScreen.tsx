@@ -133,6 +133,30 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
     if (next.length && !next.some(p => p.isDefault)) next[0].isDefault = true;
     commitPM(next); setPmConfirmDel(null);
   };
+  // Edit (TASK B): name, last-4, default flag
+  const [pmEditing, setPmEditing] = useState<string | null>(null);
+  const [pmEditName, setPmEditName] = useState('');
+  const [pmEditLast4, setPmEditLast4] = useState('');
+  const [pmEditDefault, setPmEditDefault] = useState(false);
+  const startEdit = (pm: PayMethod) => {
+    setPmEditing(pm.id);
+    setPmEditName(pm.label.replace(/\s*•••• \d{4}\s*$/, ''));
+    setPmEditLast4(pm.last4 || '');
+    setPmEditDefault(pm.isDefault);
+    setPmAdding(null);
+  };
+  const saveEdit = () => {
+    if (!pmEditing) return;
+    let next = pms.map(p => {
+      if (p.id !== pmEditing) return p;
+      const name = pmEditName.trim() || PM_META[p.type].label;
+      const last4 = isCard(p.type) ? (pmEditLast4 || p.last4 || '0000') : undefined;
+      return { ...p, last4, label: isCard(p.type) ? `${name} •••• ${last4}` : name };
+    });
+    if (pmEditDefault) next = next.map(p => ({ ...p, isDefault: p.id === pmEditing }));
+    if (next.length && !next.some(p => p.isDefault)) next[0].isDefault = true;
+    commitPM(next); setPmEditing(null);
+  };
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -214,13 +238,34 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
                 </div>
                 <div className="flex items-center gap-2">
                   {!pm.isDefault && <button onClick={() => setDefaultPM(pm.id)} className="cursor-pointer" style={{ fontSize: '11px', color: ACCENT, background: 'rgba(163,249,91,0.08)', border: '1px solid rgba(163,249,91,0.2)', borderRadius: '8px', padding: '4px 8px' }}>{T('تعيين افتراضي', 'Set default')}</button>}
+                  {pm.type !== 'cod' && <button onClick={() => startEdit(pm)} aria-label="edit" id={`pm_edit_${pm.id}`} className="cursor-pointer" style={{ background: 'none', border: 'none', color: ACCENT, padding: '4px' }}><Pencil size={15} /></button>}
                   {pm.type !== 'cod' && <button onClick={() => setPmConfirmDel(pm.id)} aria-label="delete" className="cursor-pointer" style={{ background: 'none', border: 'none', color: '#f87171', padding: '4px' }}><Trash2 size={16} /></button>}
                 </div>
               </div>
             );
           })}
 
-          {!pmAdding ? (
+          {pmEditing && (
+            <div style={cardStyle} id="pm_edit_panel">
+              <span style={LBL}>{T('تعديل طريقة الدفع', 'Edit payment method')}</span>
+              <input value={pmEditName} onChange={e => setPmEditName(e.target.value)} placeholder={T('الاسم', 'Card name')}
+                className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '8px' }} />
+              {pms.find(p => p.id === pmEditing && isCard(p.type)) && (
+                <input value={pmEditLast4} onChange={e => setPmEditLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder={T('آخر 4 أرقام', 'Last 4 digits')} dir="ltr"
+                  className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '8px' }} />
+              )}
+              <label className="flex items-center justify-between" style={{ padding: '6px 2px', marginBottom: '8px' }}>
+                <span style={{ color: 'white', fontSize: '14px' }}>{T('تعيين كافتراضي', 'Set as default')}</span>
+                <Toggle on={pmEditDefault} onClick={() => setPmEditDefault(v => !v)} />
+              </label>
+              <div className="flex gap-2">
+                <button id="pm_edit_save" onClick={saveEdit} className="flex-1 cursor-pointer" style={{ height: '42px', borderRadius: '0.7rem', background: ACCENT, color: 'var(--color-on-primary-fixed)', fontWeight: 700, border: 'none' }}>{T('حفظ', 'Save')}</button>
+                <button onClick={() => setPmEditing(null)} className="cursor-pointer" style={{ width: '42px', height: '42px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none' }}><XIcon size={16} /></button>
+              </div>
+            </div>
+          )}
+
+          {!pmEditing && (!pmAdding ? (
             <div className="grid grid-cols-2 gap-2">
               {(['visa', 'mastercard', 'mada', 'wallet'] as PMType[]).map(t => (
                 <button key={t} onClick={() => { setPmAdding(t); setPmLast4(''); }} id={`pm_add_${t}`} className="cursor-pointer flex items-center justify-center gap-1.5" style={{ height: '42px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '13px', fontWeight: 600 }}>
@@ -240,7 +285,7 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
                 <button onClick={() => { setPmAdding(null); setPmLast4(''); }} className="cursor-pointer" style={{ width: '42px', height: '42px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none' }}><XIcon size={16} /></button>
               </div>
             </div>
-          )}
+          ))}
 
           {pmConfirmDel && (
             <div className="fixed inset-0 z-[80] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={e => { if (e.target === e.currentTarget) setPmConfirmDel(null); }}>
