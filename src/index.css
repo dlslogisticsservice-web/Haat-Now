@@ -1516,3 +1516,11 @@ input, select, button, textarea {
 @media (prefers-reduced-motion: reduce) {
   .hero-kenburns { animation: none; }
 }
+
+/* ── Reusable safe-area layout utilities (TASK A) ───────────────────────────
+   Apply to a screen's scroll container so CTAs/content never hide behind the
+   fixed bottom nav, floating cart, or the device home indicator. */
+.pb-safe-nav { padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)); }
+.pb-safe-fab { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+.safe-area-inset { padding-bottom: env(safe-area-inset-bottom, 0px); }

@@ -287,6 +287,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const grandTotal  = Math.max(0, subtotal - discountVal + deliveryFee + luxuryFee);
 
   const handlePlaceOrder = async () => {
+    if (actionLoading || showSuccessModal) return; // TASK D: block duplicate submissions
     // Sandbox: write to the shared sandbox backend so the full lifecycle works
     // across customer/merchant/driver/admin without a real Supabase session.
     if (SANDBOX) {

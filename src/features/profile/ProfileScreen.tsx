@@ -7,6 +7,7 @@ import {
   ChevronRight, ChevronLeft, LogOut, Bell, BellRing, User, MapPin, MapPinned,
   MapPinOff, Loader2, UserCircle2, Camera, Crown, PenLine, AlertCircle,
   CheckCircle2, Save, Settings, Trash2, Pencil, Wallet, Globe, Shield, Headphones,
+  CreditCard, Plus, Banknote, Star, X as XIcon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -56,6 +57,27 @@ function loadNotifPrefs(): NotifPrefs {
   catch { return DEFAULT_NOTIF; }
 }
 
+// ─── Payment methods (TASK B — local CRUD, persisted) ──────────────────────
+type PMType = 'cod' | 'visa' | 'mastercard' | 'mada' | 'wallet';
+interface PayMethod { id: string; type: PMType; label: string; last4?: string; isDefault: boolean }
+const PM_KEY = 'haat_payment_methods';
+const seedPM = (): PayMethod[] => [
+  { id: 'cod', type: 'cod', label: 'الدفع عند الاستلام', isDefault: true },
+  { id: 'wallet', type: 'wallet', label: 'محفظة هات ناو', isDefault: false },
+];
+function loadPM(): PayMethod[] {
+  try { const v = JSON.parse(localStorage.getItem(PM_KEY) || 'null'); return Array.isArray(v) && v.length ? v : seedPM(); }
+  catch { return seedPM(); }
+}
+function savePM(list: PayMethod[]) { try { localStorage.setItem(PM_KEY, JSON.stringify(list)); } catch { /* ignore */ } }
+const PM_META: Record<PMType, { label: string; Icon: typeof CreditCard }> = {
+  cod:        { label: 'نقداً عند الاستلام', Icon: Banknote },
+  visa:       { label: 'Visa', Icon: CreditCard },
+  mastercard: { label: 'Mastercard', Icon: CreditCard },
+  mada:       { label: 'مدى', Icon: CreditCard },
+  wallet:     { label: 'محفظة هات ناو', Icon: Wallet },
+};
+
 const ACCENT = 'var(--color-primary-fixed)';
 const cardStyle: React.CSSProperties = { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.85rem', padding: '14px' };
 
@@ -90,6 +112,27 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
     try { localStorage.setItem(NOTIF_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   };
   const T = (ar: string, en: string) => (lang === 'ar' ? ar : en);
+
+  // ── Payment methods CRUD (TASK B) ──
+  const [pms, setPms] = useState<PayMethod[]>(loadPM);
+  const [pmAdding, setPmAdding] = useState<PMType | null>(null);
+  const [pmLast4, setPmLast4] = useState('');
+  const [pmConfirmDel, setPmConfirmDel] = useState<string | null>(null);
+  const commitPM = (list: PayMethod[]) => { setPms(list); savePM(list); };
+  const isCard = (t: PMType) => t === 'visa' || t === 'mastercard' || t === 'mada';
+  const addPM = (type: PMType) => {
+    if (isCard(type) && pmLast4.length !== 4) return;
+    const id = `${type}-${Date.now()}`;
+    const label = isCard(type) ? `${PM_META[type].label} •••• ${pmLast4}` : PM_META[type].label;
+    commitPM([...pms, { id, type, label, last4: pmLast4 || undefined, isDefault: pms.length === 0 }]);
+    setPmAdding(null); setPmLast4('');
+  };
+  const setDefaultPM = (id: string) => commitPM(pms.map(p => ({ ...p, isDefault: p.id === id })));
+  const deletePM = (id: string) => {
+    const next = pms.filter(p => p.id !== id);
+    if (next.length && !next.some(p => p.isDefault)) next[0].isDefault = true;
+    commitPM(next); setPmConfirmDel(null);
+  };
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
@@ -154,17 +197,62 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
 
       {/* ── PAYMENT METHODS ── */}
       {page === 'payment' && (
-        <div style={cardStyle}>
-          <span style={LBL}>{T('طرق الدفع المدعومة', 'Supported methods')}</span>
-          {[T('الدفع عند الاستلام (نقداً)', 'Cash on delivery'), T('بطاقة ائتمان / مدى', 'Credit / debit card'), T('محفظة هات ناو', 'HAAT wallet')].map(m => (
-            <div key={m} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 2px' }}>
-              <CheckCircle2 size={17} color={ACCENT} strokeWidth={2} />
-              <span style={{ color: 'white', fontSize: '14px' }}>{m}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {pms.length === 0 && (
+            <div style={cardStyle}><p style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px', textAlign: 'center' }}>{T('لا توجد طرق دفع. أضف واحدة أدناه.', 'No payment methods. Add one below.')}</p></div>
+          )}
+          {pms.map(pm => {
+            const M = PM_META[pm.type];
+            return (
+              <div key={pm.id} style={cardStyle} className="flex items-center justify-between" id={`pm_${pm.id}`}>
+                <div className="flex items-center gap-3">
+                  <M.Icon size={20} color={ACCENT} strokeWidth={1.8} />
+                  <div>
+                    <p style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>{pm.label}</p>
+                    {pm.isDefault && <span style={{ fontSize: '10px', color: ACCENT, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Star size={10} fill={ACCENT} strokeWidth={0} /> {T('افتراضي', 'Default')}</span>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {!pm.isDefault && <button onClick={() => setDefaultPM(pm.id)} className="cursor-pointer" style={{ fontSize: '11px', color: ACCENT, background: 'rgba(163,249,91,0.08)', border: '1px solid rgba(163,249,91,0.2)', borderRadius: '8px', padding: '4px 8px' }}>{T('تعيين افتراضي', 'Set default')}</button>}
+                  {pm.type !== 'cod' && <button onClick={() => setPmConfirmDel(pm.id)} aria-label="delete" className="cursor-pointer" style={{ background: 'none', border: 'none', color: '#f87171', padding: '4px' }}><Trash2 size={16} /></button>}
+                </div>
+              </div>
+            );
+          })}
+
+          {!pmAdding ? (
+            <div className="grid grid-cols-2 gap-2">
+              {(['visa', 'mastercard', 'mada', 'wallet'] as PMType[]).map(t => (
+                <button key={t} onClick={() => { setPmAdding(t); setPmLast4(''); }} id={`pm_add_${t}`} className="cursor-pointer flex items-center justify-center gap-1.5" style={{ height: '42px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '13px', fontWeight: 600 }}>
+                  <Plus size={14} color={ACCENT} /> {PM_META[t].label}
+                </button>
+              ))}
             </div>
-          ))}
-          <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', lineHeight: 1.55, marginTop: '6px' }}>
-            {T('تُضاف البطاقات بشكل آمن ومشفّر عند إتمام الطلب، ولا نخزّن بيانات بطاقتك على أجهزتنا.', 'Cards are added securely at checkout; we never store your card details on our servers.')}
-          </p>
+          ) : (
+            <div style={cardStyle}>
+              <span style={LBL}>{T('إضافة', 'Add')} {PM_META[pmAdding].label}</span>
+              {isCard(pmAdding) && (
+                <input value={pmLast4} onChange={e => setPmLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder={T('آخر 4 أرقام', 'Last 4 digits')} dir="ltr"
+                  className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '8px' }} />
+              )}
+              <div className="flex gap-2">
+                <button id="pm_save_btn" onClick={() => addPM(pmAdding)} disabled={isCard(pmAdding) && pmLast4.length !== 4} className="flex-1 cursor-pointer" style={{ height: '42px', borderRadius: '0.7rem', background: ACCENT, color: 'var(--color-on-primary-fixed)', fontWeight: 700, opacity: isCard(pmAdding) && pmLast4.length !== 4 ? 0.5 : 1 }}>{T('حفظ', 'Save')}</button>
+                <button onClick={() => { setPmAdding(null); setPmLast4(''); }} className="cursor-pointer" style={{ width: '42px', height: '42px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.05)', color: 'white', border: 'none' }}><XIcon size={16} /></button>
+              </div>
+            </div>
+          )}
+
+          {pmConfirmDel && (
+            <div className="fixed inset-0 z-[80] flex items-center justify-center p-6" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }} onClick={e => { if (e.target === e.currentTarget) setPmConfirmDel(null); }}>
+              <div className="glass-strong rounded-2xl p-5 w-full max-w-xs animate-fade-in" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                <p style={{ color: 'white', fontSize: '15px', fontWeight: 600, textAlign: 'center', marginBottom: '14px' }}>{T('حذف طريقة الدفع؟', 'Delete this payment method?')}</p>
+                <div className="flex gap-2">
+                  <button id="pm_del_confirm" onClick={() => deletePM(pmConfirmDel)} className="flex-1 cursor-pointer" style={{ height: '42px', borderRadius: '0.7rem', background: '#f87171', color: '#0a0a0a', fontWeight: 700, border: 'none' }}>{T('حذف', 'Delete')}</button>
+                  <button onClick={() => setPmConfirmDel(null)} className="flex-1 cursor-pointer" style={{ height: '42px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.06)', color: 'white', border: 'none' }}>{T('إلغاء', 'Cancel')}</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

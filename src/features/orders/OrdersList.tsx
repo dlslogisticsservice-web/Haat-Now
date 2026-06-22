@@ -67,6 +67,38 @@ const STATUS_STEPS: { key: OrderStatus; label: string }[] = [
   { key: 'delivered',  label: 'تم التوصيل'          },
 ];
 
+// ── Category-specific order workflows (TASK C) ──────────────────────────────
+// Each display step maps to an underlying order status. `reached` is computed
+// from the order's REAL status so future stages can never appear completed.
+const CANON: OrderStatus[] = ['pending', 'accepted', 'preparing', 'on_the_way', 'delivered'];
+type FlowStep = { label: string; key: OrderStatus };
+const STEP_FLOWS: Record<'restaurant' | 'pharmacy' | 'flowers' | 'electronics', FlowStep[]> = {
+  restaurant: [
+    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
+    { label: 'قيد التحضير', key: 'preparing' }, { label: 'جاهز', key: 'preparing' },
+    { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+  ],
+  pharmacy: [
+    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
+    { label: 'التغليف', key: 'preparing' }, { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+  ],
+  flowers: [
+    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
+    { label: 'تجهيز الباقة', key: 'preparing' }, { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+  ],
+  electronics: [
+    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
+    { label: 'تم التغليف', key: 'preparing' }, { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+  ],
+};
+function resolveFlow(branchName?: string): FlowStep[] {
+  const n = (branchName || '').toLowerCase();
+  if (/صيدلية|pharmac|دواء/.test(n)) return STEP_FLOWS.pharmacy;
+  if (/زهور|ورود|flower|باقة/.test(n)) return STEP_FLOWS.flowers;
+  if (/الكترون|إلكترون|electron|جوال|هاتف/.test(n)) return STEP_FLOWS.electronics;
+  return STEP_FLOWS.restaurant;
+}
+
 const DRIVER_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1zBa4W1bsQKFL7K9DnwdSTzFmQqeZCe0dPpllnu1UKIjsvIUBFMajud9PVEzLDjwVaRt1fsUDKqC_ecnOLe2pKDJw7tr_WKPwHFcmmk59UZ6G8windy_z7tEr68RKqkSon3LgNenYQOHwvM6K1Pb6WX7RdMytcQSwGRywB4Tdd0OrZsrvOEk-UG85I1sTAHY4z25zOlm1gF-Uw7T0Chdryvfr9SYF-uVlEjeoI99MiVEMbWMg5cQTMfdAI0QIn2y05gcfkQDZUute';
 const MAP_PHOTO  = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDhSGJvJ91keV3KcXiIFnKS0YhWuSrKZCW_iybvURGhGZZjmD01O8E66Pe-IZIknLpa1xr6rbN2yXLRNgJxyafvetf_ne8GPITiRjaEB3eMmekg6LFLSIp7fCqL1UW6MdveMsESOAgzLCSewmAvdCa6ZcR2yV-xM3RgvJhMyp7xR8KkkI6rHP2Gwk06kTavSB_EMMkiSUASFeHhISs-kxGA0bnA0FDYSnYjfPRV2wUiXfRUZo6cnRgsN2WzM-VRNUcn1-Tdm0fqmccQ';
 
@@ -388,7 +420,13 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     );
   }
 
-  const stepIndex = currentStatusIndex(orderDetails.status as OrderStatus);
+  // Category-aware workflow (TASK C): pick the flow, compute the reached step from
+  // the REAL status so no future stage is ever shown as completed.
+  const orderFlow = resolveFlow(orderDetails.merchant_branches?.name);
+  const statusCanonIdx = CANON.indexOf(orderDetails.status as OrderStatus);
+  let reachedIdx = 0;
+  orderFlow.forEach((s, i) => { if (CANON.indexOf(s.key) <= statusCanonIdx) reachedIdx = i; });
+  if (statusCanonIdx < 0) reachedIdx = -1; // cancelled / unknown → nothing completed
 
   const merchantLoc = (orderDetails.branch_lat_snapshot != null && orderDetails.branch_lng_snapshot != null)
     ? { lat: Number(orderDetails.branch_lat_snapshot), lng: Number(orderDetails.branch_lng_snapshot) }
@@ -570,9 +608,10 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
 
         {/* Vertical stepper */}
         <div className="space-y-5" id="order_stepper">
-          {STATUS_STEPS.map((step, idx) => {
-            const done    = stepIndex >= idx;
-            const current = stepIndex === idx;
+          {orderFlow.map((step, idx) => {
+            const delivered = orderDetails.status === 'delivered';
+            const done    = delivered || idx < reachedIdx;   // completed (or all done when delivered)
+            const current = !delivered && idx === reachedIdx; // exactly one current; future never "done"
             return (
               <div key={step.key} className="flex gap-4 relative" id={`step_${step.key}`}>
                 <div className="flex flex-col items-center">
@@ -587,7 +626,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
                   ) : (
                     <div className="w-6 h-6 rounded-full z-10" style={{ border: '2px solid rgba(65,74,55,0.3)', background: '#111417' }} />
                   )}
-                  {idx < STATUS_STEPS.length - 1 && (
+                  {idx < orderFlow.length - 1 && (
                     <div className="w-[2px] mt-1" style={{ height: '40px', background: done ? 'var(--color-primary-fixed)' : 'rgba(65,74,55,0.3)' }} />
                   )}
                 </div>
@@ -595,7 +634,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
                   <p style={{ fontSize: '14px', fontWeight: done || current ? 600 : 400, color: done ? 'var(--color-primary-fixed)' : current ? 'white' : 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>
                     {step.label}
                   </p>
-                  {step.key === 'on_the_way' && done && (
+                  {step.key === 'on_the_way' && current && (
                     <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>في الطريق إليك</p>
                   )}
                   {step.key === 'delivered' && !done && (
