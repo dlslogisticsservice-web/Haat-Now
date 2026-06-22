@@ -358,7 +358,7 @@ export const RestaurantScreen = ({
         onClick={totalCartQty > 0 ? onViewCart : undefined}
         className="fixed left-1/2 -translate-x-1/2 h-14 rounded-full flex items-center justify-between px-5 transition-all active:scale-[0.98] z-40"
         style={{
-          bottom: '88px', width: '90%', maxWidth: '420px',
+          bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))', width: '90%', maxWidth: '420px',
           cursor: totalCartQty > 0 ? 'pointer' : 'default',
           background: totalCartQty > 0 ? 'var(--color-primary-fixed)' : 'rgba(163,249,91,0.10)',
           color: totalCartQty > 0 ? 'var(--color-on-primary-fixed)' : 'rgba(163,249,91,0.55)',
@@ -394,7 +394,7 @@ export const RestaurantScreen = ({
           id="product_modal_overlay"
         >
           <div
-            className="w-full max-w-md animate-slide-up"
+            className="w-full max-w-md animate-slide-up safe-sheet-action"
             style={{ background: 'rgba(17,20,23,0.92)', backdropFilter: 'blur(32px)', WebkitBackdropFilter: 'blur(32px)', borderRadius: '24px 24px 0 0', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', borderBottom: 'none' }}
             id="product_modal"
           >

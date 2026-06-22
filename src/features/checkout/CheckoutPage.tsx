@@ -472,7 +472,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 pb-36">
+      <main className="max-w-4xl mx-auto px-4 py-6" style={{ paddingBottom: 'calc(170px + env(safe-area-inset-bottom, 0px))' }}>
 
         {/* ── Order context header ──────────────────────────── */}
         <div className="flex items-center gap-4 mb-6" dir="rtl">
@@ -840,7 +840,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
       </main>
 
       {/* ── Swipe to Order ───────────────────────────────── */}
-      <div className="fixed left-0 right-0 px-4 z-40" style={{ bottom: '88px' }} id="checkout-area">
+      <div className="fixed left-0 right-0 px-4 z-40" style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }} id="checkout-area">
         <div className="max-w-md mx-auto relative group">
           <div
             className="absolute -inset-1 rounded-full blur opacity-30 group-hover:opacity-60 transition duration-1000 pointer-events-none"

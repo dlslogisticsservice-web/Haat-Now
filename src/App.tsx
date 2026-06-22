@@ -601,7 +601,7 @@ export default function App() {
           onClick={(e) => { if (e.target === e.currentTarget) setIsCartOpen(false); }}
         >
           <div
-            className="w-full max-w-md h-full flex flex-col p-6 animate-slide-up glass glass-shine"
+            className="w-full max-w-md h-full flex flex-col p-6 animate-slide-up glass glass-shine safe-sheet-action"
             style={{ borderInlineStart: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}
             id="cart_drawer_panel"
           >

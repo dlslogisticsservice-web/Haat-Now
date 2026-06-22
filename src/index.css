@@ -1527,3 +1527,16 @@ input, select, button, textarea {
 .pb-safe-fab { padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px)); }
 .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
 .safe-area-inset { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* ── SAFE_BOTTOM_ACTION_SPACE — global bottom-action protection (hotfix) ──────
+   --safe-bottom-action-space: for FIXED bars that sit ABOVE the bottom nav
+     (floating cart, checkout swipe) -> inset + nav height (88px) + 24px breathing.
+   --safe-sheet-space: for modals/drawers/bottom-sheets that OVERLAY the nav
+     -> inset + 24px (the nav is hidden behind them, so no nav height needed). */
+:root {
+  --bottom-nav-height: 88px;
+  --safe-bottom-action-space: calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height) + 24px);
+  --safe-sheet-space: calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+.safe-bottom-action { padding-bottom: var(--safe-bottom-action-space) !important; }
+.safe-sheet-action  { padding-bottom: var(--safe-sheet-space) !important; }

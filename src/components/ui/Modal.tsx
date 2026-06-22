@@ -186,7 +186,7 @@ export const Drawer: React.FC<DrawerProps> = ({
 
         {/* Footer */}
         {footer && (
-          <div className="px-6 pb-6 pt-3 border-t border-[rgba(255,255,255,0.06)]">
+          <div className="px-6 pt-3 border-t border-[rgba(255,255,255,0.06)] safe-sheet-action">
             {footer}
           </div>
         )}
