@@ -14,6 +14,7 @@ import { analyticsService } from '../../services/analytics.service';
 
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
+import { DesignCenter } from './DesignCenter';
 
 // ── Types (unchanged) ─────────────────────────────────────────
 interface Ticket {
@@ -30,7 +31,7 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design';
 
 const SIDEBAR_SECTIONS: SidebarSection[] = [
   {
@@ -94,6 +95,18 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     else await couponService.updateCoupon(id, { is_active: active });
     await refreshCoupons();
   };
+
+  // Super-admin gate for the Design Center (only super scope sees it)
+  const [isSuper, setIsSuper] = useState(false);
+  useEffect(() => {
+    if (SANDBOX) { setIsSuper(adminId.startsWith('55555555')); return; }
+    supabase.from('admin_users').select('scope').eq('user_id', adminId).maybeSingle()
+      .then(({ data }) => setIsSuper((data as any)?.scope === 'super'));
+  }, [adminId]);
+  const navSections = SIDEBAR_SECTIONS.map(s => ({
+    ...s,
+    items: isSuper ? [...s.items, { id: 'design', label: 'مركز التصميم', icon: 'palette' }] : s.items,
+  }));
 
   useEffect(() => { fetchAdminModuleData(); refreshCoupons(); }, []);
 
@@ -176,7 +189,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
 
       {/* ── Enterprise Sidebar ──────────────────────────────── */}
       <EnterpriseSidebar
-        sections={SIDEBAR_SECTIONS.map(s => ({
+        sections={navSections.map(s => ({
           ...s,
           items: s.items.map(item => ({
             ...item,
@@ -241,8 +254,8 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         </div>
 
         {/* ── Mobile tab navigation (sidebar is desktop-only) ── */}
-        <div className="md:hidden flex gap-2" id="admin_mobile_tabs">
-          {SIDEBAR_SECTIONS[0].items.map((item) => {
+        <div className="md:hidden flex gap-2 flex-wrap" id="admin_mobile_tabs">
+          {navSections[0].items.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
@@ -484,6 +497,9 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             </Card>
           </div>
         )}
+
+        {/* TAB: DESIGN CENTER (super admin only)             */}
+        {activeTab === 'design' && isSuper && <DesignCenter />}
 
         {/* TAB: APP CONFIG                                    */}
         {/* ═══════════════════════════════════════════════════ */}
