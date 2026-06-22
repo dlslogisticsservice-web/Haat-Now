@@ -25,7 +25,7 @@ export const DEFAULT_DESIGN: DesignConfig = {
   typography: { fontFamily: 'Cairo', fontScale: 1, headerScale: 1, bodyScale: 1, weight: 600, letterSpacing: 0, lineHeight: 1.5 },
   cards: { radius: 22, shadow: 2, padding: 16, density: 'standard' },
   buttons: { radius: 12, height: 44, density: 'standard' },
-  icons: { size: 20, weight: 1.8 },
+  icons: { size: 24, weight: 1.8 },
   layout: { spacing: 1, sectionGap: 16, containerWidth: 1280, density: 'comfortable' },
   animations: { enabled: true, speed: 1 },
 };
@@ -61,8 +61,10 @@ export function applyDesign(c: DesignConfig, root: HTMLElement = document.docume
   s.setProperty('--glass-blur', `${c.glass.intensity}px`);
   s.setProperty('--border-opacity', String(c.glass.borderOpacity));
   // Typography (font family is live; scales are exposed as vars/opt-in).
-  s.setProperty('--font-display', `"${c.typography.fontFamily}", "Cairo", "Tajawal", sans-serif`);
-  s.setProperty('--font-sans', `"${c.typography.fontFamily}", "Cairo", "Tajawal", sans-serif`);
+  const fam = `"${c.typography.fontFamily}", "Cairo", "Tajawal", sans-serif`;
+  s.setProperty('--font-display', fam);
+  s.setProperty('--font-sans', fam);
+  s.setProperty('--font-arabic', fam); // headings re-font too
   s.setProperty('--font-scale', String(c.typography.fontScale));
   s.setProperty('--header-scale', String(c.typography.headerScale));
   s.setProperty('--body-scale', String(c.typography.bodyScale));

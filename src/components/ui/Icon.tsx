@@ -50,7 +50,8 @@ export const Icon: React.FC<IconProps> = ({
       className={`material-symbols-outlined ${className}`}
       style={{
         fontVariationSettings: varSettings,
-        fontSize: size ? `${size}px` : undefined,
+        // Design System: explicit size wins; otherwise follow the global icon-size token.
+        fontSize: size ? `${size}px` : 'var(--icon-size, 24px)',
         ...style,
       }}
       aria-label={ariaLabel}

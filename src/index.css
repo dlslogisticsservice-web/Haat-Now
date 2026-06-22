@@ -214,7 +214,10 @@
 }
 
 html {
-  font-size: 16px;
+  /* Global font/size scale from the Design System (default 1 = no change).
+     Scales all rem-based typography + spacing app-wide when the Super Admin
+     changes the typography scale. */
+  font-size: calc(16px * var(--font-scale, 1));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
