@@ -5,6 +5,7 @@ import './index.css';
 import './i18n';
 import { AppConfigProvider } from './contexts/AppConfigContext';
 import { DesignProvider } from './design/DesignContext';
+import { ExperienceProvider } from './experience/ExperienceContext';
 import { MISSING_SUPABASE_VARS } from './lib/supabase';
 
 function MissingConfigScreen({ vars }: { vars: string[] }) {
@@ -29,7 +30,9 @@ createRoot(document.getElementById('root')!).render(
     ) : (
       <AppConfigProvider>
         <DesignProvider>
-          <App />
+          <ExperienceProvider>
+            <App />
+          </ExperienceProvider>
         </DesignProvider>
       </AppConfigProvider>
     )}

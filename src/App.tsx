@@ -21,6 +21,7 @@ import { COUNTRY_LIST } from './config/countries';
 import { Globe } from 'lucide-react';
 import { SplashScreen } from './components/splash/SplashScreen';
 import { OnboardingScreen } from './components/onboarding/OnboardingScreen';
+import { ExperienceSplash, ExperienceOnboarding, ExperienceLogin } from './experience/ExperienceScreens';
 import {
   Loader2, ShoppingBag, Bell, Home, ScrollText, ShoppingCart,
   Wallet, User, MessageCircle, Crown, X, ChevronRight, LogOut,
@@ -262,8 +263,10 @@ export default function App() {
   };
 
   // ── First-run experience gates ───────────────────────────────────
-  if (appPhase === 'splash')     return <SplashScreen onComplete={handleSplashComplete} />;
-  if (appPhase === 'onboarding') return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+  // VEB: render the published schema-driven screen when enabled; otherwise the
+  // original hardcoded screen (passed as fallback) renders unchanged.
+  if (appPhase === 'splash')     return <ExperienceSplash onComplete={handleSplashComplete} fallback={<SplashScreen onComplete={handleSplashComplete} />} />;
+  if (appPhase === 'onboarding') return <ExperienceOnboarding onComplete={handleOnboardingComplete} fallback={<OnboardingScreen onComplete={handleOnboardingComplete} />} />;
 
   // ── Session validation gate ──────────────────────────────────────
   if (sessionValidating) {
@@ -278,7 +281,7 @@ export default function App() {
   if (!session) {
     return (
       <div className="min-h-screen">
-        <LoginScreen onLoginSuccess={handleLoginSuccess} />
+        <ExperienceLogin fallback={<LoginScreen onLoginSuccess={handleLoginSuccess} />} />
       </div>
     );
   }

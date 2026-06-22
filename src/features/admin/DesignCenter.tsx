@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useDesign } from '../../design/DesignContext';
 import { DesignConfig } from '../../design/designSystem';
 import { Eye, Save, UploadCloud, RotateCcw, Trash2, Smartphone, Tablet, Monitor, Check } from 'lucide-react';
+import { ExperienceBuilder } from './ExperienceBuilder';
+import { AssetsManager } from './AssetsManager';
+import { CountryBranding } from './CountryBranding';
 
 const ACCENT = 'var(--color-primary-fixed)';
 const card: React.CSSProperties = { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '0.85rem', padding: '14px' };
@@ -44,7 +47,8 @@ function Text({ label, value, onChange, ph }: { label: string; value: string; on
   );
 }
 
-const SECTIONS = ['الثيم', 'الخطوط', 'البطاقات', 'الأزرار', 'الأيقونات', 'التخطيط', 'الهوية', 'الحركات', 'النشر'] as const;
+const SECTIONS = ['الثيم', 'الخطوط', 'البطاقات', 'الأزرار', 'الأيقونات', 'التخطيط', 'الهوية', 'الحركات', 'النشر', 'منشئ التجارب', 'الأصول', 'هوية الدول'] as const;
+const EXP_SECTIONS = ['منشئ التجارب', 'الأصول', 'هوية الدول'] as readonly string[];
 const DEVICE = { mobile: 393, tablet: 768, desktop: 1100 } as const;
 
 export function DesignCenter() {
@@ -60,9 +64,10 @@ export function DesignCenter() {
     d.patchDraft(scope, { [sec]: { [key]: v } } as Partial<DesignConfig>);
 
   const flash = () => { setSaved(true); setTimeout(() => setSaved(false), 1500); };
+  const isExp = EXP_SECTIONS.includes(section);
 
   return (
-    <div id="admin_design_tab" className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
+    <div id="admin_design_tab" className={`grid grid-cols-1 ${isExp ? '' : 'lg:grid-cols-[1fr_360px]'} gap-5`}>
       {/* ── Controls ── */}
       <div className="space-y-4">
         {/* scope + section tabs */}
@@ -149,19 +154,22 @@ export function DesignCenter() {
               ))}
             </div>
           )}
+          {section === 'منشئ التجارب' && <ExperienceBuilder />}
+          {section === 'الأصول' && <AssetsManager />}
+          {section === 'هوية الدول' && <CountryBranding />}
         </div>
 
-        {/* actions */}
-        <div className="flex flex-wrap gap-2">
+        {/* actions (design tokens) — hidden for Experience sections which have their own publish */}
+        {!isExp && <div className="flex flex-wrap gap-2">
           <button onClick={() => d.setPreviewing(!d.previewing)} id="design_preview_btn" className="flex items-center gap-1.5 cursor-pointer" style={{ height: '40px', padding: '0 14px', borderRadius: '0.7rem', background: d.previewing ? ACCENT : 'rgba(255,255,255,0.04)', color: d.previewing ? 'var(--color-on-primary-fixed)' : 'white', border: '1px solid rgba(255,255,255,0.08)', fontWeight: 700, fontSize: '13px' }}><Eye size={16} /> {d.previewing ? 'إيقاف المعاينة' : 'معاينة مباشرة'}</button>
           <button onClick={() => { d.saveDraft(); flash(); }} id="design_save_btn" className="flex items-center gap-1.5 cursor-pointer" style={{ height: '40px', padding: '0 14px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.04)', color: 'white', border: '1px solid rgba(255,255,255,0.08)', fontWeight: 700, fontSize: '13px' }}><Save size={16} /> {saved ? 'تم الحفظ ✓' : 'حفظ مسودة'}</button>
           <button onClick={() => d.publish()} id="design_publish_btn" className="flex items-center gap-1.5 cursor-pointer" style={{ height: '40px', padding: '0 16px', borderRadius: '0.7rem', background: ACCENT, color: 'var(--color-on-primary-fixed)', border: 'none', fontWeight: 800, fontSize: '13px' }}><UploadCloud size={16} /> نشر</button>
           <button onClick={() => { d.discardDraft(); d.setPreviewing(false); }} id="design_discard_btn" className="flex items-center gap-1.5 cursor-pointer" style={{ height: '40px', padding: '0 14px', borderRadius: '0.7rem', background: 'rgba(248,113,113,0.08)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)', fontWeight: 700, fontSize: '13px' }}><Trash2 size={16} /> تجاهل</button>
-        </div>
+        </div>}
       </div>
 
-      {/* ── Live preview ── */}
-      <div className="space-y-3">
+      {/* ── Live preview (design tokens) — hidden for Experience sections ── */}
+      {!isExp && <div className="space-y-3">
         <div className="flex items-center justify-center gap-2">
           {(['mobile', 'tablet', 'desktop'] as const).map(dev => {
             const Icon = dev === 'mobile' ? Smartphone : dev === 'tablet' ? Tablet : Monitor;
@@ -175,7 +183,7 @@ export function DesignCenter() {
           </div>
         </div>
         <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textAlign: 'center' }}>المعاينة تعكس المسودة. اضغط «معاينة مباشرة» لتطبيقها على كامل التطبيق قبل النشر.</p>
-      </div>
+      </div>}
     </div>
   );
 }
