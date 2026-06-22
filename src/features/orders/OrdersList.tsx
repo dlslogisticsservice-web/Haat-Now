@@ -72,7 +72,11 @@ const STATUS_STEPS: { key: OrderStatus; label: string }[] = [
 // from the order's REAL status so future stages can never appear completed.
 const CANON: OrderStatus[] = ['pending', 'accepted', 'preparing', 'on_the_way', 'delivered'];
 type FlowStep = { label: string; key: OrderStatus };
-const STEP_FLOWS: Record<'restaurant' | 'pharmacy' | 'flowers' | 'electronics', FlowStep[]> = {
+const STEP_FLOWS: Record<'restaurant' | 'pharmacy' | 'flowers' | 'electronics' | 'market', FlowStep[]> = {
+  market: [
+    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
+    { label: 'يتم التجهيز', key: 'preparing' }, { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+  ],
   restaurant: [
     { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
     { label: 'قيد التحضير', key: 'preparing' }, { label: 'جاهز', key: 'preparing' },
@@ -96,6 +100,7 @@ function resolveFlow(branchName?: string): FlowStep[] {
   if (/صيدلية|pharmac|دواء/.test(n)) return STEP_FLOWS.pharmacy;
   if (/زهور|ورود|flower|باقة/.test(n)) return STEP_FLOWS.flowers;
   if (/الكترون|إلكترون|electron|جوال|هاتف/.test(n)) return STEP_FLOWS.electronics;
+  if (/سوبر|بقالة|سوق|ماركت|market|supermarket|تموين/.test(n)) return STEP_FLOWS.market;
   return STEP_FLOWS.restaurant;
 }
 

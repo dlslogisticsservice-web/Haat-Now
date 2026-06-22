@@ -118,7 +118,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
   const [loading,        setLoading]        = useState(true);
   const [selectedCat,    setSelectedCat]    = useState<string | null>(null);
   const [searchQuery,    setSearchQuery]    = useState('');
-  const [viewMode,       setViewMode]       = useState<'large' | 'compact'>(() => (typeof localStorage !== 'undefined' && localStorage.getItem('haat_view_mode') === 'compact') ? 'compact' : 'large');
+  const [viewMode,       setViewMode]       = useState<'large' | 'compact'>(() => (typeof localStorage !== 'undefined' && localStorage.getItem('haat_view_mode') === 'large') ? 'large' : 'compact');
   const toggleViewMode = () => setViewMode(m => { const next = m === 'large' ? 'compact' : 'large'; try { localStorage.setItem('haat_view_mode', next); } catch { /* ignore */ } return next; });
   const [activeOfferIdx, setActiveOfferIdx] = useState(0);
 
@@ -380,7 +380,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
             <button onClick={() => { setSearchQuery(''); setSelectedCat(null); }} style={{ padding: '8px 20px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(170,176,182,0.80)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>عرض كل المتاجر</button>
           </div>
         ) : (
-          <div className={viewMode === 'compact' ? 'grid grid-cols-2 gap-3' : 'space-y-3'} id="restaurants_list">
+          <div className={viewMode === 'compact' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3' : 'space-y-3'} id="restaurants_list">
             {(showMock ? MOCK_RESTAURANTS : (isFiltering ? filteredBranches : filteredBranches.slice(0, 4))).map((item, idx) => {
               const isMock   = 'type' in item;
               const r        = isMock ? item as typeof MOCK_RESTAURANTS[0] : null;
