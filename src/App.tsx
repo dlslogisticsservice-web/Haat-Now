@@ -5,14 +5,18 @@ import { sandboxStore } from './services/sandboxStore';
 import { cartService } from './services/cart.service';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { HomeScreen } from './features/home/HomeScreen';
-import { RestaurantScreen } from './features/restaurant/RestaurantScreen';
-import { CheckoutPage } from './features/checkout/CheckoutPage';
-import { OrdersList } from './features/orders/OrdersList';
-import { WalletScreen } from './features/wallet/WalletScreen';
-import { ProfileScreen } from './features/profile/ProfileScreen';
-import { MerchantApp } from './features/merchant/MerchantApp';
-import { DriverApp } from './features/driver/DriverApp';
-import { AdminDashboard } from './features/admin/AdminDashboard';
+// Non-landing customer screens are lazy-loaded (loaded on navigation) to keep the
+// initial bundle small. HomeScreen stays eager as the first paint.
+const RestaurantScreen = React.lazy(() => import('./features/restaurant/RestaurantScreen').then(m => ({ default: m.RestaurantScreen })));
+const CheckoutPage = React.lazy(() => import('./features/checkout/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
+const OrdersList = React.lazy(() => import('./features/orders/OrdersList').then(m => ({ default: m.OrdersList })));
+const WalletScreen = React.lazy(() => import('./features/wallet/WalletScreen').then(m => ({ default: m.WalletScreen })));
+const ProfileScreen = React.lazy(() => import('./features/profile/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
+// Role-gated portals are lazy-loaded — customers never download admin/merchant/driver
+// code (this keeps the Design Center / Experience Builder / Lottie out of the initial bundle).
+const MerchantApp = React.lazy(() => import('./features/merchant/MerchantApp').then(m => ({ default: m.MerchantApp })));
+const DriverApp = React.lazy(() => import('./features/driver/DriverApp').then(m => ({ default: m.DriverApp })));
+const AdminDashboard = React.lazy(() => import('./features/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 import { authService } from './services/auth.service';
 import { getCategoryThumb } from './utils/categoryImages';
 import { useAppConfig } from './contexts/AppConfigContext';
@@ -344,6 +348,7 @@ export default function App() {
           )}
 
           {/* ── Main scrollable content ──────────────────────────── */}
+          <React.Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center"><Loader2 size={32} className="text-[var(--color-primary-fixed)] animate-spin" /></div>}>
           {currentScreen !== 'wallet' && currentScreen !== 'profile' && (
             <main className="max-w-7xl mx-auto px-4 pt-2" id="customer_main" style={{ paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }}>
               {currentScreen === 'home' && (
@@ -393,6 +398,7 @@ export default function App() {
           {/* ── Full-screen portals ───────────────────────────────── */}
           {currentScreen === 'wallet'  && <WalletScreen customerId={session.id} />}
           {currentScreen === 'profile' && <ProfileScreen session={session} onLogout={handleLogout} />}
+          </React.Suspense>
 
           {/* ── Bottom Navigation ────────────────────────────────── */}
           <nav className="bottom-nav" id="stitch_bottom_nav" dir="rtl">
@@ -589,9 +595,11 @@ export default function App() {
       {/* ══════════════════════════════════════════════════════════
           OTHER PORTALS
       ══════════════════════════════════════════════════════════ */}
-      {session.role === 'merchant' && <MerchantApp merchantId={session.id} onLogout={handleLogout} />}
-      {session.role === 'driver'   && <DriverApp driverId={session.id} onLogout={handleLogout} />}
-      {session.role === 'admin'    && <AdminDashboard adminId={session.id} onLogout={handleLogout} />}
+      <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 size={36} className="text-[var(--color-primary-fixed)] animate-spin" /></div>}>
+        {session.role === 'merchant' && <MerchantApp merchantId={session.id} onLogout={handleLogout} />}
+        {session.role === 'driver'   && <DriverApp driverId={session.id} onLogout={handleLogout} />}
+        {session.role === 'admin'    && <AdminDashboard adminId={session.id} onLogout={handleLogout} />}
+      </React.Suspense>
 
       {/* ══════════════════════════════════════════════════════════
           CART DRAWER
