@@ -1,0 +1,106 @@
+{
+  "admins": [
+    {
+      "label": "EG Country Admin",
+      "phone": "+201000000004",
+      "expectSuper": false,
+      "designCenter": false,
+      "campaignCenter": false,
+      "resolvedSuper": false,
+      "pass": true,
+      "screenshot": "docs/testing/post_deploy_shots/admin_201000000004.png"
+    },
+    {
+      "label": "SA Country Admin",
+      "phone": "+966500000004",
+      "expectSuper": false,
+      "designCenter": false,
+      "campaignCenter": false,
+      "resolvedSuper": false,
+      "pass": true,
+      "screenshot": "docs/testing/post_deploy_shots/admin_966500000004.png"
+    },
+    {
+      "label": "Super Admin",
+      "phone": "+201000000005",
+      "expectSuper": true,
+      "designCenter": true,
+      "campaignCenter": true,
+      "resolvedSuper": true,
+      "pass": true,
+      "screenshot": "docs/testing/post_deploy_shots/admin_201000000005.png"
+    }
+  ],
+  "ui": [
+    {
+      "name": "home",
+      "screenshot": "docs/testing/post_deploy_shots/ui_home.png",
+      "ctas": [],
+      "overlap": false
+    },
+    {
+      "name": "profile",
+      "screenshot": "docs/testing/post_deploy_shots/ui_profile.png",
+      "ctas": [],
+      "overlap": false
+    },
+    {
+      "name": "wallet",
+      "screenshot": "docs/testing/post_deploy_shots/ui_wallet.png",
+      "ctas": [],
+      "overlap": false
+    },
+    {
+      "name": "restaurant",
+      "screenshot": "docs/testing/post_deploy_shots/ui_restaurant.png",
+      "ctas": [],
+      "overlap": false
+    },
+    {
+      "name": "product_modal",
+      "screenshot": "docs/testing/post_deploy_shots/ui_product_modal.png",
+      "ctas": [
+        {
+          "selector": "#add_to_cart_confirm",
+          "present": true,
+          "visible": true,
+          "top": 740,
+          "bottom": 796,
+          "winH": 844,
+          "covered": false,
+          "coveredBy": "null"
+        }
+      ],
+      "overlap": false
+    },
+    {
+      "name": "cart",
+      "screenshot": "docs/testing/post_deploy_shots/ui_cart.png",
+      "ctas": [
+        {
+          "selector": "#checkout_btn",
+          "present": false
+        }
+      ],
+      "overlap": false
+    },
+    {
+      "name": "checkout",
+      "screenshot": "docs/testing/post_deploy_shots/ui_checkout.png",
+      "ctas": [
+        {
+          "selector": "#checkout-area",
+          "present": true,
+          "visible": true,
+          "top": 692,
+          "bottom": 756,
+          "winH": 844,
+          "covered": false,
+          "coveredBy": "null"
+        }
+      ],
+      "overlap": false
+    }
+  ],
+  "startedAt": "2026-06-23T12:33:59.322Z"
+}
