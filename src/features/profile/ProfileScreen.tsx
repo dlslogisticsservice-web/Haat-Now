@@ -536,7 +536,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
       {/* ── Header ──────────────────────────────────────────── */}
       <header
         className="app-header-safe sticky top-0 z-40 glass-strong flex items-center justify-between px-4"
-        style={{ height: '56px' }}
+        style={{ height: 'calc(56px + env(safe-area-inset-top, 0px))' }}
       >
         {inSettingsPage ? (
           <button
@@ -569,7 +569,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
       {!inSettingsPage && (
         <div
           className="sticky z-30 glass-strong flex"
-          style={{ top: '56px' }}
+          style={{ top: 'calc(56px + env(safe-area-inset-top, 0px))' }}
         >
           {(['info', 'addresses'] as const).map(tab => {
             const isActive = activeTab === tab;

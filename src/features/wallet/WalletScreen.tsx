@@ -158,7 +158,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
            style={{ background: 'white', filter: 'blur(60px)', opacity: 0.08, animationDelay: '2s', zIndex: 0 }} />
 
       {/* Sticky header */}
-      <header className="app-header-safe sticky top-0 z-40 glass-strong flex items-center justify-between px-4 h-16">
+      <header className="app-header-safe sticky top-0 z-40 glass-strong flex items-center justify-between px-4" style={{ height: 'calc(64px + env(safe-area-inset-top, 0px))' }}>
         <button
           onClick={loadWalletData}
           className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors"

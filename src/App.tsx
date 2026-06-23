@@ -303,7 +303,7 @@ export default function App() {
             <header
               className="app-header-safe sticky top-0 z-50 glass-strong flex items-center justify-between px-4"
               id="stitch_header"
-              style={{ height: '56px' }}
+              style={{ height: 'calc(56px + env(safe-area-inset-top, 0px))' }}
             >
               {/* LEFT: Avatar → profile */}
               <button
