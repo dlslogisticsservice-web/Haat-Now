@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Heart, ChevronLeft, Star, Loader2, UtensilsCrossed, Plus, X, ShoppingCart } from 'lucide-react';
 import { resolveCategory, getCategoryCover, getProductFallback } from '../../utils/categoryImages';
 import { useAppConfig } from '../../contexts/AppConfigContext';
+import { useTranslation } from 'react-i18next';
 
 interface Product {
   id: string;
@@ -42,7 +43,9 @@ export const RestaurantScreen = ({
   cartItems,
   onViewCart,
 }: RestaurantScreenProps) => {
-  const { country, price } = useAppConfig();
+  const { country, price, lang } = useAppConfig();
+  const { t } = useTranslation();
+  const tabLabel = (id: string) => id === 'الوجبات' ? t('restaurant.meals') : id === 'العروض' ? t('restaurant.offers') : id === 'التقييمات' ? t('restaurant.reviews') : t('restaurant.aboutStore');
   const cur = country.currency.symbolAr;
   const [products,        setProducts]        = useState<Product[]>([]);
   const [loading,         setLoading]         = useState(true);
@@ -146,7 +149,7 @@ export const RestaurantScreen = ({
             style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(12px)', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
             id="back_btn"
           >
-            <span>الرئيسية</span>
+            <span>{t('nav.home')}</span>
             <ChevronLeft size={16} strokeWidth={2} />
           </button>
         </div>
@@ -162,7 +165,7 @@ export const RestaurantScreen = ({
             <span
               className="px-3 py-1 rounded-full font-bold"
               style={{ background: 'var(--color-primary-fixed)', color: '#0c2000', fontSize: '11px', letterSpacing: '0.01em', flexShrink: 0 }}
-            >مفتوح الآن</span>
+            >{t('restaurant.openNow')}</span>
             <h2
               className="font-bold text-white"
               style={{ fontSize: '20px', textTransform: 'none', letterSpacing: '-0.02em', lineHeight: 1.2 }}
@@ -183,9 +186,9 @@ export const RestaurantScreen = ({
           {/* Stats row */}
           <div className="grid grid-cols-3 gap-2 text-center">
             {[
-              { label: 'التوصيل', value: `10 ${cur}` },
-              { label: 'وقت التوصيل', value: '25-35 د' },
-              { label: 'الحد الأدنى', value: `30 ${cur}` },
+              { label: t('restaurant.delivery'), value: `10 ${cur}` },
+              { label: t('restaurant.deliveryTime'), value: '25-35 د' },
+              { label: t('restaurant.minOrder'), value: `30 ${cur}` },
             ].map(stat => (
               <div key={stat.label}>
                 <p className="font-bold text-white" style={{ fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>{stat.value}</p>
@@ -224,7 +227,7 @@ export const RestaurantScreen = ({
                 textTransform: 'none', letterSpacing: '0.01em', border: 'none',
               }}
               id={`tab_${tab}`}
-            >{tab}</button>
+            >{tabLabel(tab)}</button>
           );
         })}
       </div>
@@ -233,7 +236,7 @@ export const RestaurantScreen = ({
       {activeTab === 'العروض' && (<>
       <div className="flex items-center justify-between mb-4 mt-6">
         <span style={{ color: 'var(--color-primary-fixed)', fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'none' }}>عرض الكل</span>
-        <h3 className="text-headline-sm font-semibold" style={{ color: 'white', textTransform: 'none', letterSpacing: 0 }}>العروض المميزة</h3>
+        <h3 className="text-headline-sm font-semibold" style={{ color: 'white', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.featuredOffers')}</h3>
       </div>
       <div
         className="glass glass-shine rounded-2xl overflow-hidden relative"
@@ -267,7 +270,7 @@ export const RestaurantScreen = ({
       {/* ═══ MEALS TAB ═══ */}
       {activeTab === 'الوجبات' && (
       <div className="mt-6 space-y-3" id="menu_list" style={{ paddingBottom: '160px' }}>
-        <h3 className="text-headline-sm font-semibold text-right" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>الوجبات الأكثر طلباً</h3>
+        <h3 className="text-headline-sm font-semibold text-right" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.mostOrderedMeals')}</h3>
 
         {loading ? (
           <div className="flex items-center justify-center py-16 gap-3">
@@ -337,9 +340,9 @@ export const RestaurantScreen = ({
             {[
               ['الاسم', restaurantName],
               ['الفئة', branchCategory || '—'],
-              ['التوصيل', '٢٥–٤٠ دقيقة'],
-              ['الحد الأدنى للطلب', price(20)],
-              ['الحالة', 'مفتوح الآن'],
+              [t('restaurant.delivery'), '٢٥–٤٠ دقيقة'],
+              [t('restaurant.minOrderFull'), price(20)],
+              [t('restaurant.status'), t('restaurant.openNow')],
             ].map(([k, v]) => (
               <div key={k as string} className="flex items-center justify-between" style={{ fontSize: '14px' }}>
                 <span style={{ color: 'var(--color-on-surface)', fontWeight: 600 }}>{v as string}</span>
@@ -376,7 +379,7 @@ export const RestaurantScreen = ({
           }}
         >{totalCartQty}</span>
         <span className="font-bold" style={{ fontSize: '16px', textTransform: 'none', letterSpacing: 0 }}>
-          {totalCartQty > 0 ? 'عرض السلة' : 'أضف لسلتك'}
+          {totalCartQty > 0 ? t('restaurant.viewCart') : t('restaurant.addToYourCart')}
         </span>
         <span className="font-bold" style={{ fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>
           {totalCartQty > 0 ? price(cartTotal) : ''}
@@ -417,7 +420,7 @@ export const RestaurantScreen = ({
             <div className="p-6 text-right">
               <h3 className="text-headline-sm font-bold" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>{selectedProduct.name}</h3>
               <p className="mt-2" style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>
-                {selectedProduct.description || 'صنف عالي الجودة يحضر فورياً عند طلبكم.'}
+                {selectedProduct.description || t('restaurant.premiumItem')}
               </p>
 
               {selectedProduct.product_variants && selectedProduct.product_variants.length > 0 && (

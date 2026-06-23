@@ -7,6 +7,7 @@ import { trackingService } from '../../services/tracking.service';
 import { calculateDistanceKm, calculateEtaMinutes } from '../../services/location.service';
 import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps';
 import { useAppConfig } from '../../contexts/AppConfigContext';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2, ScrollText, ChevronLeft, ChevronRight, Truck, Check, Phone,
   MessageSquare, Headphones, Hourglass, CheckCircle, ChefHat, Bike,
@@ -51,48 +52,48 @@ interface OrdersListProps {
 
 type OrderStatus = Order['status'];
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; Icon: LucideIcon }> = {
-  pending:    { label: 'انتظار الموافقة', color: '#fbbf24', Icon: Hourglass   },
-  accepted:   { label: 'مقبول',          color: '#a3f95b', Icon: CheckCircle  },
-  preparing:  { label: 'يُحضَّر الآن',   color: '#a3f95b', Icon: ChefHat     },
-  on_the_way: { label: 'في الطريق',      color: '#a3f95b', Icon: Bike        },
-  delivered:  { label: 'تم التوصيل',     color: '#4ade80', Icon: CheckCheck  },
-  cancelled:  { label: 'ملغي',           color: '#f87171', Icon: XCircle     },
+const STATUS_CONFIG: Record<OrderStatus, { labelKey: string; color: string; Icon: LucideIcon }> = {
+  pending:    { labelKey: 'orders.stPending', color: '#fbbf24', Icon: Hourglass   },
+  accepted:   { labelKey: 'orders.stAccepted',          color: '#a3f95b', Icon: CheckCircle  },
+  preparing:  { labelKey: 'orders.stPreparing',   color: '#a3f95b', Icon: ChefHat     },
+  on_the_way: { labelKey: 'orders.stOnway',      color: '#a3f95b', Icon: Bike        },
+  delivered:  { labelKey: 'orders.stDelivered',     color: '#4ade80', Icon: CheckCheck  },
+  cancelled:  { labelKey: 'orders.stCancelled',           color: '#f87171', Icon: XCircle     },
 };
 
-const STATUS_STEPS: { key: OrderStatus; label: string }[] = [
-  { key: 'pending',    label: 'تم تأكيد الطلب'     },
-  { key: 'accepted',   label: 'يتم تحضير الطلب'    },
-  { key: 'on_the_way', label: 'السائق استلم الطلب' },
-  { key: 'delivered',  label: 'تم التوصيل'          },
+const STATUS_STEPS: { key: OrderStatus; labelKey: string }[] = [
+  { key: 'pending',    labelKey: 'orders.tlConfirmed'     },
+  { key: 'accepted',   labelKey: 'orders.tlPreparing'    },
+  { key: 'on_the_way', labelKey: 'orders.tlPicked' },
+  { key: 'delivered',  labelKey: 'orders.stDelivered'          },
 ];
 
 // ── Category-specific order workflows (TASK C) ──────────────────────────────
 // Each display step maps to an underlying order status. `reached` is computed
 // from the order's REAL status so future stages can never appear completed.
 const CANON: OrderStatus[] = ['pending', 'accepted', 'preparing', 'on_the_way', 'delivered'];
-type FlowStep = { label: string; key: OrderStatus };
+type FlowStep = { labelKey: string; key: OrderStatus };
 const STEP_FLOWS: Record<'restaurant' | 'pharmacy' | 'flowers' | 'electronics' | 'market', FlowStep[]> = {
   market: [
-    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
-    { label: 'يتم التجهيز', key: 'preparing' }, { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+    { labelKey: 'orders.tlPlaced', key: 'pending' }, { labelKey: 'orders.tlConfirmedShort', key: 'accepted' },
+    { labelKey: 'orders.tlPreparingShort', key: 'preparing' }, { labelKey: 'orders.tlPickedShort', key: 'on_the_way' }, { labelKey: 'orders.stDelivered', key: 'delivered' },
   ],
   restaurant: [
-    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
-    { label: 'قيد التحضير', key: 'preparing' }, { label: 'جاهز', key: 'preparing' },
-    { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+    { labelKey: 'orders.tlPlaced', key: 'pending' }, { labelKey: 'orders.tlConfirmedShort', key: 'accepted' },
+    { labelKey: 'orders.tlInPrep', key: 'preparing' }, { labelKey: 'orders.tlReady', key: 'preparing' },
+    { labelKey: 'orders.tlPickedShort', key: 'on_the_way' }, { labelKey: 'orders.stDelivered', key: 'delivered' },
   ],
   pharmacy: [
-    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
-    { label: 'التغليف', key: 'preparing' }, { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+    { labelKey: 'orders.tlPlaced', key: 'pending' }, { labelKey: 'orders.tlConfirmedShort', key: 'accepted' },
+    { labelKey: 'orders.tlPacking', key: 'preparing' }, { labelKey: 'orders.tlPickedShort', key: 'on_the_way' }, { labelKey: 'orders.stDelivered', key: 'delivered' },
   ],
   flowers: [
-    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
-    { label: 'تجهيز الباقة', key: 'preparing' }, { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+    { labelKey: 'orders.tlPlaced', key: 'pending' }, { labelKey: 'orders.tlConfirmedShort', key: 'accepted' },
+    { labelKey: 'orders.tlPrepBouquet', key: 'preparing' }, { labelKey: 'orders.tlPickedShort', key: 'on_the_way' }, { labelKey: 'orders.stDelivered', key: 'delivered' },
   ],
   electronics: [
-    { label: 'تم الطلب', key: 'pending' }, { label: 'تم التأكيد', key: 'accepted' },
-    { label: 'تم التغليف', key: 'preparing' }, { label: 'استلمه المندوب', key: 'on_the_way' }, { label: 'تم التوصيل', key: 'delivered' },
+    { labelKey: 'orders.tlPlaced', key: 'pending' }, { labelKey: 'orders.tlConfirmedShort', key: 'accepted' },
+    { labelKey: 'orders.tlPacked', key: 'preparing' }, { labelKey: 'orders.tlPickedShort', key: 'on_the_way' }, { labelKey: 'orders.stDelivered', key: 'delivered' },
   ],
 };
 function resolveFlow(branchName?: string): FlowStep[] {
@@ -108,7 +109,8 @@ const DRIVER_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1zBa4W1
 const MAP_PHOTO  = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDhSGJvJ91keV3KcXiIFnKS0YhWuSrKZCW_iybvURGhGZZjmD01O8E66Pe-IZIknLpa1xr6rbN2yXLRNgJxyafvetf_ne8GPITiRjaEB3eMmekg6LFLSIp7fCqL1UW6MdveMsESOAgzLCSewmAvdCa6ZcR2yV-xM3RgvJhMyp7xR8KkkI6rHP2Gwk06kTavSB_EMMkiSUASFeHhISs-kxGA0bnA0FDYSnYjfPRV2wUiXfRUZo6cnRgsN2WzM-VRNUcn1-Tdm0fqmccQ';
 
 export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit }: OrdersListProps) => {
-  const { price: money } = useAppConfig();
+  const { price: money, lang } = useAppConfig();
+  const { t } = useTranslation();
   const [orders,          setOrders]          = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(selectedOrderIdInit || null);
   const [orderDetails,    setOrderDetails]    = useState<any | null>(null);
@@ -278,7 +280,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
       if (o) {
         setOrderDetails({
           id: o.id, status: o.status, total_amount: o.total_amount, driver_id: o.driver_id,
-          drivers: o.driver_id ? { full_name: 'كابتن هات ناو', phone_number: '' } : null,
+          drivers: o.driver_id ? { full_name: t('orders.captainHaat'), phone_number: '' } : null,
           merchant_branches: { name: o.branch_name },
           branch_lat_snapshot: null, branch_lng_snapshot: null, delivery_lat: null, delivery_lng: null,
         });
@@ -304,10 +306,10 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!window.confirm('هل أنت متأكد من رغبتك في إلغاء هذا الطلب؟')) return;
+    if (!window.confirm(t('orders.cancelConfirm'))) return;
     try {
       const { success, error } = await orderService.cancelOrder(orderId, 'إلغاء سريع من المستخدم');
-      if (success) { alert('تم إلغاء الطلب وتحويل المبلغ للمحفظة'); fetchOrders(); fetchOrderDetails(orderId); }
+      if (success) { alert(t('orders.cancelSuccess')); fetchOrders(); fetchOrderDetails(orderId); }
       else alert(`لا يمكن إلغاء الطلب: ${(error as any)?.message || error}`);
     } catch (e) { console.error(e); }
   };
@@ -322,7 +324,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
         .select().single();
       if (ticket) {
         await supabase.from('support_messages').insert({ ticket_id: ticket.id, sender_type: 'customer', sender_id: customerId, message_text: `أرغب في شكوى بخصوص: ${ticketSubject}.` });
-        alert('تم فتح تذكرة دعم! سنرد عليك خلال دقائق.');
+        alert(t('orders.ticketOpened'));
         setTicketSubject(''); setShowTicketInput(false);
       } else console.error(err);
     } catch (ex) { console.error(ex); }
@@ -388,7 +390,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
 
                   <div className="flex-1 min-w-0 text-right space-y-1">
                     <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'white', textTransform: 'none', letterSpacing: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {ord.merchant_branches?.merchants?.business_name || 'المتجر'}
+                      {ord.merchant_branches?.merchants?.business_name || t('orders.store')}
                     </h4>
                     <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>
                       {ord.created_at ? new Date(ord.created_at).toLocaleString('ar-SA') : ''}
@@ -397,7 +399,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
 
                   <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-full" style={{ background: `${cfg.color}15`, border: `1px solid ${cfg.color}30` }}>
-                      <span style={{ fontSize: '12px', color: cfg.color, textTransform: 'none', letterSpacing: 0 }}>{cfg.label}</span>
+                      <span style={{ fontSize: '12px', color: cfg.color, textTransform: 'none', letterSpacing: 0 }}>{t(cfg.labelKey)}</span>
                       <StatusIcon size={12} color={cfg.color} strokeWidth={2} />
                     </div>
                     <span style={{ fontSize: '14px', fontWeight: 700, color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>
@@ -464,7 +466,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
               <div className="w-full h-full">
                 <Map defaultCenter={merchantLoc ?? { lat: 24.7136, lng: 46.6753 }} defaultZoom={13} gestureHandling={'greedy'} disableDefaultUI>
                   {merchantLoc && <Marker position={merchantLoc} title="المتجر" />}
-                  {customerLoc && <Marker position={customerLoc} title="المنزل" />}
+                  {customerLoc && <Marker position={customerLoc} title={t('orders.homeLabel')} />}
                   {riderLoc    && <Marker position={riderLoc}    title="السائق" />}
                 </Map>
               </div>
@@ -496,7 +498,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
           </div>
           <div className="mt-2 px-3 py-1 rounded-full" style={{ background: 'rgba(29,32,35,0.8)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.15)' }}>
             <p style={{ fontSize: '10px', fontWeight: 700, color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>
-              {orderDetails.drivers?.full_name || 'الكابتن'}
+              {orderDetails.drivers?.full_name || t('orders.captain')}
             </p>
           </div>
         </div>
@@ -513,10 +515,10 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
           </div>
           <div className="text-right">
             <h2 className="font-bold text-[var(--color-primary-fixed)]" style={{ fontSize: '18px', textTransform: 'none', letterSpacing: 0 }}>
-              {orderDetails.status === 'on_the_way' ? 'السائق في الطريق إليك' :
-               orderDetails.status === 'preparing'  ? 'يتم تحضير طلبك' :
-               orderDetails.status === 'delivered'  ? 'تم التوصيل بنجاح 🎉' :
-               'تم تأكيد طلبك'}
+              {orderDetails.status === 'on_the_way' ? t('orders.driverOnWay') :
+               orderDetails.status === 'preparing'  ? t('orders.preparingYourOrder') :
+               orderDetails.status === 'delivered'  ? t('orders.deliveredSuccess') :
+               t('orders.orderConfirmed')}
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', marginTop: '4px', textTransform: 'none', letterSpacing: 0 }}>
               طلب #{selectedOrderId.slice(-6).toUpperCase()} · {money(orderDetails.total_amount)}
@@ -534,7 +536,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
       {orderDetails.status === 'delivered' && (
         <div className="glass rounded-2xl p-5 mt-4" id="rating_card">
           <h3 style={{ color: 'white', fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>
-            {ratingDone ? 'شكراً لتقييمك 🙏' : 'كيف كانت تجربتك؟'}
+            {ratingDone ? t('orders.thanksRating') : t('orders.howWasExperience')}
           </h3>
           <div className="flex gap-2" style={{ justifyContent: 'center' }} onMouseLeave={() => setRatingHover(0)}>
             {[1, 2, 3, 4, 5].map(n => {
@@ -554,13 +556,13 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
           {!ratingDone && (
             <>
               <textarea value={ratingComment} onChange={e => setRatingComment(e.target.value)}
-                placeholder="أضف تعليقاً (اختياري)…" rows={2}
+                placeholder={t('orders.addComment')} rows={2}
                 className="w-full mt-4 rounded-xl px-3 py-2.5"
                 style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '13px', resize: 'none' }} />
               <button id="submit_rating_btn" onClick={submitRating} disabled={ratingValue < 1 || ratingLoading}
                 className="w-full mt-3 h-11 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
                 style={{ background: ratingValue < 1 ? 'rgba(163,249,91,0.25)' : 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontSize: '14px', fontWeight: 700, opacity: ratingValue < 1 ? 0.6 : 1 }}>
-                {ratingLoading ? <Loader2 size={18} className="animate-spin" /> : 'إرسال التقييم'}
+                {ratingLoading ? <Loader2 size={18} className="animate-spin" /> : t('orders.sendReview')}
               </button>
             </>
           )}
@@ -600,7 +602,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
             </div>
             <div className="text-right">
               <p style={{ fontSize: '18px', fontWeight: 700, color: 'white', textTransform: 'none', letterSpacing: 0 }}>
-                {orderDetails.drivers?.full_name || 'الكابتن'}
+                {orderDetails.drivers?.full_name || t('orders.captain')}
               </p>
               {orderDetails.drivers?.phone_number && (
                 <p style={{ fontSize: '12px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0, marginTop: '2px' }}>
@@ -637,7 +639,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
                 </div>
                 <div className="pt-0.5">
                   <p style={{ fontSize: '14px', fontWeight: done || current ? 600 : 400, color: done ? 'var(--color-primary-fixed)' : current ? 'white' : 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>
-                    {step.label}
+                    {t(step.labelKey)}
                   </p>
                   {step.key === 'on_the_way' && current && (
                     <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>في الطريق إليك</p>
@@ -678,7 +680,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
             <form onSubmit={handleOpenTicket} className="space-y-3 p-4 rounded-xl" style={{ background: 'rgba(29,32,35,0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.1)' }}>
               <textarea
                 required
-                placeholder="مثال: تأخر التسليم، أو الطلب غير مكتمل..."
+                placeholder={t('orders.complaintPlaceholder')}
                 value={ticketSubject}
                 onChange={(e) => setTicketSubject(e.target.value)}
                 className="w-full p-3 rounded-lg resize-none focus:outline-none"
@@ -691,7 +693,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
                 className="w-full h-11 rounded-lg font-bold cursor-pointer"
                 style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
               >
-                {ticketLoading ? '...' : 'سجل بلاغ فوري'}
+                {ticketLoading ? '...' : t('orders.reportNow')}
               </button>
             </form>
           )}
@@ -699,10 +701,10 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
           {/* Telemetry strip */}
           <div className="grid grid-cols-2 gap-2 p-3 rounded-xl text-center" style={{ background: 'rgba(29,32,35,0.5)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.06)' }}>
             {[
-              { label: 'موقع المتجر',      val: merchantLoc ? `${merchantLoc.lat.toFixed(4)}, ${merchantLoc.lng.toFixed(4)}` : 'غير محدد' },
-              { label: 'موقع المنزل',       val: customerLoc ? `${customerLoc.lat.toFixed(4)}, ${customerLoc.lng.toFixed(4)}` : 'غير محدد' },
-              { label: 'موقع المندوب',     val: riderLoc ? `${riderLoc.lat.toFixed(4)}, ${riderLoc.lng.toFixed(4)}` : 'في الانتظار', accent: true },
-              { label: 'المسافة المتبقية', val: riderLoc && customerLoc ? `${calculateDistanceKm(riderLoc.lat, riderLoc.lng, customerLoc.lat, customerLoc.lng).toFixed(2)} كم` : '—' },
+              { label: t('orders.storeLocation'),      val: merchantLoc ? `${merchantLoc.lat.toFixed(4)}, ${merchantLoc.lng.toFixed(4)}` : t('orders.notSet') },
+              { label: t('orders.homeLocation'),       val: customerLoc ? `${customerLoc.lat.toFixed(4)}, ${customerLoc.lng.toFixed(4)}` : t('orders.notSet') },
+              { label: t('orders.driverLocation'),     val: riderLoc ? `${riderLoc.lat.toFixed(4)}, ${riderLoc.lng.toFixed(4)}` : t('orders.waiting'), accent: true },
+              { label: t('orders.remainingDistance'), val: riderLoc && customerLoc ? `${calculateDistanceKm(riderLoc.lat, riderLoc.lng, customerLoc.lat, customerLoc.lng).toFixed(2)} ${t('orders.km')}` : '—' },
             ].map(({ label, val, accent }) => (
               <div key={label}>
                 <span style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', display: 'block', textTransform: 'none', letterSpacing: 0 }}>{label}</span>

@@ -6,6 +6,7 @@ import { adminService } from '../../services/admin.service';
 import { authService } from '../../services/auth.service';
 import { sandboxStore } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
+import { useTranslation } from 'react-i18next';
 import { getCategoryThumb } from '../../utils/categoryImages';
 
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
@@ -42,6 +43,7 @@ const PAYMENT_TYPES: { key: string; label: string; Icon: LucideIcon }[] = [
 
 export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, onBack }: CheckoutPageProps) => {
   const { country, price: money, lang } = useAppConfig();
+  const { t } = useTranslation();
   const cur = country.currency.symbolAr;
   const [addresses,       setAddresses]       = useState<Address[]>([]);
   const [zones,           setZones]           = useState<Zone[]>([]);
@@ -136,7 +138,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           sessionStorage.removeItem('haat_payment_attempt_id');
           sessionStorage.removeItem('haat_pending_order_id');
           sessionStorage.removeItem('haat_pending_coupon_id');
-          setPaymentError('فشلت عملية الدفع أو تم إلغاؤها. حاول مجدداً.');
+          setPaymentError(t('checkout.payFailedRetryMsg'));
           setPaymentStatus('failed');
           setSwipeComplete(false);
           setHandleLeft(8);
@@ -149,7 +151,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           sessionStorage.removeItem('haat_pending_order_id');
           sessionStorage.removeItem('haat_pending_coupon_id');
           setPaymentStatus('idle');
-          setPaymentError('جاري معالجة الدفع. سنُخطرك فور التأكيد.');
+          setPaymentError(t('checkout.payProcessing'));
           if (orderId) onOrderPlaced(orderId);
         }
       } catch (e) {
@@ -181,13 +183,13 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         sessionStorage.removeItem('haat_payment_attempt_id');
         sessionStorage.removeItem('haat_pending_order_id');
         sessionStorage.removeItem('haat_pending_coupon_id');
-        setPaymentError('فشلت عملية الدفع. يمكنك المحاولة مجدداً.');
+        setPaymentError(t('checkout.payFailedMsg'));
         setPaymentStatus('failed');
       } else {
         sessionStorage.removeItem('haat_payment_attempt_id');
         sessionStorage.removeItem('haat_pending_order_id');
         sessionStorage.removeItem('haat_pending_coupon_id');
-        setPaymentError('تم إلغاء عملية الدفع.');
+        setPaymentError(t('checkout.payCancelledMsg'));
         setPaymentStatus('cancelled');
       }
     }
@@ -245,9 +247,9 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
     setActionLoading(true);
     try {
       const { data, error } = await supabase.from('addresses')
-        .insert({ customer_id: customerId, zone_id: selectedZoneId, address_line: newAddressText, label: 'موقع مخصص' })
+        .insert({ customer_id: customerId, zone_id: selectedZoneId, address_line: newAddressText, label: t('checkout.customLocation') })
         .select().single();
-      if (error) alert(`خطأ في إضافة العنوان: ${error.message}`);
+      if (error) alert(`${t('checkout.addAddressError')}: ${error.message}`);
       else { setAddresses([data, ...addresses]); setSelectedAddress(data.id); setNewAddressText(''); setIsAddingAddress(false); }
     } catch (err) { console.error(err); }
     finally { setActionLoading(false); }
@@ -276,9 +278,9 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
     if (!couponCode) return;
     try {
       const { data, error } = await checkoutService.verifyCoupon(couponCode);
-      if (error || !data) { setCouponError(error?.message || 'الكود غير صالح أو انتهت صلاحيته'); setCouponDiscount(0); setCouponId(null); }
-      else { setCouponSuccess(`خصم ${data.discount_percent}% مُفعّل!`); setCouponDiscount(data.discount_percent); setCouponId(data.id); }
-    } catch (e) { console.error(e); setCouponError('حدث خطأ أثناء التحقق من الكوبون'); }
+      if (error || !data) { setCouponError(error?.message || t('checkout.couponInvalid')); setCouponDiscount(0); setCouponId(null); }
+      else { setCouponSuccess(`${data.discount_percent}% ${t('checkout.couponApplied')}`); setCouponDiscount(data.discount_percent); setCouponId(data.id); }
+    } catch (e) { console.error(e); setCouponError(t('checkout.couponError')); }
   };
 
   const getSubtotal = () => cartItems.reduce((t, i) => t + (i.product.price + (i.variant?.price_modifier ?? 0)) * i.quantity, 0);
@@ -293,7 +295,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
     if (SANDBOX) {
       const order = sandboxStore.createOrder({
         customer_id: customerId,
-        customer_name: 'عميل تجريبي',
+        customer_name: t('checkout.demoCustomer'),
         branch_id: branchId,
         branch_name: '',
         total_amount: grandTotal,
@@ -304,9 +306,9 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
       setShowSuccessModal(true);
       return;
     }
-    if (addresses.length === 0) { alert('لا يوجد عنوان توصيل. يُرجى إضافة عنوان من صفحة حسابك الشخصي.'); return; }
-    if (!selectedAddress) { alert('الرجاء تحديد عنوان التوصيل'); return; }
-    if (!selectedPayment)  { alert('الرجاء تحديد طريقة الدفع');   return; }
+    if (addresses.length === 0) { alert(t('checkout.addAddressFirst')); return; }
+    if (!selectedAddress) { alert(t('checkout.selectAddress')); return; }
+    if (!selectedPayment)  { alert(t('checkout.selectPayment'));   return; }
     // Open the payment tab synchronously (before any async ops) — required by iOS Safari.
     // Browsers allow window.open only in a direct user-gesture stack; async calls get blocked.
     const paymentTabRef = window.open('about:blank', '_moyasar_payment');
@@ -337,7 +339,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           deliveryFee:       deliveryFee,
         },
       );
-      if (orderErr) { paymentTabRef?.close(); alert(`خطأ في إنشاء الطلب: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
+      if (orderErr) { paymentTabRef?.close(); alert(`${t('checkout.orderError')}: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
       if (orderData) {
         // EF2-11: Call payment-initiate Edge Function with the customer JWT
         const accessToken = await authService.getAccessToken();
@@ -360,8 +362,8 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           paymentTabRef?.close();
           const errMsg = (initiateData['error'] as Record<string, unknown> | undefined)?.['message']
             ?? (initiateData['message'] as string | undefined)
-            ?? 'حاول مجدداً';
-          alert(`فشل في بدء عملية الدفع: ${errMsg}`);
+            ?? t('checkout.tryAgain');
+          alert(`${t('checkout.payStartFail')}: ${errMsg}`);
           setSwipeComplete(false); setHandleLeft(8);
           return;
         }
@@ -372,7 +374,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
 
         if (!paymentUrl) {
           paymentTabRef?.close();
-          alert('لم يتم الحصول على رابط الدفع. حاول مجدداً.');
+          alert(t('checkout.noPayLink'));
           setSwipeComplete(false); setHandleLeft(8);
           return;
         }
@@ -394,7 +396,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         setPaymentStatus('verifying');
         startVerifyPolling(initiateData['paymentAttemptId'] as string, orderData.id);
       }
-    } catch (err) { paymentTabRef?.close(); console.error(err); alert('حدث خطأ داخلي.'); setSwipeComplete(false); setHandleLeft(8); }
+    } catch (err) { paymentTabRef?.close(); console.error(err); alert(t('checkout.internalError')); setSwipeComplete(false); setHandleLeft(8); }
     finally { setActionLoading(false); }
   };
 
@@ -484,7 +486,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           </div>
           <div className="flex-1">
             <h1 style={{ color: 'white', fontSize: '22px', fontWeight: 700, textTransform: 'none', letterSpacing: 0 }}>
-              {cartItems[0]?.product.name || 'طلبك المميز'}
+              {cartItems[0]?.product.name || t('checkout.premiumOrder')}
               {cartItems.length > 1 && (
                 <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', fontWeight: 400, marginRight: '8px' }}>
                   +{cartItems.length - 1} أصناف
@@ -550,7 +552,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                 {/* Preparation progress */}
                 <div className="surface-z3 rounded-xl p-5">
                   <div className="flex items-center justify-between mb-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                    <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>مراحل التحضير</h3>
+                    <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>{t('checkout.preparing')}</h3>
                     <div className="flex items-center gap-2">
                       <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>قيد التنفيذ</span>
                       <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: 'var(--color-primary-fixed)' }} />
@@ -563,7 +565,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     />
                   </div>
                   <div className="grid grid-cols-4 gap-1 text-center" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                    {['التوريد', 'التحضير', 'الطهي', 'التغليف'].map((step, idx) => (
+                    {[t('checkout.stepSupply'), t('checkout.stepPrep'), t('checkout.stepCook'), t('checkout.stepPack')].map((step, idx) => (
                       <div key={step} className="flex flex-col items-center gap-1">
                         <div
                           className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -644,7 +646,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                         </select>
                         <input
                           type="text"
-                          placeholder="العنوان التفصيلي"
+                          placeholder={t('checkout.addressDetails')}
                           value={newAddressText}
                           onChange={e => setNewAddressText(e.target.value)}
                           className="w-full h-11 px-3 rounded-lg"
@@ -657,7 +659,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                           className="w-full h-11 rounded-lg font-bold cursor-pointer"
                           style={{ background: 'var(--color-primary-fixed)', color: '#1e3700', fontSize: '14px', textTransform: 'none', letterSpacing: 0, border: 'none' }}
                         >
-                          {actionLoading ? '...' : 'حفظ العنوان'}
+                          {actionLoading ? '...' : t('checkout.saveAddress')}
                         </button>
                       </form>
                     )}
@@ -745,18 +747,18 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     style={{ color: 'var(--color-secondary)', fontSize: '13px', background: 'none', border: 'none', textTransform: 'none', letterSpacing: 0 }}
                   >
                     {isAddingCard ? <Minus size={16} strokeWidth={2} /> : <Plus size={16} strokeWidth={2} />}
-                    {isAddingCard ? 'إلغاء' : 'إضافة بطاقة'}
+                    {isAddingCard ? t('checkout.cancel') : t('checkout.addCard')}
                   </button>
                   {isAddingCard && (
                     <form onSubmit={handleAddNewCard} className="glass rounded-xl p-4 mt-2 space-y-3 text-right" id="add_card_form">
                       <input
-                        type="text" placeholder="رقم البطاقة" value={cardNumber}
+                        type="text" placeholder={t('checkout.cardNumber')} value={cardNumber}
                         onChange={e => setCardNumber(e.target.value.replace(/\s+/g, ''))} maxLength={16}
                         className="w-full h-11 px-3 rounded-lg" required
                         style={{ background: 'var(--color-surface-container-highest)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '13px', textTransform: 'none', letterSpacing: 0 }}
                       />
                       <input
-                        type="text" placeholder="اسم حامل البطاقة" value={cardHolder}
+                        type="text" placeholder={t('checkout.cardHolder')} value={cardHolder}
                         onChange={e => setCardHolder(e.target.value)}
                         className="w-full h-11 px-3 rounded-lg" required
                         style={{ background: 'var(--color-surface-container-highest)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '13px', textTransform: 'none', letterSpacing: 0 }}
@@ -766,7 +768,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                         className="w-full h-11 rounded-lg font-bold cursor-pointer"
                         style={{ background: 'var(--color-primary-fixed)', color: '#1e3700', fontSize: '13px', textTransform: 'none', letterSpacing: 0, border: 'none' }}
                       >
-                        {actionLoading ? '...' : 'حفظ البطاقة'}
+                        {actionLoading ? '...' : t('checkout.saveCard')}
                       </button>
                     </form>
                   )}
@@ -817,7 +819,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                       style={{ background: 'var(--color-secondary)', color: '#1e3700', fontSize: '13px', textTransform: 'none', letterSpacing: 0, border: 'none' }}
                     >تطبيق</button>
                     <input
-                      type="text" placeholder="كوبون خصم"
+                      type="text" placeholder={t('checkout.couponLabel')}
                       value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())}
                       className="flex-1 h-9 px-3 rounded-lg text-center tracking-widest"
                       style={{ background: 'var(--color-surface-container-high)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '13px', textTransform: 'none', letterSpacing: 0 }}
@@ -869,13 +871,13 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
             >
               {swipeComplete
                 ? (actionLoading
-                    ? 'جاري المعالجة...'
+                    ? t('checkout.processing')
                     : paymentStatus === 'verifying'
-                      ? 'جاري التحقق من الدفع...'
+                      ? t('checkout.verifyingPayment')
                       : paymentStatus === 'failed' || paymentStatus === 'cancelled'
-                        ? 'فشل الدفع — حاول مجدداً'
-                        : 'تم التأكيد!')
-                : 'اسحب لتأكيد الطلب'}
+                        ? t('checkout.payFailedShort')
+                        : t('checkout.confirmed'))
+                : t('checkout.swipeToConfirm')}
             </div>
             <div
               id="checkout_swipe_handle"
@@ -933,7 +935,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
               تم تأكيد الطلب
             </h2>
             <p className="mb-6" style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', textTransform: 'none', letterSpacing: 0, lineHeight: 1.6 }}>
-              طلبك قيد التحضير. سنُخطرك فور مغادرة الكابتن.
+              {t('checkout.orderNote')}
             </p>
             <button
               onClick={() => { setShowSuccessModal(false); if (completedOrderId) onOrderPlaced(completedOrderId); }}
