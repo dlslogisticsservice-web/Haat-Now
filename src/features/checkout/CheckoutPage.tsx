@@ -41,7 +41,7 @@ const PAYMENT_TYPES: { key: string; label: string; Icon: LucideIcon }[] = [
 ];
 
 export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, onBack }: CheckoutPageProps) => {
-  const { country, price: money } = useAppConfig();
+  const { country, price: money, lang } = useAppConfig();
   const cur = country.currency.symbolAr;
   const [addresses,       setAddresses]       = useState<Address[]>([]);
   const [zones,           setZones]           = useState<Zone[]>([]);
@@ -475,7 +475,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
       <main className="max-w-4xl mx-auto px-4 py-6" style={{ paddingBottom: 'calc(170px + env(safe-area-inset-bottom, 0px))' }}>
 
         {/* ── Order context header ──────────────────────────── */}
-        <div className="flex items-center gap-4 mb-6" dir="rtl">
+        <div className="flex items-center gap-4 mb-6" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
           <div
             className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'rgba(163,249,91,0.1)', border: '1px solid rgba(163,249,91,0.2)' }}
@@ -535,7 +535,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     <BadgeCheck size={14} strokeWidth={2} color="var(--color-primary-fixed)" />
                     <span style={{ color: 'var(--color-primary-fixed)', fontSize: '11px', fontWeight: 700 }}>Premium Ingredient</span>
                   </div>
-                  <div className="absolute bottom-3 right-3 left-3 flex flex-col gap-1" dir="rtl">
+                  <div className="absolute bottom-3 right-3 left-3 flex flex-col gap-1" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     {cartItems.slice(0, 2).map((item, idx) => (
                       <div key={idx} className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-0.5" style={{ background: 'var(--color-primary-fixed)' }} />
@@ -549,7 +549,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
 
                 {/* Preparation progress */}
                 <div className="surface-z3 rounded-xl p-5">
-                  <div className="flex items-center justify-between mb-4" dir="rtl">
+                  <div className="flex items-center justify-between mb-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>مراحل التحضير</h3>
                     <div className="flex items-center gap-2">
                       <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>قيد التنفيذ</span>
@@ -562,7 +562,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                       style={{ width: '75%', background: 'linear-gradient(to right, var(--color-secondary-container), var(--color-secondary))', boxShadow: '0 0 10px rgba(163,249,91,0.5)' }}
                     />
                   </div>
-                  <div className="grid grid-cols-4 gap-1 text-center" dir="rtl">
+                  <div className="grid grid-cols-4 gap-1 text-center" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     {['التوريد', 'التحضير', 'الطهي', 'التغليف'].map((step, idx) => (
                       <div key={step} className="flex flex-col items-center gap-1">
                         <div
@@ -585,7 +585,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
 
                 {/* Delivery address */}
                 <div className="surface-z3 rounded-xl overflow-hidden" id="address_card">
-                  <div className="flex items-center justify-between px-4 pt-4 pb-2" dir="rtl">
+                  <div className="flex items-center justify-between px-4 pt-4 pb-2" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <h3 className="flex items-center gap-2 font-bold" style={{ color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>
                       عنوان التوصيل
                       <MapPin size={18} strokeWidth={2} color="var(--color-primary-fixed)" />
@@ -670,7 +670,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
 
                 {/* Delivery path SVG */}
                 <div className="surface-z3 rounded-xl p-4 relative" style={{ aspectRatio: '1 / 1' }}>
-                  <div className="flex items-center justify-between mb-3" dir="rtl">
+                  <div className="flex items-center justify-between mb-3" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', textTransform: 'none', letterSpacing: 0 }}>التوصيل المتوقع: ~30 دقيقة</span>
                     <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>مسار التوصيل</h3>
                   </div>
@@ -698,7 +698,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
 
                 {/* Payment method */}
                 <div className="surface-z3 rounded-xl p-4" id="payment_section">
-                  <h3 className="flex items-center justify-between mb-4" dir="rtl">
+                  <h3 className="flex items-center justify-between mb-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <Wallet size={18} strokeWidth={1.75} color="var(--color-primary-fixed)" />
                     <span className="font-bold" style={{ color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>وسيلة الدفع</span>
                   </h3>
@@ -907,7 +907,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           <div
             className="max-w-md mx-auto rounded-xl px-4 py-3 text-center"
             style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', backdropFilter: 'blur(12px)' }}
-            dir="rtl"
+            dir={lang === 'ar' ? 'rtl' : 'ltr'}
           >
             <p style={{ color: '#fca5a5', fontSize: '13px', textTransform: 'none', letterSpacing: 0 }}>{paymentError}</p>
           </div>

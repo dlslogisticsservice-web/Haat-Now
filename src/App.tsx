@@ -401,7 +401,7 @@ export default function App() {
           </React.Suspense>
 
           {/* ── Bottom Navigation ────────────────────────────────── */}
-          <nav className="bottom-nav" id="stitch_bottom_nav" dir="rtl">
+          <nav className="bottom-nav" id="stitch_bottom_nav" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
             <div className="bottom-nav__inner">
 
               {/* Home */}
@@ -504,7 +504,7 @@ export default function App() {
           ══════════════════════════════════════════════════════ */}
           {isSideMenuOpen && (
             <div className="side-menu-overlay" id="side_menu_mask" onClick={() => setIsSideMenuOpen(false)}>
-              <div className="side-menu-panel glass-shine" onClick={e => e.stopPropagation()} id="side_menu_panel" dir="rtl">
+              <div className="side-menu-panel glass-shine" onClick={e => e.stopPropagation()} id="side_menu_panel" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
                 {/* Header */}
                 <div className="p-6 pt-12" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -616,7 +616,7 @@ export default function App() {
             style={{ borderInlineStart: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}
             id="cart_drawer_panel"
           >
-            <div className="flex justify-between items-center mb-6" id="cart_header" dir="rtl">
+            <div className="flex justify-between items-center mb-6" id="cart_header" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
               <h3 className="text-headline-sm flex items-center gap-2" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>
                 <ShoppingBag size={22} className="text-[var(--color-primary-fixed)]" strokeWidth={2} />
                 سلة وجباتي
@@ -633,7 +633,7 @@ export default function App() {
 
             <div className="flex-1 overflow-y-auto space-y-2.5" id="cart_items_scroll">
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-fade-in" id="cart_empty" dir="rtl">
+                <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-fade-in" id="cart_empty" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                   <div
                     className="w-24 h-24 rounded-3xl flex items-center justify-center glass-shine"
                     style={{ background: 'rgba(163,249,91,0.05)', border: '1px solid rgba(163,249,91,0.12)', boxShadow: '0 0 48px rgba(163,249,91,0.06)' }}
@@ -661,7 +661,7 @@ export default function App() {
                       key={idx}
                       className="glass glass-hover flex items-center gap-3 p-3 rounded-2xl"
                       id={`cart_row_${idx}`}
-                      dir="rtl"
+                      dir={lang === 'ar' ? 'rtl' : 'ltr'}
                     >
                       {/* Food photo thumbnail — right side in RTL */}
                       <div
@@ -705,14 +705,14 @@ export default function App() {
             </div>
 
             {cart.length > 0 && (
-              <div className="pt-4 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} id="cart_footer" dir="rtl">
+              <div className="pt-4 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} id="cart_footer" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
                 {/* Coupon input */}
                 <div className="flex gap-2">
                   <input
                     type="text"
                     placeholder="كود الخصم"
-                    dir="rtl"
+                    dir={lang === 'ar' ? 'rtl' : 'ltr'}
                     className="flex-1 h-11 px-3 rounded-xl"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '13px', outline: 'none', caretColor: 'var(--color-primary-fixed)' }}
                   />
@@ -771,7 +771,7 @@ export default function App() {
             style={{ borderInlineStart: '1px solid rgba(255,255,255,0.15)', backdropFilter: 'blur(40px)', WebkitBackdropFilter: 'blur(40px)' }}
             id="notif_drawer_panel"
           >
-            <div className="flex justify-between items-center mb-6" id="notif_header" dir="rtl">
+            <div className="flex justify-between items-center mb-6" id="notif_header" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
               <h3 className="text-headline-sm flex items-center gap-2" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>
                 <Bell size={22} className="text-[var(--color-primary-fixed)]" strokeWidth={2} />
                 الإشعارات
@@ -788,7 +788,7 @@ export default function App() {
 
             <div className="flex-1 overflow-y-auto space-y-3" id="notif_list_scroll">
               {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-fade-in" id="notif_empty" dir="rtl">
+                <div className="flex flex-col items-center justify-center h-full gap-6 text-center animate-fade-in" id="notif_empty" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                   <div
                     className="w-24 h-24 rounded-3xl flex items-center justify-center glass-shine"
                     style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 0 40px rgba(0,0,0,0.3)' }}
@@ -802,7 +802,7 @@ export default function App() {
                 </div>
               ) : (
                 notifications.map((notif) => (
-                  <div key={notif.id} className="glass glass-hover p-4 rounded-xl" dir="rtl">
+                  <div key={notif.id} className="glass glass-hover p-4 rounded-xl" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <p style={{ color: 'var(--color-on-surface)', fontSize: '14px', lineHeight: 1.55 }}>{notif.message}</p>
                     {notif.created_at && (
                       <p className="mt-1.5" style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', letterSpacing: '0.02em' }}>

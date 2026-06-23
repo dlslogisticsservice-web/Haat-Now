@@ -149,7 +149,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
   };
 
   return (
-    <div className="min-h-screen metallic-bg" style={{ paddingBottom: 'var(--bottom-safe-space)' }} dir="rtl">
+    <div className="min-h-screen metallic-bg" style={{ paddingBottom: 'var(--bottom-safe-space)' }} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
       {/* Atmospheric orbs */}
       <div className="fixed top-20 right-10 w-64 h-64 rounded-full animate-neon-pulse pointer-events-none"

@@ -102,7 +102,7 @@ interface HomeScreenProps {
 
 /* ─── Main Component ─────────────────────────────────────────── */
 export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
-  const { country } = useAppConfig();
+  const { country, lang } = useAppConfig();
   // PHASE G/H — active hero campaign for this country + impression tracking.
   const [heroCampaign, setHeroCampaign] = useState<Campaign | null>(null);
   useEffect(() => {
@@ -179,7 +179,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
   const MIN_ORDERS    = ['50', '80', '60', '40', '70', '50'];
 
   return (
-    <div id="home_screen_portal" dir="rtl" style={{ position: 'relative' }}>
+    <div id="home_screen_portal" dir={lang === 'ar' ? 'rtl' : 'ltr'} style={{ position: 'relative' }}>
 
       {/* ══ 1. MARKETPLACE HERO — rotating multi-vertical carousel ══ */}
       {!isFiltering && (<>
@@ -219,7 +219,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
           <input
             type="text" placeholder={t('common.search')}
             value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            id="home_search_input" dir="rtl"
+            id="home_search_input" dir={lang === 'ar' ? 'rtl' : 'ltr'}
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: '#f2f4f6', fontSize: '13px', caretColor: 'var(--color-primary-fixed)', minWidth: 0 }}
           />
           {searchQuery ? (
@@ -307,7 +307,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
               <div
                 key={offer.id}
                 className="flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform"
-                dir="rtl"
+                dir={lang === 'ar' ? 'rtl' : 'ltr'}
                 style={{
                   width: '300px', height: '178px', borderRadius: '22px', overflow: 'hidden',
                   position: 'relative', flexShrink: 0,

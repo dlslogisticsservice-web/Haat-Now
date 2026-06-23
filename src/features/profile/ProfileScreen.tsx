@@ -362,6 +362,7 @@ interface ProfileScreenProps {
 
 export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
 
+  const { lang } = useAppConfig();
   const [activeTab,    setActiveTab]    = useState<ProfileTab>('info');
   const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null);
 
@@ -526,7 +527,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
   ];
 
   return (
-    <div className="min-h-screen" style={{ paddingBottom: 'var(--bottom-safe-space)' }} dir="rtl">
+    <div className="min-h-screen" style={{ paddingBottom: 'var(--bottom-safe-space)' }} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
       <input ref={avatarInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="sr-only" onChange={handleAvatarFileChange} />
 
