@@ -32,17 +32,49 @@ export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
   '+201000000006': { id: '44444444-0000-0000-0000-000000000003', role: 'admin',     country: 'SA', name: 'مدير السعودية', scope: 'country' },
 };
 
+const VALID_ROLES = ['admin', 'merchant', 'driver', 'customer'] as const;
+const isValidRole = (n: unknown): n is User['role'] =>
+  typeof n === 'string' && (VALID_ROLES as readonly string[]).includes(n);
+
 // Resolves the highest-priority role for a user from the database (supabase mode).
+// NOTE: we deliberately do NOT use PostgREST's embedded ordering
+// (`.order('priority', { referencedTable: 'roles' })`) — ordering the parent
+// `user_roles` rows by a column on the to-one embedded `roles` resource is not
+// reliably applied, so `.limit(1)` returned an arbitrary row (usually the
+// first-seeded `customer` assignment), downgrading every multi-role user to
+// customer. Instead we fetch ALL assignments and pick the highest priority here.
 async function resolveHighestRole(userId: string): Promise<User['role']> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('user_roles')
     .select('roles(name, priority)')
-    .eq('user_id', userId)
-    .order('priority', { ascending: false, referencedTable: 'roles' })
-    .limit(1)
-    .maybeSingle();
-  const name = (data as any)?.roles?.name as string | undefined;
-  return (name === 'admin' || name === 'merchant' || name === 'driver' || name === 'customer') ? name : 'customer';
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error(`[auth] resolveHighestRole: query failed for user ${userId} — defaulting to customer.`, error);
+    return 'customer';
+  }
+
+  // PostgREST types the embedded `roles` as an array, though a to-one FK returns a
+  // single object at runtime. Normalise both shapes so resolution is robust.
+  type RoleRef = { name: string; priority: number };
+  const assignments = ((data ?? []) as Array<{ roles: RoleRef | RoleRef[] | null }>)
+    .flatMap(r => (Array.isArray(r.roles) ? r.roles : r.roles ? [r.roles] : []))
+    .filter((r): r is RoleRef => !!r && typeof r.priority === 'number');
+
+  if (assignments.length === 0) {
+    // No role rows is a legitimate state (brand-new auth user) → customer.
+    console.warn(`[auth] resolveHighestRole: no role assignments for user ${userId} — defaulting to customer.`);
+    return 'customer';
+  }
+
+  const highest = assignments.reduce((a, b) => (b.priority > a.priority ? b : a));
+
+  if (!isValidRole(highest.name)) {
+    // Role data EXISTS but is unrecognised — do not silently swallow it; log loudly.
+    console.error(`[auth] resolveHighestRole: unrecognised highest role "${highest.name}" for user ${userId} — defaulting to customer.`);
+    return 'customer';
+  }
+  return highest.name;
 }
 
 function readSandboxSession(): User | null {
