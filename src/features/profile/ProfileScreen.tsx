@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { customerService, AddressWithZone, ZoneHierarchy } from '../../services/customer.service';
 import { storageService } from '../../services/storage.service';
 import { useAppConfig } from '../../contexts/AppConfigContext';
+import { useTranslation } from 'react-i18next';
 import { COUNTRIES } from '../../config/countries';
 import {
   ChevronRight, ChevronLeft, LogOut, Bell, BellRing, User, MapPin, MapPinned,
@@ -29,17 +30,17 @@ const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/web
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
 function validateAvatar(file: File): string | null {
-  if (!ALLOWED_AVATAR_TYPES.includes(file.type)) return 'يُسمح فقط بصور JPG أو PNG أو WebP';
-  if (file.size > MAX_AVATAR_BYTES) return 'حجم الصورة يتجاوز الحد المسموح به (2 ميغابايت)';
+  if (!ALLOWED_AVATAR_TYPES.includes(file.type)) return 'profile.avatarTypeError';
+  if (file.size > MAX_AVATAR_BYTES) return 'profile.avatarSizeError';
   return null;
 }
 
 const SETTINGS_INFO: Record<SettingsPage, { Icon: LucideIcon; title: string; subtitle: string; hint: string }> = {
-  payment:       { Icon: Wallet,      title: 'طرق الدفع',         subtitle: 'إدارة البطاقات وطرق الدفع المحفوظة',           hint: 'ستتوفر قريباً. يمكنك إضافة بطاقتك عند إتمام الطلب.' },
-  notifications: { Icon: BellRing,   title: 'الإشعارات',          subtitle: 'تخصيص تنبيهات الطلبات والعروض والأخبار',        hint: 'ستتوفر قريباً. ستتلقى إشعارات حالة الطلب تلقائياً.' },
-  language:      { Icon: Globe,      title: 'اللغة والمنطقة',      subtitle: 'اختيار لغة التطبيق وإعدادات المنطقة الزمنية',   hint: 'ستتوفر قريباً. اللغة الحالية: العربية.' },
-  privacy:       { Icon: Shield,     title: 'الخصوصية والأمان',   subtitle: 'إدارة بياناتك وإعدادات أمان الحساب',            hint: 'ستتوفر قريباً. بياناتك محمية ومشفرة وآمنة.' },
-  support:       { Icon: Headphones, title: 'المساعدة والدعم',    subtitle: 'تواصل مع فريق دعم هات ناو',                      hint: 'ستتوفر قريباً. للتواصل: support@hatnow.com' },
+  payment:       { Icon: Wallet,      title: 'settings.paymentTitle', subtitle: 'settings.paymentSub', hint: 'settings.paymentSoon' },
+  notifications: { Icon: BellRing,   title: 'settings.notifTitle', subtitle: 'settings.notifSub', hint: 'settings.notifSoon' },
+  language:      { Icon: Globe,      title: 'settings.langTitle', subtitle: 'settings.langSub', hint: 'settings.langSoon' },
+  privacy:       { Icon: Shield,     title: 'settings.privacyTitle', subtitle: 'settings.privacySub', hint: 'settings.privacySoon' },
+  support:       { Icon: Headphones, title: 'settings.supportTitle', subtitle: 'settings.supportSub', hint: 'settings.supportSoon' },
 };
 
 const LBL: React.CSSProperties = {
@@ -62,8 +63,8 @@ type PMType = 'cod' | 'visa' | 'mastercard' | 'mada' | 'wallet';
 interface PayMethod { id: string; type: PMType; label: string; last4?: string; isDefault: boolean }
 const PM_KEY = 'haat_payment_methods';
 const seedPM = (): PayMethod[] => [
-  { id: 'cod', type: 'cod', label: 'الدفع عند الاستلام', isDefault: true },
-  { id: 'wallet', type: 'wallet', label: 'محفظة هات ناو', isDefault: false },
+  { id: 'cod', type: 'cod', label: 'profile.codOnDelivery', isDefault: true },
+  { id: 'wallet', type: 'wallet', label: 'profile.haatWallet', isDefault: false },
 ];
 function loadPM(): PayMethod[] {
   try { const v = JSON.parse(localStorage.getItem(PM_KEY) || 'null'); return Array.isArray(v) && v.length ? v : seedPM(); }
@@ -71,11 +72,11 @@ function loadPM(): PayMethod[] {
 }
 function savePM(list: PayMethod[]) { try { localStorage.setItem(PM_KEY, JSON.stringify(list)); } catch { /* ignore */ } }
 const PM_META: Record<PMType, { label: string; Icon: typeof CreditCard }> = {
-  cod:        { label: 'نقداً عند الاستلام', Icon: Banknote },
+  cod:        { label: 'profile.cashOnDelivery', Icon: Banknote },
   visa:       { label: 'Visa', Icon: CreditCard },
   mastercard: { label: 'Mastercard', Icon: CreditCard },
   mada:       { label: 'مدى', Icon: CreditCard },
-  wallet:     { label: 'محفظة هات ناو', Icon: Wallet },
+  wallet:     { label: 'profile.haatWallet', Icon: Wallet },
 };
 
 const ACCENT = 'var(--color-primary-fixed)';
@@ -105,6 +106,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => void }) {
   const { Icon, title, subtitle } = SETTINGS_INFO[page];
   const { lang, setLang, country, setCountry } = useAppConfig();
+  const { t } = useTranslation();
   const [notif, setNotif] = useState<NotifPrefs>(loadNotifPrefs);
   const saveNotif = (patch: Partial<NotifPrefs>) => {
     const next = { ...notif, ...patch };
@@ -112,6 +114,7 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
     try { localStorage.setItem(NOTIF_KEY, JSON.stringify(next)); } catch { /* ignore */ }
   };
   const T = (ar: string, en: string) => (lang === 'ar' ? ar : en);
+  const tt = (k: string) => (k && k.includes('.') ? t(k) : k);
 
   // ── Payment methods CRUD (TASK B) ──
   const [pms, setPms] = useState<PayMethod[]>(loadPM);
@@ -123,7 +126,7 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
   const addPM = (type: PMType) => {
     if (isCard(type) && pmLast4.length !== 4) return;
     const id = `${type}-${Date.now()}`;
-    const label = isCard(type) ? `${PM_META[type].label} •••• ${pmLast4}` : PM_META[type].label;
+    const label = isCard(type) ? `${tt(PM_META[type].label)} •••• ${pmLast4}` : tt(PM_META[type].label);
     commitPM([...pms, { id, type, label, last4: pmLast4 || undefined, isDefault: pms.length === 0 }]);
     setPmAdding(null); setPmLast4('');
   };
@@ -149,7 +152,7 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
     if (!pmEditing) return;
     let next = pms.map(p => {
       if (p.id !== pmEditing) return p;
-      const name = pmEditName.trim() || PM_META[p.type].label;
+      const name = pmEditName.trim() || tt(PM_META[p.type].label);
       const last4 = isCard(p.type) ? (pmEditLast4 || p.last4 || '0000') : undefined;
       return { ...p, last4, label: isCard(p.type) ? `${name} •••• ${last4}` : name };
     });
@@ -165,8 +168,8 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
           <Icon size={24} color={ACCENT} strokeWidth={1.6} />
         </div>
         <div>
-          <h2 style={{ color: 'white', fontSize: '16px', fontWeight: 700, marginBottom: '2px' }}>{title}</h2>
-          <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', lineHeight: 1.45 }}>{subtitle}</p>
+          <h2 style={{ color: 'white', fontSize: '16px', fontWeight: 700, marginBottom: '2px' }}>{t(title)}</h2>
+          <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', lineHeight: 1.45 }}>{t(subtitle)}</p>
         </div>
       </div>
 
@@ -182,7 +185,7 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
                   background: lang === l ? 'rgba(163,249,91,0.12)' : 'rgba(255,255,255,0.03)',
                   border: lang === l ? '1px solid rgba(163,249,91,0.4)' : '1px solid rgba(255,255,255,0.07)',
                   color: lang === l ? ACCENT : 'white',
-                }}>{l === 'ar' ? 'العربية' : 'English'}</button>
+                }}>{l === 'ar' ? T('العربية','Arabic') : 'English'}</button>
               ))}
             </div>
           </div>
@@ -232,7 +235,7 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
                 <div className="flex items-center gap-3">
                   <M.Icon size={20} color={ACCENT} strokeWidth={1.8} />
                   <div>
-                    <p style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>{pm.label}</p>
+                    <p style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>{tt(pm.label)}</p>
                     {pm.isDefault && <span style={{ fontSize: '10px', color: ACCENT, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Star size={10} fill={ACCENT} strokeWidth={0} /> {T('افتراضي', 'Default')}</span>}
                   </div>
                 </div>
@@ -269,13 +272,13 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
             <div className="grid grid-cols-2 gap-2">
               {(['visa', 'mastercard', 'mada', 'wallet'] as PMType[]).map(t => (
                 <button key={t} onClick={() => { setPmAdding(t); setPmLast4(''); }} id={`pm_add_${t}`} className="cursor-pointer flex items-center justify-center gap-1.5" style={{ height: '42px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '13px', fontWeight: 600 }}>
-                  <Plus size={14} color={ACCENT} /> {PM_META[t].label}
+                  <Plus size={14} color={ACCENT} /> {tt(PM_META[t].label)}
                 </button>
               ))}
             </div>
           ) : (
             <div style={cardStyle}>
-              <span style={LBL}>{T('إضافة', 'Add')} {PM_META[pmAdding].label}</span>
+              <span style={LBL}>{T('إضافة', 'Add')} {tt(PM_META[pmAdding].label)}</span>
               {isCard(pmAdding) && (
                 <input value={pmLast4} onChange={e => setPmLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} inputMode="numeric" placeholder={T('آخر 4 أرقام', 'Last 4 digits')} dir="ltr"
                   className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '8px' }} />
@@ -343,7 +346,7 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
       )}
 
       <button onClick={onBack} className="flex items-center gap-1.5 px-5 h-11 rounded-xl cursor-pointer" style={{ alignSelf: 'flex-start', background: 'rgba(163,249,91,0.09)', border: '1px solid rgba(163,249,91,0.18)', color: ACCENT, fontSize: '14px', fontWeight: 600 }}>
-        <ChevronRight size={17} strokeWidth={2} />{lang === 'ar' ? 'العودة' : 'Back'}
+        <ChevronRight size={17} strokeWidth={2} />{T('العودة','Back')}
       </button>
     </div>
   );
@@ -363,6 +366,8 @@ interface ProfileScreenProps {
 export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
 
   const { lang } = useAppConfig();
+  const { t } = useTranslation();
+  const T = (ar, en) => (lang === 'ar' ? ar : en);
   const [activeTab,    setActiveTab]    = useState<ProfileTab>('info');
   const [settingsPage, setSettingsPage] = useState<SettingsPage | null>(null);
 
@@ -432,7 +437,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
     const err = validateAvatar(file);
-    if (err) { setProfileError(err); return; }
+    if (err) { setProfileError(t(err)); return; }
     setProfileError(null); setPendingAvatarFile(file);
     const reader = new FileReader();
     reader.onload = ev => setAvatarPreview(ev.target?.result as string);
@@ -448,13 +453,13 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
         setAvatarUploading(true);
         const { url, error: upErr } = await storageService.uploadAvatar(session.id, pendingAvatarFile);
         setAvatarUploading(false);
-        if (upErr || !url) { setProfileError('فشل رفع الصورة. تحقق من اتصالك وحاول مرة أخرى.'); return; }
+        if (upErr || !url) { setProfileError(T('فشل رفع الصورة. تحقق من اتصالك وحاول مرة أخرى.','Image upload failed. Check your connection and try again.')); return; }
         newAvatarUrl = url;
       }
       const payload: Record<string, string | null> = { full_name: editName.trim() || null, email: editEmail.trim() || null };
       if (newAvatarUrl !== savedAvatarUrl) payload.avatar_url = newAvatarUrl;
       const { error } = await customerService.updateProfile(session.id, payload);
-      if (error) { setProfileError('فشل الحفظ. تحقق من اتصالك وحاول مرة أخرى.'); return; }
+      if (error) { setProfileError(T('فشل الحفظ. تحقق من اتصالك وحاول مرة أخرى.','Save failed. Check your connection and try again.')); return; }
       setSavedName(editName.trim()); setSavedEmail(editEmail.trim());
       if (newAvatarUrl !== savedAvatarUrl) setSavedAvatarUrl(newAvatarUrl);
       setPendingAvatarFile(null); setProfileSuccess(true);
@@ -484,32 +489,32 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
 
   const handleAddrSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formLine.trim()) { setAddrError('يرجى إدخال تفاصيل العنوان'); return; }
-    if (!formZoneId)       { setAddrError('يرجى اختيار الحي أو المنطقة'); return; }
+    if (!formLine.trim()) { setAddrError(T('يرجى إدخال تفاصيل العنوان','Please enter the address details')); return; }
+    if (!formZoneId)       { setAddrError(T('يرجى اختيار الحي أو المنطقة','Please choose a district or area')); return; }
     setAddrSaving(true); setAddrError(null);
     try {
-      const payload = { label: formLabel.trim() || 'عنواني', address_line: formLine.trim(), zone_id: formZoneId };
+      const payload = { label: formLabel.trim() || T('عنواني','My address'), address_line: formLine.trim(), zone_id: formZoneId };
       if (editingAddrId) {
         const { error } = await customerService.updateAddress(editingAddrId, payload);
-        if (error) { setAddrError('فشل تعديل العنوان. حاول مرة أخرى.'); return; }
+        if (error) { setAddrError(T('فشل تعديل العنوان. حاول مرة أخرى.','Failed to edit the address. Please try again.')); return; }
       } else {
         const { error } = await customerService.createAddress(session.id, payload);
-        if (error) { setAddrError('فشل حفظ العنوان. حاول مرة أخرى.'); return; }
+        if (error) { setAddrError(T('فشل حفظ العنوان. حاول مرة أخرى.','Failed to save the address. Please try again.')); return; }
       }
       await loadAddresses(); cancelAddrForm();
     } finally { setAddrSaving(false); }
   };
 
   const handleAddrDelete = async (addrId: string) => {
-    if (!window.confirm('هل أنت متأكد من حذف هذا العنوان؟')) return;
+    if (!window.confirm(T('هل أنت متأكد من حذف هذا العنوان؟','Are you sure you want to delete this address?'))) return;
     const { error } = await customerService.deleteAddress(addrId);
-    if (error) { alert('فشل حذف العنوان.'); return; }
+    if (error) { alert(T('فشل حذف العنوان.','Failed to delete the address.')); return; }
     setAddresses(prev => prev.filter(a => a.id !== addrId));
   };
 
   const handleSetDefault = async (addrId: string) => {
     const { error } = await customerService.setDefaultAddress(session.id, addrId);
-    if (error) { alert('فشل تحديد العنوان الافتراضي.'); return; }
+    if (error) { alert(T('فشل تحديد العنوان الافتراضي.','Failed to set the default address.')); return; }
     setAddresses(prev => prev.map(a => ({ ...a, is_default: a.id === addrId })));
   };
 
@@ -518,12 +523,12 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
   const inSettingsPage   = settingsPage !== null;
 
   const SETTINGS_ITEMS = [
-    { Icon: MapPin,      label: 'عناوين التوصيل', action: () => switchTab('addresses')           },
-    { Icon: Wallet,      label: 'طرق الدفع',       action: () => setSettingsPage('payment')       },
-    { Icon: Bell,        label: 'الإشعارات',        action: () => setSettingsPage('notifications') },
-    { Icon: Globe,       label: 'اللغة والمنطقة',   action: () => setSettingsPage('language')      },
-    { Icon: Shield,      label: 'الخصوصية والأمان', action: () => setSettingsPage('privacy')       },
-    { Icon: Headphones,  label: 'المساعدة والدعم',  action: () => setSettingsPage('support')       },
+    { Icon: MapPin,      label: T('عناوين التوصيل','Addresses'), action: () => switchTab('addresses')           },
+    { Icon: Wallet,      label: T('طرق الدفع','Payment methods'), action: () => setSettingsPage('payment')       },
+    { Icon: Bell,        label: T('الإشعارات','Notifications'), action: () => setSettingsPage('notifications') },
+    { Icon: Globe,       label: T('اللغة والمنطقة','Language & region'), action: () => setSettingsPage('language')      },
+    { Icon: Shield,      label: T('الخصوصية والأمان','Privacy & security'), action: () => setSettingsPage('privacy')       },
+    { Icon: Headphones,  label: T('المساعدة والدعم','Help & support'), action: () => setSettingsPage('support')       },
   ];
 
   return (
@@ -546,7 +551,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
             style={{ background: 'none', border: 'none', color: 'var(--color-primary-fixed)', fontSize: '14px', fontWeight: 500, padding: '8px 0' }}
           >
             <ChevronRight size={18} strokeWidth={2} />
-            رجوع
+            {T('رجوع','Back')}
           </button>
         ) : (
           <button
@@ -555,12 +560,12 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
             style={{ background: 'none', border: 'none', color: 'var(--color-error)', fontSize: '13px', padding: '8px 0' }}
           >
             <LogOut size={17} strokeWidth={2} />
-            خروج
+            {T('خروج','Sign out')}
           </button>
         )}
 
         <h1 className="gradient-text font-bold" style={{ fontSize: '16px', letterSpacing: '-0.01em', textShadow: '0 0 20px rgba(163,249,91,0.25)' }}>
-          {inSettingsPage && settingsPage ? SETTINGS_INFO[settingsPage].title : 'حسابي'}
+          {inSettingsPage && settingsPage ? t(SETTINGS_INFO[settingsPage].title) : t('profile.title')}
         </h1>
 
         <Bell size={22} color="var(--color-on-surface-variant)" strokeWidth={1.5} style={{ opacity: 0.6 }} />
@@ -574,7 +579,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
         >
           {(['info', 'addresses'] as const).map(tab => {
             const isActive = activeTab === tab;
-            const label    = tab === 'info' ? 'الملف الشخصي' : 'عناوين التوصيل';
+            const label    = tab === 'info' ? T('الملف الشخصي','Profile') : T('عناوين التوصيل','Addresses');
             const TabIcon  = tab === 'info' ? User : MapPin;
             return (
               <button
@@ -670,7 +675,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                     {/* Identity */}
                     <div className="flex-1 text-right">
                       <h2 style={{ color: 'white', fontSize: '17px', fontWeight: 700, letterSpacing: '-0.015em', marginBottom: '2px' }}>
-                        {savedName || 'بدون اسم'}
+                        {savedName || T('بدون اسم','No name')}
                       </h2>
                       <p dir="ltr" style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', marginBottom: '8px', letterSpacing: '0.01em' }}>
                         {session.phone_number}
@@ -697,9 +702,9 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                 >
                   <div className="grid grid-cols-3">
                     {[
-                      { label: 'الطلبات', value: '0' },
-                      { label: 'المفضلة', value: '0' },
-                      { label: 'النقاط',  value: '٢٬٤٥٠' },
+                      { label: T('الطلبات','Orders'), value: '0' },
+                      { label: T('المفضلة','Favorites'), value: '0' },
+                      { label: T('النقاط','Points'),  value: '٢٬٤٥٠' },
                     ].map(({ label, value }, idx) => (
                       <div
                         key={label}
@@ -758,20 +763,20 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                 >
                   <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                     <PenLine size={15} color="var(--color-primary-fixed)" strokeWidth={2} />
-                    <span style={{ color: 'white', fontSize: '13px', fontWeight: 600 }}>البيانات الشخصية</span>
+                    <span style={{ color: 'white', fontSize: '13px', fontWeight: 600 }}>{T('البيانات الشخصية','Personal information')}</span>
                   </div>
 
                   <div className="px-4 py-4 space-y-3.5">
                     <div className="field-group">
-                      <label style={LBL}>الاسم الكامل</label>
-                      <input type="text" value={editName} onChange={e => setEditName(e.target.value)} placeholder="أدخل اسمك الكامل" className="profile-input" />
+                      <label style={LBL}>{T('الاسم الكامل','Full name')}</label>
+                      <input type="text" value={editName} onChange={e => setEditName(e.target.value)} placeholder={T('أدخل اسمك الكامل','Enter your full name')} className="profile-input" />
                     </div>
                     <div className="field-group">
-                      <label style={LBL}>البريد الإلكتروني</label>
+                      <label style={LBL}>{T('البريد الإلكتروني','Email')}</label>
                       <input type="email" value={editEmail} onChange={e => setEditEmail(e.target.value)} placeholder="your@email.com" dir="ltr" className="profile-input" />
                     </div>
                     <div className="field-group">
-                      <label style={LBL}>رقم الجوال</label>
+                      <label style={LBL}>{T('رقم الجوال','Phone number')}</label>
                       <div style={READ_ROW}>
                         <span style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--color-on-surface-variant)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.06em' }}>READ ONLY</span>
                         <p dir="ltr" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>{session.phone_number}</p>
@@ -779,7 +784,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                     </div>
                     {savedCreatedAt && (
                       <div className="field-group">
-                        <label style={LBL}>عضو منذ</label>
+                        <label style={LBL}>{T('عضو منذ','Member since')}</label>
                         <div style={{ ...READ_ROW, justifyContent: 'flex-end' }}>
                           <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px' }}>{formatJoinDate(savedCreatedAt)}</span>
                         </div>
@@ -798,7 +803,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                 {profileSuccess && (
                   <div className="status-banner status-banner--success">
                     <CheckCircle2 size={16} strokeWidth={2} style={{ flexShrink: 0 }} />
-                    <span>تم حفظ البيانات بنجاح</span>
+                    <span>{T('تم حفظ البيانات بنجاح','Your details were saved')}</span>
                   </div>
                 )}
 
@@ -814,7 +819,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                       ? <Loader2 size={18} strokeWidth={2.5} className="animate-spin" />
                       : <Save size={18} strokeWidth={2} />
                     }
-                    {profileSaving ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                    {profileSaving ? T('جاري الحفظ...','Saving…') : T('حفظ التغييرات','Save changes')}
                   </button>
                 )}
 
@@ -831,7 +836,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                   }}
                 >
                   <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                    <span className="gradient-text font-bold" style={{ fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>الإعدادات</span>
+                    <span className="gradient-text font-bold" style={{ fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{T('الإعدادات','Settings')}</span>
                     <Settings size={16} color="var(--color-on-surface-variant)" strokeWidth={1.5} style={{ opacity: 0.4 }} />
                   </div>
 
@@ -864,7 +869,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                     style={{ background: 'rgba(186,26,26,0.07)', border: '1px solid rgba(186,26,26,0.18)', color: 'var(--color-error)', fontSize: '14px', fontWeight: 600 }}
                   >
                     <LogOut size={18} strokeWidth={2} />
-                    تسجيل الخروج
+                    {T('تسجيل الخروج','Sign out')}
                   </button>
                   <p className="text-center mt-3" style={{ color: 'rgba(255,255,255,0.14)', fontSize: '10px', letterSpacing: '0.05em' }}>
                     HAAT NOW v2.0 &middot; Luminous Precision
@@ -894,7 +899,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                     style={{ background: 'rgba(163,249,91,0.06)', border: '1.5px dashed rgba(163,249,91,0.25)', color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600 }}
                   >
                     <MapPin size={17} strokeWidth={2} />
-                    إضافة عنوان جديد
+                    {T('إضافة عنوان جديد','Add a new address')}
                   </button>
                 )}
 
@@ -907,27 +912,27 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                         : <MapPin    size={16} color="var(--color-primary-fixed)" strokeWidth={2} />
                       }
                       <h4 style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>
-                        {editingAddrId ? 'تعديل العنوان' : 'عنوان جديد'}
+                        {editingAddrId ? T('تعديل العنوان','Edit address') : T('عنوان جديد','New address')}
                       </h4>
                     </div>
 
                     {hasHierarchy ? (
                       <>
                         <div className="field-group">
-                          <label style={LBL}>الدولة</label>
+                          <label style={LBL}>{T('الدولة','Country')}</label>
                           <div className="select-wrapper">
                             <select value={formCountryId} onChange={e => { setFormCountryId(e.target.value); setFormCityId(''); setFormZoneId(''); }} className="profile-select" required>
-                              <option value="">اختر الدولة</option>
+                              <option value="">{T("اختر الدولة","Select country")}</option>
                               {allCountries.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                             </select>
                           </div>
                         </div>
                         {formCountryId && (
                           <div className="field-group">
-                            <label style={LBL}>المدينة</label>
+                            <label style={LBL}>{T('المدينة','City')}</label>
                             <div className="select-wrapper">
                               <select value={formCityId} onChange={e => { setFormCityId(e.target.value); setFormZoneId(''); }} className="profile-select" required>
-                                <option value="">اختر المدينة</option>
+                                <option value="">{T("اختر المدينة","Select city")}</option>
                                 {citiesForCountry(formCountryId).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                               </select>
                             </div>
@@ -935,10 +940,10 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                         )}
                         {formCityId && (
                           <div className="field-group">
-                            <label style={LBL}>الحي / المنطقة</label>
+                            <label style={LBL}>{T('الحي / المنطقة','District / area')}</label>
                             <div className="select-wrapper">
                               <select value={formZoneId} onChange={e => setFormZoneId(e.target.value)} className="profile-select" required>
-                                <option value="">اختر الحي</option>
+                                <option value="">{T("اختر الحي","Select district")}</option>
                                 {availableZones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
                               </select>
                             </div>
@@ -947,10 +952,10 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                       </>
                     ) : (
                       <div className="field-group">
-                        <label style={LBL}>الحي / المنطقة</label>
+                        <label style={LBL}>{T('الحي / المنطقة','District / area')}</label>
                         <div className="select-wrapper">
                           <select value={formZoneId} onChange={e => setFormZoneId(e.target.value)} className="profile-select" required>
-                            <option value="">اختر الحي</option>
+                            <option value="">{T("اختر الحي","Select district")}</option>
                             {zonesData.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
                           </select>
                         </div>
@@ -958,8 +963,8 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                     )}
 
                     <div className="field-group">
-                      <label style={LBL}>العنوان التفصيلي</label>
-                      <input type="text" placeholder="مثال: شارع الأمير محمد، بناية 12" value={formLine} onChange={e => setFormLine(e.target.value)} className="profile-input" required />
+                      <label style={LBL}>{T('العنوان التفصيلي','Address details')}</label>
+                      <input type="text" placeholder={T('مثال: شارع الأمير محمد، بناية 12','e.g. Prince Mohammed St, Building 12')} value={formLine} onChange={e => setFormLine(e.target.value)} className="profile-input" required />
                     </div>
 
                     <div className="flex gap-2 flex-wrap">
@@ -973,7 +978,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                             color: formLabel === l ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)',
                             fontSize: '12px', fontWeight: formLabel === l ? 600 : 400,
                           }}
-                        >{l}</button>
+                        >{l === 'المنزل' ? T('المنزل','Home') : l === 'العمل' ? T('العمل','Work') : T('موقع آخر','Other location')}</button>
                       ))}
                     </div>
 
@@ -985,11 +990,11 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                     )}
 
                     <div className="flex gap-2.5">
-                      <button type="button" onClick={cancelAddrForm} className="flex-1 h-11 rounded-xl cursor-pointer font-medium" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'var(--color-on-surface-variant)', fontSize: '13px' }}>إلغاء</button>
+                      <button type="button" onClick={cancelAddrForm} className="flex-1 h-11 rounded-xl cursor-pointer font-medium" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'var(--color-on-surface-variant)', fontSize: '13px' }}>{T('إلغاء','Cancel')}</button>
                       <button type="submit" disabled={addrSaving} className="flex-1 h-11 rounded-xl font-bold cursor-pointer flex items-center justify-center gap-1.5" style={{ background: addrSaving ? 'rgba(163,249,91,0.5)' : 'var(--color-primary-fixed)', color: '#0c2000', fontSize: '13px', fontWeight: 700, border: 'none' }}>
                         {addrSaving
-                          ? <><Loader2 size={15} strokeWidth={2.5} className="animate-spin" />حفظ</>
-                          : (editingAddrId ? 'حفظ التعديل' : 'إضافة العنوان')
+                          ? <><Loader2 size={15} strokeWidth={2.5} className="animate-spin" />{T('حفظ','Save')}</>
+                          : (editingAddrId ? T('حفظ التعديل','Save changes') : T('إضافة العنوان','Add address'))
                         }
                       </button>
                     </div>
@@ -1003,8 +1008,8 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                       <MapPinOff size={26} color="var(--color-on-surface-variant)" strokeWidth={1.5} style={{ opacity: 0.25 }} />
                     </div>
                     <div>
-                      <p style={{ color: 'white', fontSize: '15px', fontWeight: 600, marginBottom: '4px', letterSpacing: '-0.01em' }}>لم تُضف أي عناوين بعد</p>
-                      <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', lineHeight: 1.6 }}>أضف عنوانك الأول لتسريع عملية الطلب والتوصيل</p>
+                      <p style={{ color: 'white', fontSize: '15px', fontWeight: 600, marginBottom: '4px', letterSpacing: '-0.01em' }}>{T('لم تُضف أي عناوين بعد','No addresses added yet')}</p>
+                      <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', lineHeight: 1.6 }}>{T('أضف عنوانك الأول لتسريع عملية الطلب والتوصيل','Add your first address to speed up ordering and delivery')}</p>
                     </div>
                   </div>
                 )}
@@ -1033,14 +1038,14 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
 
                             <div className="flex items-center gap-2">
                               {addr.is_default ? (
-                                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(163,249,91,0.1)', color: 'var(--color-primary-fixed)', border: '1px solid rgba(163,249,91,0.2)', fontSize: '11px' }}>افتراضي</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ background: 'rgba(163,249,91,0.1)', color: 'var(--color-primary-fixed)', border: '1px solid rgba(163,249,91,0.2)', fontSize: '11px' }}>{T('افتراضي','Default')}</span>
                               ) : (
-                                <button onClick={() => handleSetDefault(addr.id)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '9999px', color: 'var(--color-on-surface-variant)', fontSize: '10px', padding: '2px 8px', cursor: 'pointer' }}>تعيين افتراضي</button>
+                                <button onClick={() => handleSetDefault(addr.id)} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '9999px', color: 'var(--color-on-surface-variant)', fontSize: '10px', padding: '2px 8px', cursor: 'pointer' }}>{T('تعيين افتراضي','Set default')}</button>
                               )}
                               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: addr.is_default ? 'rgba(163,249,91,0.1)' : 'rgba(255,255,255,0.04)' }}>
                                 <MapPin size={14} color={addr.is_default ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)'} strokeWidth={2} />
                               </div>
-                              <p style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>{addr.label || 'عنوان'}</p>
+                              <p style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>{addr.label || T('عنوان','Address')}</p>
                             </div>
                           </div>
 

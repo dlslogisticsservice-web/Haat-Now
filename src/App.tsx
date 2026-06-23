@@ -310,7 +310,7 @@ export default function App() {
                 onClick={() => setCurrentScreen('profile')}
                 className="flex items-center justify-center cursor-pointer active:scale-95 transition-transform"
                 style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', flexShrink: 0 }}
-                aria-label="الملف الشخصي"
+                aria-label={t('profile.tabInfo')}
               >
                 <User size={18} color="rgba(255,255,255,0.55)" strokeWidth={1.75} />
               </button>
@@ -530,10 +530,10 @@ export default function App() {
                 {/* Navigation items */}
                 <div className="flex-1 overflow-y-auto py-3">
                   {[
-                    { NavIcon: Home,       label: 'الرئيسية', screen: 'home'    as const },
-                    { NavIcon: ScrollText, label: 'طلباتي',   screen: 'orders'  as const },
-                    { NavIcon: Wallet,     label: 'المحفظة',  screen: 'wallet'  as const },
-                    { NavIcon: User,       label: 'حسابي',    screen: 'profile' as const },
+                    { NavIcon: Home,       label: t('nav.home'), screen: 'home'    as const },
+                    { NavIcon: ScrollText, label: t('nav.orders'), screen: 'orders'  as const },
+                    { NavIcon: Wallet,     label: t('nav.wallet'), screen: 'wallet'  as const },
+                    { NavIcon: User,       label: t('nav.profile'), screen: 'profile' as const },
                   ].map(item => {
                     const isActive = currentScreen === item.screen || (item.screen === 'home' && currentScreen === 'restaurant');
                     return (
@@ -566,7 +566,7 @@ export default function App() {
                     style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.65)' }}
                   >
                     <Bell size={20} color="rgba(255,255,255,0.4)" strokeWidth={1.75} />
-                    <span style={{ fontSize: '15px' }}>الإشعارات</span>
+                    <span style={{ fontSize: '15px' }}>{t('notifications.title')}</span>
                     {unreadCount > 0 && (
                       <span className="ms-auto px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: 'var(--color-error)', color: '#fff' }}>
                         {unreadCount}
@@ -774,7 +774,7 @@ export default function App() {
             <div className="flex justify-between items-center mb-6" id="notif_header" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
               <h3 className="text-headline-sm flex items-center gap-2" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>
                 <Bell size={22} className="text-[var(--color-primary-fixed)]" strokeWidth={2} />
-                الإشعارات
+                {t('notifications.title')}
               </h3>
               <button
                 onClick={() => setIsNotifOpen(false)}
@@ -796,8 +796,8 @@ export default function App() {
                     <BellOff size={40} strokeWidth={1.25} style={{ color: 'rgba(255,255,255,0.2)' }} />
                   </div>
                   <div>
-                    <p style={{ color: 'white', fontSize: '18px', fontWeight: 700, marginBottom: '8px', letterSpacing: '-0.01em' }}>لا توجد إشعارات</p>
-                    <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', lineHeight: 1.55 }}>ستظهر هنا تحديثات طلباتك وعروضك الحصرية</p>
+                    <p style={{ color: 'white', fontSize: '18px', fontWeight: 700, marginBottom: '8px', letterSpacing: '-0.01em' }}>{t('notifications.empty')}</p>
+                    <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', lineHeight: 1.55 }}>{t('notifications.emptySub')}</p>
                   </div>
                 </div>
               ) : (
