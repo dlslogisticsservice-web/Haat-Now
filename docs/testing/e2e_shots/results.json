@@ -1,0 +1,146 @@
+[
+  {
+    "id": "C1",
+    "name": "Login",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C2",
+    "name": "Browse stores",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C3",
+    "name": "Search (no-results state)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C4",
+    "name": "Product details",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C5",
+    "name": "Add to cart",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C6",
+    "name": "Cart drawer (auto-opens with checkout button)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C7",
+    "name": "Checkout page",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C8",
+    "name": "Payment / place order (swipe)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C9",
+    "name": "Order tracking screen",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C10",
+    "name": "Wallet",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C11",
+    "name": "Profile",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C12",
+    "name": "Addresses tab",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "C13",
+    "name": "Notifications drawer reachable",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "CX",
+    "name": "Customer no console/React errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "M1",
+    "name": "Merchant login → portal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "M2",
+    "name": "Merchant portal renders",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "MX",
+    "name": "Merchant no console/React errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "D1",
+    "name": "Driver login → portal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "D2",
+    "name": "Driver portal renders",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "DX",
+    "name": "Driver no console/React errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "A1",
+    "name": "Super admin login → dashboard",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "A2",
+    "name": "Super tabs (Design + Campaign)",
+    "pass": true,
+    "detail": "{\"design\":true,\"campaign\":true}"
+  },
+  {
+    "id": "A3",
+    "name": "Admin tabs render",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "AX",
+    "name": "Admin no console/React errors",
+    "pass": true,
+    "detail": ""
+  }
+]

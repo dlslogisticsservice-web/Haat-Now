@@ -1,6 +1,10 @@
 import { supabase } from '../lib/supabase';
 import { Product, ProductVariant } from './types';
 
+// Sandbox has no real Supabase cart backend; remote sync is a no-op (local cart
+// is the source of truth). Prevents console-error spam on every session.
+const CART_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+
 export interface CartItem {
   id: string; // Composite unique key e.g. `${productId}_${variantId || 'none'}`
   product: Product;
@@ -126,6 +130,7 @@ export const cartService = {
 
   // Remote persistent operations for synchronization (Priority 1)
   async fetchRemoteCart(customerId: string): Promise<CartState> {
+    if (CART_SANDBOX) return this.getCart();
     try {
       const { data: cartData, error: cartError } = await supabase
         .from('customer_carts')
@@ -183,6 +188,7 @@ export const cartService = {
     branchId: string | null,
     appliedCoupon: { code: string; discountPercent: number } | null
   ): Promise<void> {
+    if (CART_SANDBOX) return;
     try {
       if (!customerId) return;
 

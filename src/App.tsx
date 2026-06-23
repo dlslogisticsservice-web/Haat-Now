@@ -96,7 +96,8 @@ export default function App() {
 
   // ── Cart remote sync ────────────────────────────────────────────
   useEffect(() => {
-    if (session?.id) {
+    // Cart sync only applies to the customer role (merchant/driver/admin have no cart).
+    if (session?.id && session.role === 'customer') {
       cartService.fetchRemoteCart(session.id)
         .then((remoteCart) => {
           if (remoteCart && remoteCart.items.length > 0) {
@@ -107,14 +108,14 @@ export default function App() {
           }
         })
         .catch(err => console.error('Failed to sync remote cart:', err));
-    } else {
+    } else if (!session?.id) {
       const local = cartService.getCart();
       setCart(local && local.items.length > 0 ? (local.items as CartItem[]) : []);
     }
-  }, [session?.id]);
+  }, [session?.id, session?.role]);
 
   useEffect(() => {
-    if (session?.id) {
+    if (session?.id && session.role === 'customer') {
       cartService.syncLocalCartToRemote(
         session.id,
         cart as Parameters<typeof cartService.syncLocalCartToRemote>[1],
@@ -122,7 +123,7 @@ export default function App() {
         null,
       ).catch(err => console.error('Failed to write cart to remote:', err));
     }
-  }, [cart, session?.id]);
+  }, [cart, session?.id, session?.role]);
 
   // ── Customer notifications ──────────────────────────────────────
   useEffect(() => {
