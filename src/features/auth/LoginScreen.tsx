@@ -4,6 +4,7 @@ import {
   RefreshCw, ChevronLeft, CheckCircle2, AlertCircle,
   ChevronDown, Smartphone,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const GOOGLE_LOGO = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBDbupKZkEB-5NrKOCMTxGgYZHrReUAdgg-BvQGyYALDpBHdLIlTIw_BDQl0pm1tgugDEDWPmLCr6oLrK2gFJj3gLCtWwTXehYGzwV6__C73Bc24EKFFUhUPpLkOu8TVwLu7rRwflBQ1gh6LbqkeZAM-m_eIiY2AqxwG1GRuZAkpOHYYgC7JprOYcLsKIahr54pbgN8shms5WwaJ7YPVH3LeYys8MggBrciMyeWdSnZI9ThpbkYRboqcCdfoS21q96ynnYlxxmRiHhs';
 
@@ -12,6 +13,7 @@ interface LoginScreenProps {
 }
 
 export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
+  const { t } = useTranslation();
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpDigits,   setOtpDigits]   = useState(['', '', '', '', '', '']);
   const [step,        setStep]        = useState<'phone' | 'otp'>('phone');
@@ -32,9 +34,9 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
     const { error } = await authService.sendOtp(phoneNumber);
     setLoading(false);
     if (error) {
-      setMessage({ text: `خطأ في إرسال الرمز: ${error.message || 'يرجى التحقق من رقم الهاتف'}`, type: 'error' });
+      setMessage({ text: t('auth.sendError'), type: 'error' });
     } else {
-      setMessage({ text: 'تم إرسال رمز التحقق لجوالك بنجاح.', type: 'success' });
+      setMessage({ text: t('auth.otpSent'), type: 'success' });
       setStep('otp');
     }
   };
@@ -47,7 +49,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
     const { data, error } = await authService.verifyOtp(phoneNumber, otpToken);
     setLoading(false);
     if (error) {
-      setMessage({ text: `الرمز المدخل غير صحيح: ${error.message}`, type: 'error' });
+      setMessage({ text: t('auth.invalidCode'), type: 'error' });
     } else if (data.user) {
       onLoginSuccess({
         id: data.user.id,
@@ -146,7 +148,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
             className="mt-3"
             style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px', letterSpacing: '0.14em', opacity: 0.75 }}
           >
-            فاخر · سريع · حصري
+            {t('auth.tagline')}
           </p>
         </div>
 
@@ -176,15 +178,15 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                 textShadow: '0 0 24px rgba(163,249,91,0.35)',
               }}
             >
-              {step === 'phone' ? 'تسجيل الدخول' : 'تأكيد الرمز'}
+              {step === 'phone' ? t('auth.signIn') : t('auth.confirmCode')}
             </h2>
             <p
               className="mt-2"
               style={{ fontSize: '13px', color: 'var(--color-on-surface-variant)', lineHeight: 1.55 }}
             >
               {step === 'phone'
-                ? 'أدخل رقم هاتفك للمتابعة'
-                : `أُرسل رمز التحقق إلى ${phoneNumber}`}
+                ? t('auth.enterPhone')
+                : `${t('auth.codeSentTo')} ${phoneNumber}`}
             </p>
           </div>
 
@@ -221,7 +223,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                     paddingRight: '4px',
                   }}
                 >
-                  رقم الهاتف
+                  {t('auth.phoneLabel')}
                 </label>
                 <div style={{ display: 'flex', gap: '8px' }}>
 
@@ -275,7 +277,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                   ? <RefreshCw size={20} className="animate-spin" strokeWidth={2} />
                   : (
                     <>
-                      <span>إرسال رمز التحقق</span>
+                      <span>{t('auth.sendCode')}</span>
                       <ChevronLeft size={20} strokeWidth={2.5} />
                     </>
                   )
@@ -326,7 +328,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                     color: 'var(--color-on-surface-variant)', paddingRight: '4px',
                   }}
                 >
-                  رمز التحقق
+                  {t('auth.otpTitle')}
                 </label>
                 <div className="flex gap-2.5 justify-center" dir="ltr" id="otp_boxes">
                   {otpDigits.map((digit, idx) => (
@@ -379,7 +381,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                   style={{ color: 'var(--color-secondary)', background: 'none', border: 'none', padding: 0 }}
                   id="back_to_phone"
                 >
-                  تغيير رقم الهاتف
+                  {t('auth.changeNumber')}
                 </button>
                 <span style={{ color: 'var(--color-on-surface-variant)' }}>
                   لم يصلك الرمز؟
@@ -403,7 +405,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                   ? <RefreshCw size={20} className="animate-spin" strokeWidth={2} />
                   : (
                     <>
-                      <span>تأكيد تسجيل الدخول</span>
+                      <span>{t('auth.verify')}</span>
                       <ChevronLeft size={20} strokeWidth={2.5} />
                     </>
                   )

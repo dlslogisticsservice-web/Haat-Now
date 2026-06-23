@@ -203,7 +203,7 @@ export default function App() {
 
   const handleAddToCart = (product: CartItem['product'], variant: CartItem['variant']) => {
     if (cart.length > 0 && cart[0].product.branch_id !== product.branch_id) {
-      const confirmWipe = window.confirm('لديك أصناف مضافة من متجر آخر بالسلة. هل ترغب في إفراغ السلة وبدء سلة جديدة؟');
+      const confirmWipe = window.confirm(t('cart.switchStore'));
       if (!confirmWipe) return;
       setCart([{ product, variant, quantity: 1 }]);
       setIsCartOpen(true);
@@ -493,7 +493,7 @@ export default function App() {
               className="fixed end-4 w-12 h-12 rounded-full z-40 cursor-pointer transition-all hover:scale-110 active:scale-95 flex items-center justify-center animate-pulse-glow"
               style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))', background: 'var(--color-primary-fixed)', boxShadow: '0 4px 20px rgba(163,249,91,0.50)' }}
               id="fab_chat"
-              aria-label="الإشعارات والدعم"
+              aria-label={t("common.notifications")}
             >
               <MessageCircle size={20} color="#0c2000" strokeWidth={2.5} />
             </button>
@@ -619,7 +619,7 @@ export default function App() {
             <div className="flex justify-between items-center mb-6" id="cart_header" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
               <h3 className="text-headline-sm flex items-center gap-2" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>
                 <ShoppingBag size={22} className="text-[var(--color-primary-fixed)]" strokeWidth={2} />
-                سلة وجباتي
+                {t('cart.title')}
               </h3>
               <button
                 onClick={() => setIsCartOpen(false)}
@@ -711,7 +711,7 @@ export default function App() {
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="كود الخصم"
+                    placeholder={t('cart.couponPlaceholder')}
                     dir={lang === 'ar' ? 'rtl' : 'ltr'}
                     className="flex-1 h-11 px-3 rounded-xl"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'white', fontSize: '13px', outline: 'none', caretColor: 'var(--color-primary-fixed)' }}
@@ -728,11 +728,11 @@ export default function App() {
                 <div className="glass rounded-xl p-4 space-y-2.5">
                   <div className="flex justify-between items-center">
                     <span style={{ color: 'var(--color-primary-fixed)', fontWeight: 600, fontSize: '14px' }}>{money(getCartSubtotal())}</span>
-                    <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px' }}>المجموع الفرعي</span>
+                    <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px' }}>{t('cart.subtotal')}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '13px' }}>مجاني</span>
-                    <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px' }}>رسوم التوصيل</span>
+                    <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px' }}>{t('cart.deliveryFee')}</span>
                   </div>
                   <div className="flex justify-between items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '10px', marginTop: '4px' }}>
                     <span style={{ color: 'var(--color-primary-fixed)', fontWeight: 800, fontSize: '20px', letterSpacing: '-0.02em', textShadow: '0 0 16px rgba(163,249,91,0.3)' }}>{money(getCartSubtotal())}</span>
@@ -748,7 +748,7 @@ export default function App() {
                   id="checkout_btn"
                 >
                   <ChevronRight size={20} strokeWidth={2.5} />
-                  المتابعة وإتمام الدفع
+                  {t('cart.checkout')}
                 </button>
               </div>
             )}

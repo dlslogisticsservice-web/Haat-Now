@@ -6,6 +6,7 @@ import { loyaltyService } from '../../services/loyalty.service';
 
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import { useAppConfig } from '../../contexts/AppConfigContext';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw, MoreVertical, AlertCircle, Loader2, Plus,
   TrendingUp, ArrowUpRight, ArrowDownLeft, RotateCcw, Banknote,
@@ -50,6 +51,7 @@ function txTypeLabel(type: string): string {
 }
 
 export const WalletScreen = ({ customerId }: WalletScreenProps) => {
+  const { t } = useTranslation();
   const { country, lang } = useAppConfig();
   const cur = country.currency.symbolAr;
   const [wallet,         setWallet]         = useState<Wallet | null>(null);
@@ -75,16 +77,16 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
   const handleRedeem = async () => {
     if (SANDBOX) {
       const res = sandboxStore.redeemPoints(customerId, REDEEM_COST, 'استبدال نقاط برصيد محفظة');
-      if (!res.ok) { setRedeemMsg(res.reason || 'تعذّر الاستبدال'); return; }
+      if (!res.ok) { setRedeemMsg(res.reason || t('wallet.redeemFail')); return; }
       const bal = sandboxStore.creditWallet('customer', customerId, 25);
       setWallet(w => (w ? { ...w, balance: bal } as any : w));
     } else {
       const res = await loyaltyService.redeemPoints(customerId, REDEEM_COST, 'استبدال نقاط برصيد محفظة');
-      if (!res.ok) { setRedeemMsg('نقاط غير كافية'); return; }
+      if (!res.ok) { setRedeemMsg(t('wallet.insufficientPoints')); return; }
       // Wallet credit on redemption is applied server-side; reload the balance.
       loadWalletData();
     }
-    setRedeemMsg('تم استبدال 500 نقطة بـ 25 رصيد محفظة 🎉');
+    setRedeemMsg(t('wallet.redeemSuccess'));
     refreshLoyalty();
   };
 
@@ -131,7 +133,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
       }
       const { data: w, error: wErr } = await walletService.getWallet('customer', customerId);
       if (wErr) {
-        setWalletError('تعذّر تحميل بيانات المحفظة');
+        setWalletError(t('wallet.loadFail'));
         return;
       }
       setWallet(w);
@@ -142,7 +144,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
         setTransactions([]);
       }
     } catch {
-      setWalletError('حدث خطأ غير متوقع. تحقق من اتصالك وأعد المحاولة.');
+      setWalletError(t('wallet.unexpected'));
     } finally {
       setWalletLoading(false);
     }
@@ -163,7 +165,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
           onClick={loadWalletData}
           className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors"
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}
-          aria-label="تحديث المحفظة"
+          aria-label={t('wallet.refreshWallet')}
         >
           <RefreshCw
             size={18}
@@ -176,12 +178,12 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
           className="font-bold gradient-text"
           style={{ fontSize: '18px', letterSpacing: '-0.01em', textShadow: '0 0 20px rgba(163,249,91,0.3)' }}
         >
-          المحفظة
+          {t('wallet.title')}
         </h1>
         <button
           className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors"
           style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.07)' }}
-          aria-label="المزيد"
+          aria-label={t('common.more')}
         >
           <MoreVertical size={18} color="var(--color-on-surface-variant)" strokeWidth={2} />
         </button>
@@ -285,7 +287,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
           }}
         >
           <Plus size={20} strokeWidth={2.5} />
-          شحن الرصيد
+          {t('wallet.topUp')}
         </button>
 
         {/* ── Transaction history ────────────────────────────────────── */}
@@ -296,7 +298,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
             </span>
             <h2 className="font-bold gradient-text"
                 style={{ fontSize: '16px', letterSpacing: '-0.01em' }}>
-              العمليات الأخيرة
+              {t('wallet.transactions')}
             </h2>
           </div>
 
@@ -356,7 +358,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
                 className="w-full cursor-pointer transition-all hover:bg-white/5 active:scale-[0.98]"
                 style={{ height: '44px', borderRadius: '22px', background: 'transparent', border: '1px solid rgba(255,255,255,0.10)', color: 'var(--color-on-surface-variant)', fontSize: '14px', fontWeight: 600, marginTop: '4px' }}
               >
-                عرض كل المعاملات
+                {t('wallet.viewAllTx')}
               </button>
             </div>
           )}
