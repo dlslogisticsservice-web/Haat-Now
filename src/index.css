@@ -1540,3 +1540,27 @@ input, select, button, textarea {
 }
 .safe-bottom-action { padding-bottom: var(--safe-bottom-action-space) !important; }
 .safe-sheet-action  { padding-bottom: var(--safe-sheet-space) !important; }
+
+/* ── GLOBAL SAFE-AREA LAYOUT TOKENS (AppPageLayout) ──────────────────────────
+   Single source of truth for top/bottom reservation. Sub-tokens are overridable
+   per layout (e.g. a screen with a tab bar sets --app-tabs-height; a screen with a
+   fixed action bar sets --app-action-bar-height) so content NEVER hides behind a
+   header, tab bar, bottom navigation, action bar, or device safe-area inset. */
+:root {
+  --app-header-height:      64px;   /* sticky top header */
+  --app-tabs-height:        0px;    /* optional sticky tab strip under the header */
+  --app-bottom-nav-height:  88px;   /* floating bottom navigation (customer) */
+  --app-action-bar-height:  0px;    /* optional fixed bottom action/CTA bar */
+
+  /* Reserve top = notch/status-bar inset + header + tabs. */
+  --top-safe-space:    calc(env(safe-area-inset-top, 0px) + var(--app-header-height) + var(--app-tabs-height));
+  /* Reserve bottom = home-indicator inset + bottom nav + action bar + breathing. */
+  --bottom-safe-space: calc(env(safe-area-inset-bottom, 0px) + var(--app-bottom-nav-height) + var(--app-action-bar-height) + 24px);
+}
+/* Sticky headers/tabs add the TOP inset so the notch/status bar never overlaps them. */
+.app-header-safe { padding-top: env(safe-area-inset-top, 0px); }
+/* Scroll containers reserve top (when the header is NOT sticky) / bottom space. */
+.app-page-top    { padding-top: var(--top-safe-space); }
+.app-page-bottom { padding-bottom: var(--bottom-safe-space); }
+/* Portals (sidebar layouts, no bottom nav) only need the device insets. */
+.app-page-bottom-flat { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px); }

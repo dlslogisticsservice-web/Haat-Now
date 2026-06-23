@@ -526,7 +526,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
   ];
 
   return (
-    <div className="min-h-screen" style={{ paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }} dir="rtl">
+    <div className="min-h-screen" style={{ paddingBottom: 'var(--bottom-safe-space)' }} dir="rtl">
 
       <input ref={avatarInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="sr-only" onChange={handleAvatarFileChange} />
 
@@ -535,7 +535,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
 
       {/* ── Header ──────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-40 glass-strong flex items-center justify-between px-4"
+        className="app-header-safe sticky top-0 z-40 glass-strong flex items-center justify-between px-4"
         style={{ height: '56px' }}
       >
         {inSettingsPage ? (

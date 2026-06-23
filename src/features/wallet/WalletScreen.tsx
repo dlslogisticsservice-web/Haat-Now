@@ -149,7 +149,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
   };
 
   return (
-    <div className="min-h-screen metallic-bg" style={{ paddingBottom: 'calc(128px + env(safe-area-inset-bottom, 0px))' }} dir="rtl">
+    <div className="min-h-screen metallic-bg" style={{ paddingBottom: 'var(--bottom-safe-space)' }} dir="rtl">
 
       {/* Atmospheric orbs */}
       <div className="fixed top-20 right-10 w-64 h-64 rounded-full animate-neon-pulse pointer-events-none"
@@ -158,7 +158,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
            style={{ background: 'white', filter: 'blur(60px)', opacity: 0.08, animationDelay: '2s', zIndex: 0 }} />
 
       {/* Sticky header */}
-      <header className="sticky top-0 z-40 glass-strong flex items-center justify-between px-4 h-16">
+      <header className="app-header-safe sticky top-0 z-40 glass-strong flex items-center justify-between px-4 h-16">
         <button
           onClick={loadWalletData}
           className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer hover:bg-white/10 transition-colors"

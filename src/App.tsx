@@ -301,7 +301,7 @@ export default function App() {
           {/* ── Top Header ──────────────────────────────────────── */}
           {currentScreen !== 'wallet' && currentScreen !== 'profile' && (
             <header
-              className="sticky top-0 z-50 glass-strong flex items-center justify-between px-4"
+              className="app-header-safe sticky top-0 z-50 glass-strong flex items-center justify-between px-4"
               id="stitch_header"
               style={{ height: '56px' }}
             >
@@ -350,7 +350,7 @@ export default function App() {
           {/* ── Main scrollable content ──────────────────────────── */}
           <React.Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center"><Loader2 size={32} className="text-[var(--color-primary-fixed)] animate-spin" /></div>}>
           {currentScreen !== 'wallet' && currentScreen !== 'profile' && (
-            <main className="max-w-7xl mx-auto px-4 pt-2" id="customer_main" style={{ paddingBottom: 'calc(104px + env(safe-area-inset-bottom, 0px))' }}>
+            <main className="max-w-7xl mx-auto px-4 pt-2" id="customer_main" style={{ paddingBottom: 'var(--bottom-safe-space)' }}>
               {currentScreen === 'home' && (
                 <HomeScreen
                   customerId={session.id}

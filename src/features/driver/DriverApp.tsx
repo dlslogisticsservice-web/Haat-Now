@@ -222,7 +222,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   }
 
   return (
-    <div className="min-h-screen p-6 md:p-8 space-y-5" id="driver_app_container">
+    <div className="min-h-screen px-6 pb-6 md:px-8 md:pb-8 space-y-5" style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }} id="driver_app_container">
 
       {/* ── Top bar: logout + language ─────────────────────── */}
       <div className="flex items-center justify-between" id="driver_topbar">

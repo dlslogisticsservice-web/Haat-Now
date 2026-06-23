@@ -498,7 +498,8 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
       {/* ── Main content ─────────────────────────────────────────────── */}
       <main
-        className="flex-1 min-h-screen overflow-y-auto p-6 md:p-8 space-y-6 md:ms-[280px]"
+        className="flex-1 min-h-screen overflow-y-auto px-6 pb-6 md:px-8 md:pb-8 space-y-6 md:ms-[280px]"
+        style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }}
         id="merchant_main_content"
       >
         {/* ── Top bar: logout + language ─────────────────────────────── */}
