@@ -310,7 +310,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     try {
       const { success, error } = await orderService.cancelOrder(orderId, 'إلغاء سريع من المستخدم');
       if (success) { alert(t('orders.cancelSuccess')); fetchOrders(); fetchOrderDetails(orderId); }
-      else alert(`لا يمكن إلغاء الطلب: ${(error as any)?.message || error}`);
+      else alert(`${t('orders.cancelFail')}: ${(error as any)?.message || error}`);
     } catch (e) { console.error(e); }
   };
 
@@ -341,13 +341,13 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     return (
       <div className="space-y-4" id="orders_list_view">
         <h2 className="text-right font-bold" style={{ fontSize: '20px', color: 'white', textTransform: 'none', letterSpacing: 0 }}>
-          طلباتي الأخيرة
+          {t('orders.recentOrders')}
         </h2>
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <Loader2 size={36} className="text-[var(--color-primary-fixed)] animate-spin" />
-            <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>جاري جلب الطلبات...</p>
+            <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{t('orders.loadingOrders')}</p>
           </div>
         ) : orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-6 text-center animate-fade-in-up">
@@ -358,14 +358,14 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
               <ScrollText size={48} strokeWidth={1.25} style={{ color: 'rgba(163,249,91,0.28)' }} />
             </div>
             <div>
-              <p style={{ fontSize: '20px', color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '8px' }}>لا توجد طلبات بعد</p>
-              <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: 1.6 }}>ابدأ رحلتك مع هات ناو واستمتع<br />بتجربة توصيل فاخرة</p>
+              <p style={{ fontSize: '20px', color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '8px' }}>{t('orders.empty')}</p>
+              <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: 1.6 }}>{t('orders.emptyHint')}<br />بتجربة توصيل فاخرة</p>
             </div>
             <button
               onClick={onSelectOrderBack}
               className="px-8 h-13 rounded-2xl font-bold cursor-pointer neon-glow transition-all active:scale-95"
               style={{ background: 'var(--color-primary-fixed)', color: '#0c2000', fontSize: '15px', fontWeight: 700, paddingTop: '12px', paddingBottom: '12px' }}
-            >اطلب الآن</button>
+            >{t('restaurant.orderNow')}</button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -422,7 +422,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-4">
         <Loader2 size={36} className="text-[var(--color-primary-fixed)] animate-spin" />
-        <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>جاري تحديث بيانات الطلب...</p>
+        <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{t('orders.updatingOrder')}</p>
       </div>
     );
   }
@@ -511,7 +511,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
         <div className="flex justify-between items-start">
           <div className="text-left">
             <p className="font-bold text-[var(--color-primary-fixed)]" style={{ fontSize: '36px', lineHeight: 1, textTransform: 'none', letterSpacing: 0 }}>{eta}</p>
-            <p style={{ fontSize: '12px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0, marginTop: '-2px' }}>دقيقة</p>
+            <p style={{ fontSize: '12px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0, marginTop: '-2px' }}>{t('common.minutes')}</p>
           </div>
           <div className="text-right">
             <h2 className="font-bold text-[var(--color-primary-fixed)]" style={{ fontSize: '18px', textTransform: 'none', letterSpacing: 0 }}>
@@ -521,7 +521,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
                t('orders.orderConfirmed')}
             </h2>
             <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', marginTop: '4px', textTransform: 'none', letterSpacing: 0 }}>
-              طلب #{selectedOrderId.slice(-6).toUpperCase()} · {money(orderDetails.total_amount)}
+              {t('orders.orderHash')} #{selectedOrderId.slice(-6).toUpperCase()} · {money(orderDetails.total_amount)}
             </p>
           </div>
         </div>
@@ -642,11 +642,11 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
                     {t(step.labelKey)}
                   </p>
                   {step.key === 'on_the_way' && current && (
-                    <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>في الطريق إليك</p>
+                    <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{t('orders.onWayToYou')}</p>
                   )}
                   {step.key === 'delivered' && !done && (
                     <p style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>
-                      الوقت المتوقع: {new Date(Date.now() + eta * 60000).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
+                      {t('orders.expectedTime')}{new Date(Date.now() + eta * 60000).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   )}
                 </div>
@@ -663,7 +663,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
               className="w-full py-3 rounded-full font-bold cursor-pointer text-center transition-colors"
               style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}
               id="cancel_btn"
-            >إلغاء الطلب (استرجاع المحفظة)</button>
+            >{t('orders.cancelOrderRefund')}</button>
           )}
 
           <button
@@ -673,7 +673,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
             id="support_btn"
           >
             <Headphones size={18} strokeWidth={2} />
-            مركز الدعم
+            {t('orders.supportCenter')}
           </button>
 
           {showTicketInput && (

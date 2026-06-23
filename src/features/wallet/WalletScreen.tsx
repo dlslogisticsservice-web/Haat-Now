@@ -43,10 +43,10 @@ function formatTxDate(iso?: string): string {
 }
 
 function txTypeLabel(type: string): string {
-  if (type === 'deposit')        return 'إيداع';
-  if (type === 'withdrawal')     return 'سحب';
-  if (type === 'payment_refund') return 'استرداد مبلغ';
-  if (type === 'payout')         return 'مكافأة توصيل';
+  if (type === 'deposit')        return 'wallet.deposit';
+  if (type === 'withdrawal')     return 'wallet.withdraw';
+  if (type === 'payment_refund') return 'wallet.refund';
+  if (type === 'payout')         return 'wallet.deliveryReward';
   return type;
 }
 
@@ -242,13 +242,13 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
           <div className="relative z-10">
             <p className="uppercase mb-2"
                style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', letterSpacing: '0.12em' }}>
-              الرصيد المتاح
+              {t('wallet.availableBalance')}
             </p>
 
             {walletLoading ? (
               <div className="flex items-center gap-3 mb-6">
                 <Loader2 size={28} className="animate-spin" style={{ color: 'var(--color-primary-fixed)' }} />
-                <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px' }}>جاري التحميل...</span>
+                <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px' }}>{t('common.loading')}</span>
               </div>
             ) : walletError ? (
               <div className="mb-6 flex items-center gap-2">
@@ -268,7 +268,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
             )}
 
             <div className="flex items-center gap-2">
-              <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px' }}>آخر تحديث: الآن</span>
+              <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px' }}>{t('wallet.lastUpdate')}</span>
               <RefreshCw size={14} style={{ color: 'var(--color-primary-fixed)' }} strokeWidth={2} />
             </div>
           </div>
@@ -294,7 +294,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
         <section className="space-y-4">
           <div className="flex justify-between items-center">
             <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px' }}>
-              {!walletLoading && !walletError ? `${transactions.length > 0 ? transactions.length : SAMPLE_TRANSACTIONS.length} عملية` : ''}
+              {!walletLoading && !walletError ? `${transactions.length > 0 ? transactions.length : SAMPLE_TRANSACTIONS.length} ${t('wallet.opCount')}` : ''}
             </span>
             <h2 className="font-bold gradient-text"
                 style={{ fontSize: '16px', letterSpacing: '-0.01em' }}>
@@ -311,7 +311,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
               <p style={{ color: 'var(--color-error)', fontSize: '13px' }}>{walletError}</p>
               <button onClick={loadWalletData} className="mt-2 px-3 py-1.5 rounded-lg cursor-pointer glass-hover text-sm"
                 style={{ color: 'var(--color-on-surface-variant)', border: 'none', background: 'none' }}>
-                إعادة المحاولة
+                {t('common.retry')}
               </button>
             </div>
           ) : (
@@ -330,7 +330,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
                         {isCredit ? '+' : ''}{Number(tx.amount).toLocaleString(lang === 'ar' ? country.locale : 'en-US', { minimumFractionDigits: country.currency.decimals, maximumFractionDigits: country.currency.decimals })} {cur}
                       </p>
                       <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '10px', marginTop: '1px' }}>
-                        {txTypeLabel(tx.type)}
+                        {t(txTypeLabel(tx.type))}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">

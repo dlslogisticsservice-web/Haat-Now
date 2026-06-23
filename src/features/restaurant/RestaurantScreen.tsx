@@ -174,7 +174,7 @@ export const RestaurantScreen = ({
 
           {/* Rating row */}
           <div className="flex items-center justify-end gap-3 mb-3" style={{ fontSize: '13px' }}>
-            <span style={{ color: 'rgba(242,244,246,0.60)', textTransform: 'none', letterSpacing: 0 }}>مطعم فاخر</span>
+            <span style={{ color: 'rgba(242,244,246,0.60)', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.luxuryRestaurant')}</span>
             <span className="w-1 h-1 rounded-full bg-white/30" />
             <span style={{ color: 'rgba(242,244,246,0.60)', textTransform: 'none', letterSpacing: 0 }}>500+</span>
             <div className="flex items-center gap-1" style={{ color: 'var(--color-primary-fixed)' }}>
@@ -235,7 +235,7 @@ export const RestaurantScreen = ({
       {/* ═══ OFFERS TAB ═══ */}
       {activeTab === 'العروض' && (<>
       <div className="flex items-center justify-between mb-4 mt-6">
-        <span style={{ color: 'var(--color-primary-fixed)', fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'none' }}>عرض الكل</span>
+        <span style={{ color: 'var(--color-primary-fixed)', fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'none' }}>{t('common.viewAll')}</span>
         <h3 className="text-headline-sm font-semibold" style={{ color: 'white', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.featuredOffers')}</h3>
       </div>
       <div
@@ -245,14 +245,14 @@ export const RestaurantScreen = ({
       >
         <div className="absolute inset-0 flex">
           <div className="w-1/2 p-6 flex flex-col justify-center gap-1 z-10 text-right">
-            <span className="text-display-md text-[var(--color-primary-fixed)] font-bold" style={{ letterSpacing: '-0.02em', lineHeight: 1, textTransform: 'none' }}>30% خصم</span>
-            <p style={{ fontSize: '16px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>على جميع وجبات كومبو العائلية</p>
+            <span className="text-display-md text-[var(--color-primary-fixed)] font-bold" style={{ letterSpacing: '-0.02em', lineHeight: 1, textTransform: 'none' }}>{t('restaurant.offerSampleTitle')}</span>
+            <p style={{ fontSize: '16px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.offerSampleSub')}</p>
             <button
               type="button"
               onClick={() => document.getElementById('menu_list')?.scrollIntoView({ behavior: 'smooth' })}
               className="mt-2 active:scale-90 transition-transform cursor-pointer"
               style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', width: 'max-content', padding: '6px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'none', border: 'none' }}
-            >اطلب الآن</button>
+            >{t('restaurant.orderNow')}</button>
           </div>
           <div className="w-1/2 h-full overflow-hidden group">
             <img
@@ -275,12 +275,12 @@ export const RestaurantScreen = ({
         {loading ? (
           <div className="flex items-center justify-center py-16 gap-3">
             <Loader2 size={28} className="text-[var(--color-primary-fixed)] animate-spin" />
-            <span style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>جاري جلب القائمة...</span>
+            <span style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.loadingMenu')}</span>
           </div>
         ) : products.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
             <UtensilsCrossed size={48} color="var(--color-on-surface-variant)" strokeWidth={1} style={{ opacity: 0.3 }} />
-            <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>قائمة هذا الفرع غير متوفرة حالياً</p>
+            <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.menuUnavailable')}</p>
           </div>
         ) : (
           /* PHASE B — compact responsive product grid (image / name / price / rating / add) */
@@ -325,9 +325,9 @@ export const RestaurantScreen = ({
       {/* ═══ REVIEWS TAB ═══ */}
       {activeTab === 'التقييمات' && (
         <div className="mt-6 space-y-3" style={{ paddingBottom: '160px' }}>
-          <h3 className="text-headline-sm font-semibold text-right" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>آراء العملاء</h3>
+          <h3 className="text-headline-sm font-semibold text-right" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.customerReviews')}</h3>
           <div className="glass rounded-2xl p-6 text-center" style={{ color: 'var(--color-on-surface-variant)' }}>
-            <p style={{ fontSize: '14px' }}>لا توجد تقييمات بعد. كن أول من يقيّم بعد استلام طلبك.</p>
+            <p style={{ fontSize: '14px' }}>{t('restaurant.noReviews')}</p>
           </div>
         </div>
       )}
@@ -335,11 +335,11 @@ export const RestaurantScreen = ({
       {/* ═══ ABOUT TAB ═══ */}
       {activeTab === 'عن المطعم' && (
         <div className="mt-6 space-y-3 text-right" style={{ paddingBottom: '160px' }}>
-          <h3 className="text-headline-sm font-semibold" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>عن المتجر</h3>
+          <h3 className="text-headline-sm font-semibold" style={{ color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.about')}</h3>
           <div className="glass rounded-2xl p-5 space-y-3">
             {[
-              ['الاسم', restaurantName],
-              ['الفئة', branchCategory || '—'],
+              [t('restaurant.name'), restaurantName],
+              [t('restaurant.category'), branchCategory || '—'],
               [t('restaurant.delivery'), '٢٥–٤٠ دقيقة'],
               [t('restaurant.minOrderFull'), price(20)],
               [t('restaurant.status'), t('restaurant.openNow')],
@@ -425,7 +425,7 @@ export const RestaurantScreen = ({
 
               {selectedProduct.product_variants && selectedProduct.product_variants.length > 0 && (
                 <div className="mt-4">
-                  <p className="font-bold mb-3" style={{ fontSize: '14px', color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>اختر الحجم:</p>
+                  <p className="font-bold mb-3" style={{ fontSize: '14px', color: 'var(--color-on-surface)', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.chooseSize')}</p>
                   <div className="flex gap-2 flex-wrap justify-end">
                     {selectedProduct.product_variants.map(v => (
                       <button
@@ -454,7 +454,7 @@ export const RestaurantScreen = ({
                   id="add_to_cart_confirm"
                 >
                   <ShoppingCart size={20} strokeWidth={2} />
-                  إضافة للسلة
+                  {t('restaurant.addToCart')}
                 </button>
                 <span className="font-bold text-[var(--color-primary-fixed)] neon-text-glow" style={{ fontSize: '22px', textTransform: 'none', letterSpacing: 0 }}>
                   {price(selectedProduct.price + (selectedVariant?.price_modifier ?? 0))}

@@ -408,7 +408,7 @@ export default function App() {
               {(() => {
                 const isActive = currentScreen === 'home' || currentScreen === 'restaurant';
                 return (
-                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => setCurrentScreen('home')} id="nav_home" aria-label="الرئيسية">
+                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => setCurrentScreen('home')} id="nav_home" aria-label={t('nav.home')}>
                     <span className="nav-item__indicator" />
                     <span className="nav-item__icon-wrap">
                       <Home size={22} color={isActive ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)'} strokeWidth={isActive ? 2.5 : 1.75} />
@@ -422,7 +422,7 @@ export default function App() {
               {(() => {
                 const isActive = currentScreen === 'orders';
                 return (
-                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => { setSelectedTrackingOrderId(undefined); setCurrentScreen('orders'); }} id="nav_orders" aria-label="طلباتي">
+                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => { setSelectedTrackingOrderId(undefined); setCurrentScreen('orders'); }} id="nav_orders" aria-label={t('nav.orders')}>
                     <span className="nav-item__indicator" />
                     <span className="nav-item__icon-wrap">
                       <ScrollText size={22} color={isActive ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)'} strokeWidth={isActive ? 2.5 : 1.75} />
@@ -433,7 +433,7 @@ export default function App() {
               })()}
 
               {/* Cart — center FAB */}
-              <button className="nav-item" onClick={() => setIsCartOpen(true)} id="nav_cart" aria-label="سلتي">
+              <button className="nav-item" onClick={() => setIsCartOpen(true)} id="nav_cart" aria-label={t('nav.cart')}>
                 <span className="nav-item__icon-wrap" style={{ position: 'relative' }}>
                   <span
                     className="flex items-center justify-center w-11 h-11 rounded-full"
@@ -459,7 +459,7 @@ export default function App() {
               {(() => {
                 const isActive = currentScreen === 'wallet';
                 return (
-                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => setCurrentScreen('wallet')} id="nav_wallet" aria-label="المحفظة">
+                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => setCurrentScreen('wallet')} id="nav_wallet" aria-label={t('nav.wallet')}>
                     <span className="nav-item__indicator" />
                     <span className="nav-item__icon-wrap">
                       <Wallet size={22} color={isActive ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)'} strokeWidth={isActive ? 2.5 : 1.75} />
@@ -473,7 +473,7 @@ export default function App() {
               {(() => {
                 const isActive = currentScreen === 'profile';
                 return (
-                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => setCurrentScreen('profile')} id="nav_profile" aria-label="حسابي">
+                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => setCurrentScreen('profile')} id="nav_profile" aria-label={t('nav.profile')}>
                     <span className="nav-item__indicator" />
                     <span className="nav-item__icon-wrap">
                       <User size={22} color={isActive ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)'} strokeWidth={isActive ? 2.5 : 1.75} />
@@ -517,7 +517,7 @@ export default function App() {
                     </div>
                     <div>
                       <p style={{ color: 'white', fontSize: '15px', fontWeight: 700 }}>
-                        {session.phone_number || 'عميل HAAT NOW'}
+                        {session.phone_number || t('common.customer')}
                       </p>
                       <div className="flex items-center gap-1 mt-0.5">
                         <Crown size={13} color="#fb923c" strokeWidth={2} />
@@ -583,7 +583,7 @@ export default function App() {
                     style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', color: '#fca5a5', fontSize: '14px', fontWeight: 600 }}
                   >
                     <LogOut size={18} color="#fca5a5" strokeWidth={2} />
-                    تسجيل الخروج
+                    {t('common.signOut')}
                   </button>
                 </div>
               </div>
@@ -641,15 +641,15 @@ export default function App() {
                     <ShoppingBag size={42} strokeWidth={1.25} style={{ color: 'rgba(163,249,91,0.3)' }} />
                   </div>
                   <div>
-                    <p style={{ color: 'white', fontSize: '18px', fontWeight: 700, marginBottom: '8px', letterSpacing: '-0.01em' }}>سلتك خالية</p>
-                    <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', lineHeight: 1.55 }}>تصفح المتاجر وأضف ما يشتهيك!</p>
+                    <p style={{ color: 'white', fontSize: '18px', fontWeight: 700, marginBottom: '8px', letterSpacing: '-0.01em' }}>{t('cart.empty')}</p>
+                    <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', lineHeight: 1.55 }}>{t('cart.emptyHint')}</p>
                   </div>
                   <button
                     onClick={() => setIsCartOpen(false)}
                     className="px-6 h-11 rounded-2xl font-bold cursor-pointer transition-all active:scale-95"
                     style={{ background: 'var(--color-primary-fixed)', color: '#0c2000', fontSize: '14px', border: 'none', boxShadow: '0 0 20px rgba(163,249,91,0.3)' }}
                   >
-                    تصفح المتاجر
+                    {t('cart.browseStores')}
                   </button>
                 </div>
               ) : (
@@ -720,7 +720,7 @@ export default function App() {
                     className="h-11 px-4 rounded-xl font-bold cursor-pointer transition-all active:scale-95"
                     style={{ background: 'rgba(163,249,91,0.07)', border: '1px solid rgba(163,249,91,0.15)', color: 'var(--color-primary-fixed)', fontSize: '13px', whiteSpace: 'nowrap' }}
                   >
-                    تطبيق
+                    {t('common.apply')}
                   </button>
                 </div>
 
@@ -731,12 +731,12 @@ export default function App() {
                     <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px' }}>{t('cart.subtotal')}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '13px' }}>مجاني</span>
+                    <span style={{ color: '#4ade80', fontWeight: 600, fontSize: '13px' }}>{t('common.free')}</span>
                     <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px' }}>{t('cart.deliveryFee')}</span>
                   </div>
                   <div className="flex justify-between items-center" style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '10px', marginTop: '4px' }}>
                     <span style={{ color: 'var(--color-primary-fixed)', fontWeight: 800, fontSize: '20px', letterSpacing: '-0.02em', textShadow: '0 0 16px rgba(163,249,91,0.3)' }}>{money(getCartSubtotal())}</span>
-                    <span style={{ color: 'white', fontWeight: 700, fontSize: '14px' }}>الإجمالي</span>
+                    <span style={{ color: 'white', fontWeight: 700, fontSize: '14px' }}>{t('cart.total')}</span>
                   </div>
                 </div>
 

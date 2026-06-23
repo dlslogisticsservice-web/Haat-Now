@@ -288,7 +288,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
               <div className="flex items-center gap-4 py-1">
                 <div className="h-px flex-grow" style={{ background: 'rgba(255,255,255,0.09)' }} />
                 <span style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', letterSpacing: '0.06em' }}>
-                  أو المتابعة عبر
+                  {t('auth.orContinueWith')}
                 </span>
                 <div className="h-px flex-grow" style={{ background: 'rgba(255,255,255,0.09)' }} />
               </div>
@@ -368,7 +368,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                   className="text-center"
                   style={{ fontSize: '12px', color: 'var(--color-secondary)' }}
                 >
-                  ✨ وضع التجربة: استخدم الرمز 123456
+                  {t('auth.sandboxHint')}
                 </p>
               )}
 
@@ -384,7 +384,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                   {t('auth.changeNumber')}
                 </button>
                 <span style={{ color: 'var(--color-on-surface-variant)' }}>
-                  لم يصلك الرمز؟
+                  {t('auth.noCode')}
                 </span>
               </div>
 
@@ -421,10 +421,10 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
           className="text-center leading-relaxed animate-fade-in-up"
           style={{ fontSize: '12px', color: 'var(--color-on-surface-variant)', marginTop: '28px', animationDelay: '0.18s' }}
         >
-          من خلال الاستمرار، فإنك توافق على{' '}
-          <span className="cursor-pointer hover:underline" style={{ color: 'var(--color-secondary)' }}>شروط الخدمة</span>
-          {' '}و{' '}
-          <span className="cursor-pointer hover:underline" style={{ color: 'var(--color-secondary)' }}>سياسة الخصوصية</span>
+          {t('auth.terms1')}{' '}
+          <span className="cursor-pointer hover:underline" style={{ color: 'var(--color-secondary)' }}>{t('auth.termsLink')}</span>
+          {' '}{t('auth.and2')}{' '}
+          <span className="cursor-pointer hover:underline" style={{ color: 'var(--color-secondary)' }}>{t('auth.privacyLink')}</span>
         </p>
       </main>
 

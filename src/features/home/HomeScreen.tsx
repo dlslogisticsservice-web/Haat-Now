@@ -229,7 +229,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
           ) : (
             <>
               <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.20)', flexShrink: 0 }} />
-              <button style={{ background: 'none', border: 'none', color: 'var(--color-primary-fixed)', fontSize: '12px', fontWeight: 700, cursor: 'pointer', padding: '0 2px', flexShrink: 0, whiteSpace: 'nowrap' }}>فلاتر</button>
+              <button style={{ background: 'none', border: 'none', color: 'var(--color-primary-fixed)', fontSize: '12px', fontWeight: 700, cursor: 'pointer', padding: '0 2px', flexShrink: 0, whiteSpace: 'nowrap' }}>{t('home.filters')}</button>
             </>
           )}
         </div>
@@ -295,7 +295,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
       {!isFiltering && (
         <section className="mb-3" id="home_offers" style={{ position: 'relative', zIndex: 2 }}>
           <div className="flex items-center justify-between" style={{ marginBottom: '10px' }}>
-            <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>عرض الكل</button>
+            <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t('common.viewAll')}</button>
             <h2 className="flex items-center gap-2" style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>
               <Zap size={16} color="var(--color-primary-fixed)" strokeWidth={2.5} style={{ filter: 'drop-shadow(0 0 8px rgba(163,249,91,0.60))' }} />
               {t('home.exclusiveOffers')}
@@ -341,7 +341,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
                     <p style={{ fontSize: '11px', color: 'rgba(180,184,188,0.90)', lineHeight: 1.3, margin: 0 }}>{(offer as typeof STATIC_BANNERS[0]).subtitle}</p>
                   )}
                   <button type="button" className="animate-pulse-glow" style={{ alignSelf: 'flex-start', marginTop: '5px', height: '36px', padding: '0 18px', borderRadius: '18px', background: 'var(--color-primary-fixed)', border: 'none', color: '#0c2000', fontSize: '12px', fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 0 18px rgba(163,249,91,0.50), 0 3px 10px rgba(0,0,0,0.40)' }}>
-                    اطلب الآن
+                    {t('restaurant.orderNow')}
                   </button>
                 </div>
               </div>
@@ -358,13 +358,13 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
       {/* ══ 5. RESTAURANTS ══ */}
       <section className="mb-4" id="home_restaurants" style={{ position: 'relative', zIndex: 2 }}>
         <div className="flex items-center justify-between mb-3">
-          <button type="button" onClick={toggleViewMode} id="view_mode_toggle" aria-label="تبديل العرض"
+          <button type="button" onClick={toggleViewMode} id="view_mode_toggle" aria-label={t('home.toggleView')}
             className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--color-primary-fixed)' }}>
             {viewMode === 'large' ? <LayoutGrid size={16} strokeWidth={2} /> : <LayoutList size={16} strokeWidth={2} />}
           </button>
           {!isFiltering && <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px', marginInlineStart: 'auto', marginInlineEnd: '8px' }}>
-            المزيد <ChevronLeft size={14} strokeWidth={2.5} />
+            {t('common.more')} <ChevronLeft size={14} strokeWidth={2.5} />
           </button>}
           <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>
             {isFiltering ? t('home.searchResults') : t('home.nearest')}
@@ -376,8 +376,8 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
         ) : isFiltering && filteredBranches.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center glass rounded-2xl" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <SearchX size={28} color="rgba(170,176,182,0.50)" strokeWidth={1.5} />
-            <p style={{ color: '#f2f4f6', fontSize: '15px', fontWeight: 600 }}>{`لا نتائج لـ "${searchQuery}"`}</p>
-            <button onClick={() => { setSearchQuery(''); setSelectedCat(null); }} style={{ padding: '8px 20px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(170,176,182,0.80)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>عرض كل المتاجر</button>
+            <p style={{ color: '#f2f4f6', fontSize: '15px', fontWeight: 600 }}>{`${t('home.noResults')} "${searchQuery}"`}</p>
+            <button onClick={() => { setSearchQuery(''); setSelectedCat(null); }} style={{ padding: '8px 20px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(170,176,182,0.80)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>{t('home.showAllStores')}</button>
           </div>
         ) : (
           <div className={viewMode === 'compact' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3' : 'space-y-3'} id="restaurants_list">
@@ -450,7 +450,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
                   <div className="px-4 py-3" style={{ background: 'linear-gradient(180deg, #1c2026 0%, #13171a 100%)' }}>
                     <div className="flex items-start justify-between mb-1">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontSize: '11px', color: 'rgba(163,249,91,0.70)', fontWeight: 600 }}>مفتوح الآن</span>
+                        <span style={{ fontSize: '11px', color: 'rgba(163,249,91,0.70)', fontWeight: 600 }}>{t('common.openNow')}</span>
                         <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(163,249,91,0.55)', display: 'inline-block', boxShadow: '0 0 6px rgba(163,249,91,0.55)' }} />
                       </div>
                       <h3 style={{ color: '#f2f4f6', fontSize: '16px', fontWeight: 700, letterSpacing: '-0.01em', margin: 0 }}>{name}</h3>
@@ -458,10 +458,10 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
                     <p style={{ color: 'rgba(160,165,170,0.65)', fontSize: '12px', marginBottom: '10px', textAlign: 'right' }}>{cuisine}</p>
                     <div className="flex items-center justify-end gap-4">
                       <span className="flex items-center gap-1">
-                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)' }}>الحد {minOrd} {cur}</span>
+                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)' }}>{t('home.minLabel')} {minOrd} {cur}</span>
                       </span>
                       <span className="flex items-center gap-1.5"><Bike size={12} color="rgba(163,249,91,0.55)" strokeWidth={2} /><span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.60)' }}>{delivery}</span></span>
-                      <span className="flex items-center gap-1.5"><Clock size={12} color="rgba(255,255,255,0.35)" strokeWidth={2} /><span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.60)' }}>{eta} د</span></span>
+                      <span className="flex items-center gap-1.5"><Clock size={12} color="rgba(255,255,255,0.35)" strokeWidth={2} /><span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.60)' }}>{eta} {t('common.minutesShort')}</span></span>
                     </div>
                   </div>
                 </div>
@@ -476,7 +476,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
         <section className="mb-4" id="home_featured_circles" style={{ position: 'relative', zIndex: 2 }}>
           <div className="flex items-center justify-between mb-3">
             <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px' }}>
-              عرض الكل <ChevronLeft size={14} strokeWidth={2.5} />
+              {t('common.viewAll')} <ChevronLeft size={14} strokeWidth={2.5} />
             </button>
             <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>{t('home.featured')}</h2>
           </div>
@@ -507,7 +507,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
       {/* ══ 7. BENEFITS — §7 metallic icon cards ══ */}
       {!isFiltering && (
         <section className="mb-8" id="home_benefits" style={{ position: 'relative', zIndex: 2 }}>
-          <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em', marginBottom: '14px', textAlign: 'right' }}>لماذا تختار Haat Now؟</h2>
+          <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em', marginBottom: '14px', textAlign: 'right' }}>{t('home.why')}</h2>
           <div className="grid grid-cols-3 gap-3">
             {[
               { Icon: Bike,   title: 'توصيل سريع',    sub: 'في 30 دقيقة'      },

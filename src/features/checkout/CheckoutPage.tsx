@@ -437,7 +437,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-4">
         <Loader2 size={36} strokeWidth={2} className="text-[var(--color-primary-fixed)] animate-spin" />
-        <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>جاري تحضير بيانات الطلب...</p>
+        <p style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{t('checkout.preparingData')}</p>
       </div>
     );
   }
@@ -489,7 +489,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
               {cartItems[0]?.product.name || t('checkout.premiumOrder')}
               {cartItems.length > 1 && (
                 <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', fontWeight: 400, marginRight: '8px' }}>
-                  +{cartItems.length - 1} أصناف
+                  +{cartItems.length - 1} {t('checkout.items')}
                 </span>
               )}
             </h1>
@@ -554,7 +554,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                   <div className="flex items-center justify-between mb-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>{t('checkout.preparing')}</h3>
                     <div className="flex items-center gap-2">
-                      <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>قيد التنفيذ</span>
+                      <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>{t('checkout.inProgress')}</span>
                       <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ background: 'var(--color-primary-fixed)' }} />
                     </div>
                   </div>
@@ -589,14 +589,14 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                 <div className="surface-z3 rounded-xl overflow-hidden" id="address_card">
                   <div className="flex items-center justify-between px-4 pt-4 pb-2" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <h3 className="flex items-center gap-2 font-bold" style={{ color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>
-                      عنوان التوصيل
+                      {t('checkout.deliveryAddress')}
                       <MapPin size={18} strokeWidth={2} color="var(--color-primary-fixed)" />
                     </h3>
                     <button
                       onClick={() => setIsAddingAddress(!isAddingAddress)}
                       style={{ color: 'var(--color-secondary)', fontSize: '13px', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textTransform: 'none', letterSpacing: 0 }}
                     >
-                      {isAddingAddress ? 'إلغاء' : 'تعديل'}
+                      {isAddingAddress ? t('checkout.cancel') : t('checkout.edit')}
                     </button>
                   </div>
                   <div className="relative h-28 w-full">
@@ -616,10 +616,10 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     ) : (
                       <div className="py-2 flex flex-col items-end gap-2">
                         <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>
-                          لم يتم تحديد عنوان توصيل
+                          {t('checkout.noAddressSelected')}
                         </p>
                         <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', opacity: 0.65, textTransform: 'none', letterSpacing: 0 }}>
-                          أضف عنوانك من صفحة الحساب الشخصي ثم عد للطلب
+                          {t('checkout.noAddressHint')}
                         </p>
                       </div>
                     )}
@@ -673,8 +673,8 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                 {/* Delivery path SVG */}
                 <div className="surface-z3 rounded-xl p-4 relative" style={{ aspectRatio: '1 / 1' }}>
                   <div className="flex items-center justify-between mb-3" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
-                    <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', textTransform: 'none', letterSpacing: 0 }}>التوصيل المتوقع: ~30 دقيقة</span>
-                    <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>مسار التوصيل</h3>
+                    <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', textTransform: 'none', letterSpacing: 0 }}>{t('checkout.expectedDelivery')}</span>
+                    <h3 style={{ color: 'white', fontSize: '14px', fontWeight: 600, textTransform: 'none', letterSpacing: 0 }}>{t('checkout.deliveryRoute')}</h3>
                   </div>
                   <svg viewBox="0 0 400 400" className="w-full" style={{ maxHeight: '240px' }}>
                     <defs>
@@ -693,7 +693,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     className="absolute top-12 left-4 surface-z3 p-2 rounded-lg"
                     style={{ border: '1px solid rgba(255,255,255,0.1)' }}
                   >
-                    <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '10px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em' }}>السرعة</span>
+                    <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '10px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('checkout.speed')}</span>
                     <span style={{ color: 'var(--color-secondary)', fontSize: '12px', fontWeight: 700 }}>42 km/h</span>
                   </div>
                 </div>
@@ -702,7 +702,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                 <div className="surface-z3 rounded-xl p-4" id="payment_section">
                   <h3 className="flex items-center justify-between mb-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     <Wallet size={18} strokeWidth={1.75} color="var(--color-primary-fixed)" />
-                    <span className="font-bold" style={{ color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>وسيلة الدفع</span>
+                    <span className="font-bold" style={{ color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>{t('checkout.paymentMethod')}</span>
                   </h3>
                   <div className="grid grid-cols-3 gap-2 mb-3" id="payment_grid">
                     {PAYMENT_TYPES.map(pt => {
@@ -781,7 +781,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                   id="order_summary_section"
                 >
                   <h3 style={{ color: 'var(--color-primary-fixed)', fontWeight: 600, fontSize: '15px', textAlign: 'right', textTransform: 'none', letterSpacing: 0 }}>
-                    ملخص الطلب
+                    {t('checkout.orderSummary')}
                   </h3>
                   <div className="space-y-2" style={{ direction: 'rtl' }}>
                     {cartItems.map((item, idx) => {
@@ -795,19 +795,19 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     })}
                     <div className="flex justify-between text-sm" style={{ direction: 'rtl' }}>
                       <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>{money(deliveryFee)}</span>
-                      <span style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>رسوم التوصيل</span>
+                      <span style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{t('checkout.deliveryFee')}</span>
                     </div>
                     <div className="flex justify-between text-sm" style={{ direction: 'rtl' }}>
                       <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>{money(luxuryFee)}</span>
                       <span className="flex items-center gap-1.5" style={{ color: 'var(--color-secondary)', textTransform: 'none', letterSpacing: 0 }}>
-                        رسوم الرفاهية
+                        {t('checkout.luxuryFee')}
                         <BadgeCheck size={14} strokeWidth={2} color="var(--color-primary-fixed)" />
                       </span>
                     </div>
                     {couponDiscount > 0 && (
                       <div className="flex justify-between text-sm" style={{ direction: 'rtl' }}>
                         <span style={{ color: 'var(--color-error)', textTransform: 'none', letterSpacing: 0 }}>-{money(discountVal)}</span>
-                        <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>خصم {couponDiscount}%</span>
+                        <span style={{ color: 'var(--color-primary-fixed)', textTransform: 'none', letterSpacing: 0 }}>{t('common.discount')} {couponDiscount}%</span>
                       </div>
                     )}
                   </div>
@@ -817,7 +817,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                       onClick={handleVerifyCoupon}
                       className="px-3 h-9 rounded-lg font-bold cursor-pointer flex-shrink-0"
                       style={{ background: 'var(--color-secondary)', color: '#1e3700', fontSize: '13px', textTransform: 'none', letterSpacing: 0, border: 'none' }}
-                    >تطبيق</button>
+                    >{t('common.apply')}</button>
                     <input
                       type="text" placeholder={t('checkout.couponLabel')}
                       value={couponCode} onChange={e => setCouponCode(e.target.value.toUpperCase())}
@@ -830,7 +830,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                   <div className="h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
                   <div className="flex justify-between items-center font-bold" style={{ direction: 'rtl' }}>
                     <span style={{ color: 'var(--color-secondary)', fontSize: '22px', textTransform: 'none', letterSpacing: 0 }}>{money(grandTotal)}</span>
-                    <span style={{ color: 'white', fontSize: '15px', textTransform: 'none', letterSpacing: 0 }}>الإجمالي</span>
+                    <span style={{ color: 'white', fontSize: '15px', textTransform: 'none', letterSpacing: 0 }}>{t('cart.total')}</span>
                   </div>
                 </div>
 
@@ -932,7 +932,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
               <CheckCircle2 size={48} strokeWidth={1.5} color="var(--color-primary-fixed)" />
             </div>
             <h2 className="font-bold mb-2" style={{ color: 'var(--color-primary-fixed)', fontSize: '28px', textTransform: 'none', letterSpacing: 0 }}>
-              تم تأكيد الطلب
+              {t('checkout.orderConfirmedTitle')}
             </h2>
             <p className="mb-6" style={{ color: 'var(--color-on-surface-variant)', fontSize: '14px', textTransform: 'none', letterSpacing: 0, lineHeight: 1.6 }}>
               {t('checkout.orderNote')}
@@ -942,7 +942,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
               className="w-full py-4 rounded-xl font-bold cursor-pointer hover:scale-105 active:scale-95 transition-all"
               style={{ background: 'var(--color-secondary)', color: '#1e3700', fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.15em', boxShadow: '0 0 20px rgba(163,249,91,0.3)', border: 'none' }}
             >
-              تتبع الطلب
+              {t('orders.track')}
             </button>
           </div>
         </div>
