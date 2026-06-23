@@ -9,10 +9,14 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { EnterpriseSidebar, SidebarSection } from '../../components/ui/EnterpriseSidebar';
 import { sandboxStore, SbCoupon } from '../../services/sandboxStore';
+import { authService } from '../../services/auth.service';
 import { couponService } from '../../services/coupon.service';
 import { analyticsService } from '../../services/analytics.service';
 
-const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+// Sandbox is only ever active in dev — keep this consistent with auth.service's
+// IS_SANDBOX (`&& import.meta.env.DEV`) so this module never disagrees with the
+// auth layer about which mode it is in (a mode mismatch previously mis-gated super-admin).
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' && import.meta.env.DEV;
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 import { DesignCenter } from './DesignCenter';
 import { CampaignCenter } from './CampaignCenter';
@@ -97,12 +101,16 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     await refreshCoupons();
   };
 
-  // Super-admin gate for the Design Center (only super scope sees it)
+  // Super-admin gate: ONLY scope==='super' may see Design Center, Campaign Center,
+  // global settings and cross-country data. Resolved from the authoritative,
+  // mode-consistent authService.getAdminScope (no brittle UUID-prefix hack).
   const [isSuper, setIsSuper] = useState(false);
   useEffect(() => {
-    if (SANDBOX) { setIsSuper(adminId.startsWith('55555555')); return; }
-    supabase.from('admin_users').select('scope').eq('user_id', adminId).maybeSingle()
-      .then(({ data }) => setIsSuper((data as any)?.scope === 'super'));
+    let alive = true;
+    authService.getAdminScope(adminId)
+      .then(scope => { if (alive) setIsSuper(scope === 'super'); })
+      .catch(() => { if (alive) setIsSuper(false); });
+    return () => { alive = false; };
   }, [adminId]);
   const navSections = SIDEBAR_SECTIONS.map(s => ({
     ...s,

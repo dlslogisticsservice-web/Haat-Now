@@ -139,6 +139,26 @@ export const authService = {
     return { id: user.id, phone_number: user.phone || '', role };
   },
 
+  // ── Admin scope (authoritative super/country gate) ──────────────────────────
+  // Single source of truth for super-vs-country, consistent across modes. Returns
+  // 'super' | 'country' for admins, or null for non-admins / unknown. Used to gate
+  // Design Center, Campaign Center, global settings and cross-country data.
+  async getAdminScope(userId: string): Promise<'super' | 'country' | null> {
+    if (IS_SANDBOX) {
+      const acct = Object.values(DEMO_ACCOUNTS).find(a => a.id === userId);
+      if (!acct || acct.role !== 'admin') return null;
+      return acct.scope === 'super' ? 'super' : 'country';
+    }
+    const { data, error } = await supabase
+      .from('admin_users').select('scope').eq('user_id', userId).maybeSingle();
+    if (error) {
+      console.error(`[auth] getAdminScope: query failed for user ${userId} — denying super scope.`, error);
+      return null;
+    }
+    const scope = (data as { scope?: string } | null)?.scope;
+    return scope === 'super' ? 'super' : scope === 'country' ? 'country' : null;
+  },
+
   // ── Access token (for authenticated edge-function / API calls) ───────────────
   // Single source of truth for the bearer token. Sandbox has no real Supabase JWT.
   async getAccessToken(): Promise<string> {
