@@ -6,6 +6,7 @@ import './i18n';
 import { AppConfigProvider } from './contexts/AppConfigContext';
 import { DesignProvider } from './design/DesignContext';
 import { ExperienceProvider } from './experience/ExperienceContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { MISSING_SUPABASE_VARS } from './lib/supabase';
 
 function MissingConfigScreen({ vars }: { vars: string[] }) {
@@ -28,13 +29,15 @@ createRoot(document.getElementById('root')!).render(
     {MISSING_SUPABASE_VARS.length > 0 ? (
       <MissingConfigScreen vars={MISSING_SUPABASE_VARS} />
     ) : (
-      <AppConfigProvider>
-        <DesignProvider>
-          <ExperienceProvider>
-            <App />
-          </ExperienceProvider>
-        </DesignProvider>
-      </AppConfigProvider>
+      <ErrorBoundary>
+        <AppConfigProvider>
+          <DesignProvider>
+            <ExperienceProvider>
+              <App />
+            </ExperienceProvider>
+          </DesignProvider>
+        </AppConfigProvider>
+      </ErrorBoundary>
     )}
   </StrictMode>,
 );

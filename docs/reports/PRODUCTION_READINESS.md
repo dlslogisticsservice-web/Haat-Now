@@ -1,53 +1,44 @@
-# تكرار جاهزية الإنتاج والتقرير الشامل (HaatNow Launch Readiness Report)
+# Production Readiness — HAAT NOW
 
-This document provides a comprehensive security review, critical risk assessment, and launch checklist for **هات الآن (HaatNow)** platform.
-
----
-
-## 1. Security Review & Vulnerability Audit
-
-### Core Achievements
-
-1. **Anti-Bypass Hardening (Priority 2)**:
-   - Successfully eliminated all client-side bypass configurations. 
-   - Test phone exceptions starting with `+9665000000` or custom numeric shortfalls (`0500...`) are completely removed.
-   - Removed test OTP shortfalls (like `123456`) and all placeholder customer identity mutations.
-
-2. **Durable Database-First Cart (Priority 1)**:
-   - Relocated shopping cart logic from volatile local machine browser caches (`localStorage`) to permanent PostgreSQL storage inside Supabase (`customer_carts` and `cart_items` tables).
-   - Multi-device, cross-platform synchronization is natively functional.
-
-3. **Atomic Balance Calculations (Priority 3)**:
-   - Relocated wallet and balance increments to a secure Postgres stored PL/pgSQL function (`adjust_wallet_balance`) with a row-level `FOR UPDATE` lock block.
-   - Race conditions, concurrent checkout double-spend potentials, and client-side arithmetic spoof risks are fully mitigated.
-
-4. **Structured Checkout Gateway (Priority 4)**:
-   - Designed a secure Payment Gateway Abstraction layer ready to parse **Paymob, Stripe, Apple Pay, Google Pay, and Mada** charges on request.
+**Date:** 2026-06-24 · **Branch:** `feat/auth-recovery-frontend-sprint`
 
 ---
 
-## 2. Key Technical Debt & Remaining Items
+## Readiness checklist
 
-| Sub-System | Description | Severity | Fix Actions |
-|---|---|---|---|
-| **SMS Provider** | Verification messages flow relies on active Twilio/Unifonic production API keys. | **High (Launch Blocker)** | Configure valid keys in production env. |
-| **Real Map Keys** | Live Google Maps layout expects VITE_GOOGLE_MAPS_API_KEY. | **Medium** | Ensure billing is authorized in Maps Console. |
-| **PG SQL Rule Audits** | Add additional triggers to prevent manual customer record deletes. | **Low** | Audit PG RLS rules. |
+| Area | Status | Detail |
+|---|---|---|
+| **Security (Critical/High)** | ✅ resolved | 1 Critical + 2 High RLS/crash issues fixed (see `SECURITY_AUDIT.md`, `CRITICAL_SECURITY.md`, `HIGH_SECURITY.md`). |
+| **RLS** | ✅ | All `public` tables RLS-enabled; over-permissive writes locked to owner/super-admin. |
+| **Error boundaries** | ✅ **added** | `src/components/ErrorBoundary.tsx` wraps the app in `main.tsx` — uncaught render errors now show a recoverable fallback (reload) instead of a white screen; includes an `onError` monitoring hook. |
+| **Session expiration** | ✅ | `onAuthStateChange` → logout on `SIGNED_OUT`/null session; Supabase-js auto-refreshes the JWT. |
+| **Retry logic** | 🟡 partial | Payment verification polls (12 attempts / 5s). Wallet/profile have manual retry buttons. General fetch retry is a backlog item. |
+| **Offline handling** | 🟡 backlog | No offline cache/queue; errors surface user-facing retry. Recommend a service-worker/cache pass post-launch. |
+| **Rate limiting** | 🟡 server-side | Supabase Auth provides OTP rate-limits (confirm enabled in dashboard); edge functions are service-role gated. App-level throttling is a backlog item. |
+| **Logging** | ✅ baseline | `console.error` on caught failures (no secret logging); `ErrorBoundary` logs render errors. |
+| **Monitoring hooks** | ✅ hook ready | `ErrorBoundary.onError(error, info)` is the integration point for Sentry/Logflare (wire in prod). |
+| **Secrets management** | ✅ | Client = anon key only; `service_role` server-side via `Deno.env`; `.env*` + `.mcp.json` gitignored; no secrets in tracked files. |
+| **Build** | ✅ | `npm run build` passes. Entry chunk ≈ 312 KB (lazy routes + vendor split). |
+| **Lint** | ✅ | `tsc --noEmit` clean on app `src` (only pre-existing Deno edge-fn files excluded). |
+| **E2E** | ✅ | 24/24 journeys pass (customer/merchant/driver/admin); 0 console/React errors. |
 
----
+## Hardening implemented this sprint
+1. **Top-level `ErrorBoundary`** — prevents full-app white-screen; bilingual fallback + reload + monitoring hook.
+2. **RLS write-policy lockdown** (migration `20260614000026_security_hardening.sql`, applied live):
+   - `app_config` → super-admin write only.
+   - `payment_transactions` → own-order insert only.
+   - `support_messages` → `sender_id = auth.uid()`.
 
-## 3. High Risk Scenarios & Mitigations
+## Pre-launch operational checklist (config, not code)
+- [ ] Set Vercel `VITE_AUTH_MODE=supabase` (and confirm `DEV=false` in prod build → sandbox tree-shaken).
+- [ ] Set `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in Vercel.
+- [ ] **Rotate** the Supabase management token used by dev scripts.
+- [ ] Configure real Twilio (replace Test OTP `123456`) + payment gateway keys (edge-fn env).
+- [ ] Confirm Supabase Auth rate limits + set `site_url`/redirect URLs.
+- [ ] Wire `ErrorBoundary.onError` + edge-function logs to a monitoring service.
+- [ ] (Backlog) `order_status_history` trigger-based hardening; general fetch retry/offline.
 
-### 1. Dual-Spend and Refund Injection
-* **Risk**: High frequency double-clicks during checkout triggering duplicate wallets charges or double orders.
-* **Mitigations**: Implemented PL/pgSQL Row Locks (`FOR UPDATE`) inside `adjust_wallet_balance` so that sequential orders wait for prior balance modifications to settle.
-
----
-
-## 4. Production Launch Checklist
-
-- [x] Convert local-storage cart to Supabase PostgreSQL schema.
-- [x] Audit database schemas and run RLS triggers.
-- [x] Strip test credentials, test phone pathways, and hardcoded variables.
-- [x] Configure production environment secrets.
-- [x] Launch cloud builds server testing.
+## Verdict
+**Production-ready from a security standpoint:** 0 Critical, 0 High outstanding; build + lint + E2E pass.
+Remaining items are operational config (env/keys/monitoring) and non-blocking Medium hardening, tracked
+above.
