@@ -24,6 +24,13 @@ function MissingConfigScreen({ vars }: { vars: string[] }) {
   );
 }
 
+// PWA service worker — production builds only (kept out of dev/E2E to avoid stale caching).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* non-fatal */ });
+  });
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {MISSING_SUPABASE_VARS.length > 0 ? (

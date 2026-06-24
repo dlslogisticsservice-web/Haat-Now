@@ -1,0 +1,25 @@
+{
+  "name": "HAAT NOW",
+  "short_name": "HAAT NOW",
+  "description": "HAAT NOW — fast local delivery: food, groceries and more.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#060a0e",
+  "theme_color": "#060a0e",
+  "categories": ["food", "shopping", "lifestyle"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "الطلبات", "short_name": "الطلبات", "url": "/?screen=orders", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "اكتشف", "short_name": "اكتشف", "url": "/?screen=discover", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "المحفظة", "short_name": "المحفظة", "url": "/?screen=wallet", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
