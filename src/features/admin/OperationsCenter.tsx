@@ -15,21 +15,22 @@ import { OperationsCommandCenter } from './OperationsCommandCenter';
 import { GrowthCenter } from './GrowthCenter';
 import { CustomerCareCenter } from './CustomerCareCenter';
 import { GrowthCenterB } from './GrowthCenterB';
+import { Map, Route, MapPin, Truck, BarChart3, Banknote, ShieldCheck, Wallet, Rocket, Headset, Target, Star, LucideIcon } from 'lucide-react';
 
 type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care' | 'growthb';
 
-const TABS: { id: OpsTab; label: string; icon: string }[] = [
-  { id: 'command', label: 'غرفة العمليات', icon: '🗺️' },
-  { id: 'dispatch', label: 'مركز الإرسال', icon: '🛰️' },
-  { id: 'zones', label: 'مناطق التوصيل', icon: '🗺️' },
-  { id: 'vehicles', label: 'المركبات', icon: '🛵' },
-  { id: 'performance', label: 'أداء المندوبين', icon: '📊' },
-  { id: 'payouts', label: 'المدفوعات', icon: '💸' },
-  { id: 'kyc', label: 'التحقق والامتثال', icon: '🛡️' },
-  { id: 'finance', label: 'المركز المالي', icon: '💰' },
-  { id: 'growth', label: 'محرّك النمو', icon: '🚀' },
-  { id: 'care', label: 'رعاية العملاء', icon: '🎧' },
-  { id: 'growthb', label: 'إدارة النمو', icon: '📈' },
+const TABS: { id: OpsTab; label: string; Icon: LucideIcon }[] = [
+  { id: 'command', label: 'غرفة العمليات', Icon: Map },
+  { id: 'dispatch', label: 'مركز الإرسال', Icon: Route },
+  { id: 'zones', label: 'مناطق التوصيل', Icon: MapPin },
+  { id: 'vehicles', label: 'المركبات', Icon: Truck },
+  { id: 'performance', label: 'أداء المندوبين', Icon: BarChart3 },
+  { id: 'payouts', label: 'المدفوعات', Icon: Banknote },
+  { id: 'kyc', label: 'التحقق والامتثال', Icon: ShieldCheck },
+  { id: 'finance', label: 'المركز المالي', Icon: Wallet },
+  { id: 'growth', label: 'محرّك النمو', Icon: Rocket },
+  { id: 'care', label: 'رعاية العملاء', Icon: Headset },
+  { id: 'growthb', label: 'إدارة النمو', Icon: Target },
 ];
 
 const money = (n: number) => `${Number(n || 0).toFixed(2)}`;
@@ -47,7 +48,7 @@ export const OperationsCenter: React.FC = () => {
             style={tab === t.id
               ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }
               : { background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
-            <span className="me-1">{t.icon}</span>{t.label}
+            <t.Icon size={15} className="me-1 inline-block align-text-bottom" />{t.label}
           </button>
         ))}
       </div>
@@ -312,7 +313,7 @@ const PerformancePanel: React.FC = () => {
               <td className="px-3 py-2">{pct(r.completion_rate)}</td>
               <td className="px-3 py-2">{pct(r.cancellation_rate)}</td>
               <td className="px-3 py-2">{r.avg_delivery_minutes.toFixed(0)}</td>
-              <td className="px-3 py-2">⭐ {r.rating.toFixed(1)}</td>
+              <td className="px-3 py-2"><span className="inline-flex items-center gap-1"><Star size={13} fill="#fbbf24" color="#fbbf24" />{r.rating.toFixed(1)}</span></td>
               <td className="px-3 py-2">{money(r.total_earnings)}</td>
               <td className="px-3 py-2"><Button size="sm" variant="secondary" onClick={() => recalc(r.driver_id)}>تحديث</Button></td>
             </tr>

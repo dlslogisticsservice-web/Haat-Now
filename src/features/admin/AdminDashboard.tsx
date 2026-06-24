@@ -150,7 +150,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     const { error } = await adminService.updateAppConfig(key, value, desc);
     setPayoutLoading(false);
     if (error) alert(`خطأ في الحفظ: ${(error as any).message}`);
-    else { alert('تم تحديث التكوين بنجاح 🟢'); await fetchAdminModuleData(); }
+    else { alert('تم تحديث التكوين بنجاح'); await fetchAdminModuleData(); }
   };
 
   const handleSelectTicket = async (tktId: string) => {
@@ -181,7 +181,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     setPayoutLoading(true);
     await adminService.updateTicketStatus(tktId, 'resolved');
     setPayoutLoading(false);
-    alert('تم تحديد التذكرة كـ "محلول" 🟢');
+    alert('تم تحديد التذكرة كـ "محلول"');
     await fetchAdminModuleData(); setSelectedTicketId(null);
   };
 
@@ -377,7 +377,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                   {[
                     { label: 'معدل الاكتمال', val: '94%',       color: 'var(--color-tertiary-container)' },
                     { label: 'متوسط التوصيل', val: '28 دقيقة',  color: 'var(--color-secondary)' },
-                    { label: 'تقييم المنصة',  val: '4.7 ⭐',   color: 'var(--color-primary-container)' },
+                    { label: 'تقييم المنصة',  val: '4.7',   color: 'var(--color-primary-container)' },
                   ].map(({ label, val, color }) => (
                     <div key={label} className="text-center">
                       <p className="text-label-md font-bold" style={{ color, textTransform: 'none' }}>{val}</p>

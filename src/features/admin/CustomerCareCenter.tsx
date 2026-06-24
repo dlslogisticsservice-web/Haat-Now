@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/Primitives';
+import { Star, Flag } from 'lucide-react';
 
 type CareTab = 'support' | 'moderation' | 'search';
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
@@ -88,7 +89,7 @@ const SupportPanel: React.FC = () => {
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div>
               <p className="font-bold">{t.subject} <Badge variant="secondary">{t.type}</Badge></p>
-              <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{new Date(t.created_at).toLocaleString('ar')}{t.sla_due_at && new Date(t.sla_due_at) < new Date() && t.status !== 'resolved' ? ' · ⚠️ تجاوز SLA' : ''}</p>
+              <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{new Date(t.created_at).toLocaleString('ar')}{t.sla_due_at && new Date(t.sla_due_at) < new Date() && t.status !== 'resolved' ? ' · تجاوز SLA' : ''}</p>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={t.status === 'resolved' || t.status === 'closed' ? 'success' : t.status === 'open' ? 'error' : 'secondary'}>{t.status}</Badge>
@@ -130,7 +131,10 @@ const ModerationPanel: React.FC = () => {
       {list.map(r => (
         <Card key={r.id} className="p-3 flex items-center justify-between gap-2">
           <div>
-            <p className="text-sm">{'⭐'.repeat(r.rating)} · {r.target_type}{r.is_reported ? ' · 🚩 مُبلّغ عنه' : ''}</p>
+            <p className="text-sm flex items-center gap-1 flex-wrap">
+              <span className="inline-flex">{Array.from({ length: r.rating }).map((_, i) => <Star key={i} size={13} fill="#fbbf24" color="#fbbf24" />)}</span>
+              · {r.target_type}{r.is_reported && <span className="inline-flex items-center gap-0.5" style={{ color: 'var(--color-error)' }}><Flag size={12} /> مُبلّغ عنه</span>}
+            </p>
             <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{r.comment ?? '—'}</p>
           </div>
           <div className="flex gap-2">
