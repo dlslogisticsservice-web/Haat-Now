@@ -19,6 +19,8 @@ export interface AddressWithZone {
   zone_id: string;
   address_line: string | null;
   label: string | null;
+  label_type?: 'home' | 'work' | 'custom' | null;
+  notes?: string | null;
   is_default: boolean;
   latitude?: number | null;
   longitude?: number | null;
@@ -76,7 +78,7 @@ export const customerService = {
 
   async createAddress(
     customerId: string,
-    payload: { label: string; address_line: string; zone_id: string; latitude?: number | null; longitude?: number | null },
+    payload: { label: string; address_line: string; zone_id: string; latitude?: number | null; longitude?: number | null; label_type?: string; notes?: string | null },
   ): Promise<{ data: AddressWithZone | null; error: any }> {
     // First address for a customer is automatically set as default
     const { count } = await supabase
@@ -95,7 +97,7 @@ export const customerService = {
 
   async updateAddress(
     addressId: string,
-    payload: Partial<{ label: string; address_line: string; zone_id: string; latitude: number | null; longitude: number | null }>,
+    payload: Partial<{ label: string; address_line: string; zone_id: string; latitude: number | null; longitude: number | null; label_type: string; notes: string | null }>,
   ): Promise<{ error: any }> {
     const { error } = await supabase
       .from('addresses')

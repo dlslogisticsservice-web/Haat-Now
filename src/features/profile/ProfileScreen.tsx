@@ -400,6 +400,8 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
   const [formCountryId, setFormCountryId] = useState('');
   const [formCityId,    setFormCityId]    = useState('');
   const [formZoneId,    setFormZoneId]    = useState('');
+  const [formLabelType, setFormLabelType] = useState<'home' | 'work' | 'custom'>('custom');
+  const [formNotes,     setFormNotes]     = useState('');
 
   useEffect(() => { loadProfile(); }, []);
   useEffect(() => {
@@ -475,7 +477,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
   const zonesForCity   = (cId: string) => zonesData.filter(z => z.city_id === cId);
   const availableZones = formCityId ? zonesForCity(formCityId) : hasHierarchy ? [] : zonesData;
 
-  const resetAddrForm  = () => { setFormLabel(''); setFormLine(''); setFormCountryId(''); setFormCityId(''); setFormZoneId(''); setAddrError(null); };
+  const resetAddrForm  = () => { setFormLabel(''); setFormLine(''); setFormCountryId(''); setFormCityId(''); setFormZoneId(''); setFormLabelType('custom'); setFormNotes(''); setAddrError(null); };
   const openAddForm    = () => { resetAddrForm(); setEditingAddrId(null); setShowAddForm(true); };
   const cancelAddrForm = () => { setShowAddForm(false); setEditingAddrId(null); resetAddrForm(); };
 
@@ -484,6 +486,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
     setFormCountryId(addr.zones?.cities?.countries?.id || '');
     setFormCityId(addr.zones?.cities?.id || '');
     setFormZoneId(addr.zone_id);
+    setFormLabelType(addr.label_type || 'custom'); setFormNotes(addr.notes || '');
     setAddrError(null); setEditingAddrId(addr.id); setShowAddForm(false);
   };
 
@@ -493,7 +496,8 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
     if (!formZoneId)       { setAddrError(T('يرجى اختيار الحي أو المنطقة','Please choose a district or area')); return; }
     setAddrSaving(true); setAddrError(null);
     try {
-      const payload = { label: formLabel.trim() || T('عنواني','My address'), address_line: formLine.trim(), zone_id: formZoneId };
+      const typeLabel = formLabelType === 'home' ? T('المنزل', 'Home') : formLabelType === 'work' ? T('العمل', 'Work') : (formLabel.trim() || T('عنواني', 'My address'));
+      const payload = { label: typeLabel, label_type: formLabelType, address_line: formLine.trim(), zone_id: formZoneId, notes: formNotes.trim() || null };
       if (editingAddrId) {
         const { error } = await customerService.updateAddress(editingAddrId, payload);
         if (error) { setAddrError(T('فشل تعديل العنوان. حاول مرة أخرى.','Failed to edit the address. Please try again.')); return; }
@@ -968,18 +972,33 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                     </div>
 
                     <div className="flex gap-2 flex-wrap">
-                      {['المنزل', 'العمل', 'موقع آخر'].map(l => (
-                        <button
-                          key={l} type="button" onClick={() => setFormLabel(formLabel === l ? '' : l)}
-                          className="px-3 py-1.5 rounded-full cursor-pointer transition-all"
-                          style={{
-                            background: formLabel === l ? 'rgba(163,249,91,0.12)' : 'rgba(255,255,255,0.04)',
-                            border: formLabel === l ? '1px solid rgba(163,249,91,0.35)' : '1px solid rgba(255,255,255,0.07)',
-                            color: formLabel === l ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)',
-                            fontSize: '12px', fontWeight: formLabel === l ? 600 : 400,
-                          }}
-                        >{l === 'المنزل' ? T('المنزل','Home') : l === 'العمل' ? T('العمل','Work') : T('موقع آخر','Other location')}</button>
-                      ))}
+                      {(['home', 'work', 'custom'] as const).map(lt => {
+                        const active = formLabelType === lt;
+                        return (
+                          <button
+                            key={lt} type="button" onClick={() => setFormLabelType(lt)}
+                            className="px-3 py-1.5 rounded-full cursor-pointer transition-all"
+                            style={{
+                              background: active ? 'rgba(163,249,91,0.12)' : 'rgba(255,255,255,0.04)',
+                              border: active ? '1px solid rgba(163,249,91,0.35)' : '1px solid rgba(255,255,255,0.07)',
+                              color: active ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)',
+                              fontSize: '12px', fontWeight: active ? 600 : 400,
+                            }}
+                          >{lt === 'home' ? T('المنزل','Home') : lt === 'work' ? T('العمل','Work') : T('موقع آخر','Other')}</button>
+                        );
+                      })}
+                    </div>
+
+                    {formLabelType === 'custom' && (
+                      <div className="field-group">
+                        <label style={LBL}>{T('اسم العنوان','Label')}</label>
+                        <input type="text" placeholder={T('مثال: منزل العائلة','e.g. Family home')} value={formLabel} onChange={e => setFormLabel(e.target.value)} className="profile-input" />
+                      </div>
+                    )}
+
+                    <div className="field-group">
+                      <label style={LBL}>{T('ملاحظات للمندوب (اختياري)','Notes for the driver (optional)')}</label>
+                      <input type="text" placeholder={T('مثال: الدور الثاني، بجوار المصعد','e.g. 2nd floor, next to the elevator')} value={formNotes} onChange={e => setFormNotes(e.target.value)} className="profile-input" />
                     </div>
 
                     {addrError && (
