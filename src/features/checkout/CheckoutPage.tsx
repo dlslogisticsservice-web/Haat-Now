@@ -123,9 +123,11 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           sessionStorage.removeItem('haat_payment_attempt_id');
           sessionStorage.removeItem('haat_pending_order_id');
           sessionStorage.removeItem('haat_pending_coupon_id');
-          // Record coupon usage now that payment is confirmed (moved from handlePlaceOrder)
+          // Record coupon usage now that payment is confirmed (moved from handlePlaceOrder).
+          // Atomic redeem_coupon RPC: increments used_count + records coupon_usages,
+          // race-safe, idempotent per order, enforces max_uses.
           if (pendingCoupon && orderId) {
-            await supabase.from('coupon_usages').insert({ coupon_id: pendingCoupon, order_id: orderId });
+            await checkoutService.redeemCoupon(pendingCoupon, orderId);
           }
           setCompletedOrderId(orderId ?? '');
           setPaymentStatus('idle');

@@ -33,6 +33,13 @@ export const checkoutService = {
     return { data, error: null };
   },
 
+  // Atomically record a coupon redemption: increments used_count + inserts coupon_usages
+  // (race-safe, idempotent per order, enforces max_uses) via the redeem_coupon RPC.
+  async redeemCoupon(couponId: string, orderId: string): Promise<{ error: any }> {
+    const { error } = await supabase.rpc('redeem_coupon', { p_coupon_id: couponId, p_order_id: orderId });
+    return { error };
+  },
+
   // Get active registered payment cards/wallets of customer
   async getPaymentMethods(customerId: string): Promise<{ data: PaymentMethod[]; error: any }> {
     const { data, error } = await supabase
