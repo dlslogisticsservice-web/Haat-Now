@@ -14,8 +14,9 @@ import { FinanceCenter } from './FinanceCenter';
 import { OperationsCommandCenter } from './OperationsCommandCenter';
 import { GrowthCenter } from './GrowthCenter';
 import { CustomerCareCenter } from './CustomerCareCenter';
+import { GrowthCenterB } from './GrowthCenterB';
 
-type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care';
+type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care' | 'growthb';
 
 const TABS: { id: OpsTab; label: string; icon: string }[] = [
   { id: 'command', label: 'غرفة العمليات', icon: '🗺️' },
@@ -28,6 +29,7 @@ const TABS: { id: OpsTab; label: string; icon: string }[] = [
   { id: 'finance', label: 'المركز المالي', icon: '💰' },
   { id: 'growth', label: 'محرّك النمو', icon: '🚀' },
   { id: 'care', label: 'رعاية العملاء', icon: '🎧' },
+  { id: 'growthb', label: 'إدارة النمو', icon: '📈' },
 ];
 
 const money = (n: number) => `${Number(n || 0).toFixed(2)}`;
@@ -59,6 +61,7 @@ export const OperationsCenter: React.FC = () => {
       {tab === 'finance' && <FinanceCenter />}
       {tab === 'growth' && <GrowthCenter />}
       {tab === 'care' && <CustomerCareCenter />}
+      {tab === 'growthb' && <GrowthCenterB />}
     </div>
   );
 };

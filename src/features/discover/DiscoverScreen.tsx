@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { cxService } from '../../services/cx.service';
+import { growthbService } from '../../services/growthb.service';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
 
-type DTab = 'search' | 'favorites' | 'support';
+type DTab = 'search' | 'favorites' | 'rewards' | 'support';
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
 
 /** Customer discovery + favorites + support hub. */
@@ -14,13 +15,14 @@ export const DiscoverScreen: React.FC<{ customerId: string; onOpenBranch?: (bran
   return (
     <div dir="rtl" className="min-h-screen px-5 py-6 space-y-4" id="discover_screen" style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }}>
       <div className="flex gap-2">
-        {([['search', 'بحث واكتشاف'], ['favorites', 'المفضّلة'], ['support', 'الدعم']] as const).map(([id, label]) => (
+        {([['search', 'بحث واكتشاف'], ['favorites', 'المفضّلة'], ['rewards', 'مكافآتي'], ['support', 'الدعم']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} className="px-3 py-1.5 rounded-xl text-sm font-bold cursor-pointer"
             style={tab === id ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' } : surface}>{label}</button>
         ))}
       </div>
       {tab === 'search' && <SearchTab customerId={customerId} onOpenBranch={onOpenBranch} />}
       {tab === 'favorites' && <FavoritesTab customerId={customerId} onOpenBranch={onOpenBranch} />}
+      {tab === 'rewards' && <RewardsTab customerId={customerId} />}
       {tab === 'support' && <SupportTab customerId={customerId} />}
     </div>
   );
@@ -86,6 +88,57 @@ const FavoritesTab: React.FC<{ customerId: string; onOpenBranch?: (id: string) =
           <Button size="sm" variant="secondary" onClick={() => remove(f.branch_id)}>إزالة</Button>
         </Card>
       ))}
+    </div>
+  );
+};
+
+const RewardsTab: React.FC<{ customerId: string }> = ({ customerId }) => {
+  const [points, setPoints] = useState(0);
+  const [tier, setTier] = useState<any>(null);
+  const [segment, setSegment] = useState<any>(null);
+  const [rewards, setRewards] = useState<any[]>([]);
+  const [promos, setPromos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const load = async () => {
+    setLoading(true);
+    const [p, t, { data: s }, { data: rw }, { data: pr }] = await Promise.all([
+      growthbService.myPoints(customerId), growthbService.myTier(customerId), growthbService.mySegment(customerId),
+      growthbService.rewards(), growthbService.activePromotions(),
+    ]);
+    setPoints(p); setTier(t); setSegment(s); setRewards(rw); setPromos(pr); setLoading(false);
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [customerId]);
+  const redeem = async (rewardId: string, cost: number) => {
+    if (points < cost) return alert('نقاطك غير كافية.');
+    setBusy(true); const { data, error } = await growthbService.redeemReward(customerId, rewardId); setBusy(false);
+    if (error) return alert(error.message);
+    alert(`تم الاستبدال! ${data?.reward === 'wallet_credit' ? `أُضيف ${data.value} ريال لمحفظتك.` : 'تم تفعيل المكافأة.'}`);
+    await load();
+  };
+  if (loading) return <div className="py-10 flex justify-center"><Loader size={28} /></div>;
+  return (
+    <div className="space-y-4">
+      <Card className="p-4 flex items-center justify-between">
+        <div><p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>نقاطي</p><p className="text-headline-sm font-bold" style={{ color: 'var(--color-lime-vb, #9ed442)' }}>{points}</p></div>
+        <div className="text-center"><p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>المستوى</p><Badge variant="success">{tier?.name ?? 'Bronze'}</Badge></div>
+        {segment && <div className="text-center"><p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>الحالة</p><Badge variant="secondary">{segment.segment}</Badge></div>}
+      </Card>
+      <div>
+        <p className="font-bold text-sm mb-2">المكافآت المتاحة</p>
+        {rewards.length === 0 ? <EmptyState title="لا مكافآت" /> : rewards.map(r => (
+          <Card key={r.id} className="p-3 flex items-center justify-between mb-2">
+            <span className="text-sm">{r.name} · {r.points_cost} نقطة</span>
+            <Button size="sm" loading={busy} disabled={points < r.points_cost} onClick={() => redeem(r.id, r.points_cost)}>استبدال</Button>
+          </Card>
+        ))}
+      </div>
+      {promos.length > 0 && (
+        <div>
+          <p className="font-bold text-sm mb-2">العروض النشطة</p>
+          {promos.map(p => <Card key={p.id} className="p-3 mb-2"><span className="text-sm">🔥 {p.name} · {p.type}</span></Card>)}
+        </div>
+      )}
     </div>
   );
 };

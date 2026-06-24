@@ -112,4 +112,57 @@ export const growthbService = {
     if (!data) return null;
     return { title: lang === 'ar' ? data.title_ar : data.title_en, body: lang === 'ar' ? data.body_ar : data.body_en };
   },
+
+  // ── UI helper reads/CRUD (Supabase only — no schema change) ──────────────────
+  async deleteCoupon(id: string): Promise<{ error: any }> {
+    const { error } = await supabase.from('coupons').delete().eq('id', id); return { error };
+  },
+  async updateCoupon(id: string, patch: any): Promise<{ error: any }> {
+    const { error } = await supabase.from('coupons').update(patch).eq('id', id); return { error };
+  },
+  async tiers(): Promise<{ data: any[]; error: any }> {
+    const { data, error } = await supabase.from('loyalty_tiers').select('*').order('level', { ascending: true });
+    return { data: data || [], error };
+  },
+  async createReward(r: any): Promise<{ error: any }> {
+    const { error } = await supabase.from('loyalty_rewards').insert(r); return { error };
+  },
+  async toggleReward(id: string, isActive: boolean): Promise<{ error: any }> {
+    const { error } = await supabase.from('loyalty_rewards').update({ is_active: isActive }).eq('id', id); return { error };
+  },
+  async allRewards(): Promise<{ data: any[]; error: any }> {
+    const { data, error } = await supabase.from('loyalty_rewards').select('*').order('points_cost', { ascending: true });
+    return { data: data || [], error };
+  },
+  async listBanners(): Promise<{ data: any[]; error: any }> {
+    const { data, error } = await supabase.from('banners').select('*').order('priority', { ascending: false });
+    return { data: data || [], error };
+  },
+  async createBanner(b: any): Promise<{ error: any }> {
+    const { error } = await supabase.from('banners').insert(b); return { error };
+  },
+  async toggleBanner(id: string, isActive: boolean): Promise<{ error: any }> {
+    const { error } = await supabase.from('banners').update({ is_active: isActive }).eq('id', id); return { error };
+  },
+  async togglePromotion(id: string, isActive: boolean): Promise<{ error: any }> {
+    const { error } = await supabase.from('promotions').update({ is_active: isActive }).eq('id', id); return { error };
+  },
+  async listCampaigns(): Promise<{ data: any[]; error: any }> {
+    const { data, error } = await supabase.from('message_campaigns').select('*').order('created_at', { ascending: false }).limit(50);
+    return { data: data || [], error };
+  },
+  async segmentCounts(): Promise<Record<string, number>> {
+    const a = await this.analytics();
+    return (a?.segments as Record<string, number>) ?? {};
+  },
+
+  // ── customer self-view ──────────────────────────────────────────────────────
+  async myPoints(customerId: string): Promise<number> {
+    const { data } = await supabase.rpc('loyalty_balance', { p_customer_id: customerId });
+    return Number(data ?? 0);
+  },
+  async myTier(customerId: string): Promise<any> {
+    const { data } = await supabase.rpc('resolve_loyalty_tier', { p_customer: customerId });
+    return Array.isArray(data) ? data[0] : data;
+  },
 };
