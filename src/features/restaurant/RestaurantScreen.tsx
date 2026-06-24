@@ -4,6 +4,7 @@ import { Heart, ChevronLeft, Star, Loader2, UtensilsCrossed, Plus, X, ShoppingCa
 import { resolveCategory, getCategoryCover, getProductFallback } from '../../utils/categoryImages';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useTranslation } from 'react-i18next';
+import { cxService } from '../../services/cx.service';
 
 interface Product {
   id: string;
@@ -53,28 +54,28 @@ export const RestaurantScreen = ({
   const [selectedVariant, setSelectedVariant] = useState<any | null>(null);
   const [activeTab,       setActiveTab]       = useState(TABS[0]);
   const [favorite,        setFavorite]        = useState(false);
+  const [favProductIds,   setFavProductIds]   = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!customerId) return;
-    try {
-      const key = `haat_fav_branches_${customerId}`;
-      const stored: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-      setFavorite(stored.includes(branchId));
-    } catch { /* silent */ }
+    cxService.favoriteBranches(customerId).then(({ data }) => setFavorite(data.some((f: any) => f.branch_id === branchId)));
+    cxService.favoriteProductIds(customerId).then(ids => setFavProductIds(new Set(ids)));
   }, [branchId, customerId]);
 
-  const toggleFavorite = () => {
-    const next = !favorite;
-    setFavorite(next);
+  // Favorite merchant (DB-backed)
+  const toggleFavorite = async () => {
     if (!customerId) return;
-    try {
-      const key = `haat_fav_branches_${customerId}`;
-      const stored: string[] = JSON.parse(localStorage.getItem(key) || '[]');
-      const updated = next
-        ? [...new Set([...stored, branchId])]
-        : stored.filter(id => id !== branchId);
-      localStorage.setItem(key, JSON.stringify(updated));
-    } catch { /* silent */ }
+    const prev = favorite; setFavorite(!prev);
+    const { active, error } = await cxService.toggleFavoriteBranch(customerId, branchId);
+    if (error) setFavorite(prev); else setFavorite(active);
+  };
+
+  // Favorite product (DB-backed)
+  const toggleFavProduct = async (productId: string) => {
+    if (!customerId) return;
+    const { active, error } = await cxService.toggleFavoriteProduct(customerId, productId);
+    if (error) return;
+    setFavProductIds(prev => { const n = new Set(prev); if (active) n.add(productId); else n.delete(productId); return n; });
   };
 
   useEffect(() => { fetchBranchMenu(); }, [branchId]);
@@ -303,6 +304,13 @@ export const RestaurantScreen = ({
                     </span>
                     {qty > 0 && (
                       <span className="absolute top-1.5 end-1.5 w-6 h-6 rounded-full flex items-center justify-center font-bold" style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontSize: '11px' }} id={`qty_badge_${product.id}`}>{qty}</span>
+                    )}
+                    {customerId && (
+                      <button onClick={(e) => { e.stopPropagation(); toggleFavProduct(product.id); }}
+                        className="absolute bottom-1.5 end-1.5 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer" id={`fav_btn_${product.id}`}
+                        style={{ background: 'rgba(8,12,16,0.72)', backdropFilter: 'blur(8px)' }} aria-label="favorite">
+                        <Heart size={14} color={favProductIds.has(product.id) ? '#ff5a7a' : 'white'} fill={favProductIds.has(product.id) ? '#ff5a7a' : 'none'} strokeWidth={2} />
+                      </button>
                     )}
                   </div>
                   <div className="p-2.5 text-right">
