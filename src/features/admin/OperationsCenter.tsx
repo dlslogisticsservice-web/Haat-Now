@@ -11,10 +11,12 @@ import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
 import { KycCenter } from './KycCenter';
 import { FinanceCenter } from './FinanceCenter';
+import { OperationsCommandCenter } from './OperationsCommandCenter';
 
-type OpsTab = 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance';
+type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance';
 
 const TABS: { id: OpsTab; label: string; icon: string }[] = [
+  { id: 'command', label: 'غرفة العمليات', icon: '🗺️' },
   { id: 'dispatch', label: 'مركز الإرسال', icon: '🛰️' },
   { id: 'zones', label: 'مناطق التوصيل', icon: '🗺️' },
   { id: 'vehicles', label: 'المركبات', icon: '🛵' },
@@ -43,6 +45,7 @@ export const OperationsCenter: React.FC = () => {
           </button>
         ))}
       </div>
+      {tab === 'command' && <OperationsCommandCenter />}
       {tab === 'dispatch' && <DispatchPanel />}
       {tab === 'zones' && <ZonesPanel />}
       {tab === 'vehicles' && <VehiclesPanel />}
