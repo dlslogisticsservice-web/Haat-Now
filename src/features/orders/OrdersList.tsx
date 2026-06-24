@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { orderService } from '../../services/order.service';
 import { productService } from '../../services/product.service';
 import { OrderTrackingMap } from './OrderTrackingMap';
+import { MultiTargetReview } from './MultiTargetReview';
 import { cxService } from '../../services/cx.service';
 import { cartService } from '../../services/cart.service';
 import { sandboxStore } from '../../services/sandboxStore';
@@ -569,10 +570,13 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
         </button>
       )}
 
-      {/* ════════════════════════════════════════════
-          RATE YOUR ORDER (delivered)
-      ════════════════════════════════════════════ */}
+      {/* Multi-target reviews (delivered): rate merchant, driver, products separately */}
       {orderDetails.status === 'delivered' && (
+        <MultiTargetReview orderId={selectedOrderId} customerId={customerId} branchId={orderDetails.branch_id} driverId={orderDetails.driver_id} />
+      )}
+
+      {/* (legacy single rating card — superseded by MultiTargetReview) */}
+      {false && orderDetails.status === 'delivered' && (
         <div className="glass rounded-2xl p-5 mt-4" id="rating_card">
           <h3 style={{ color: 'white', fontSize: '15px', fontWeight: 700, marginBottom: '12px' }}>
             {ratingDone ? t('orders.thanksRating') : t('orders.howWasExperience')}
