@@ -13,8 +13,9 @@ import { KycCenter } from './KycCenter';
 import { FinanceCenter } from './FinanceCenter';
 import { OperationsCommandCenter } from './OperationsCommandCenter';
 import { GrowthCenter } from './GrowthCenter';
+import { CustomerCareCenter } from './CustomerCareCenter';
 
-type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth';
+type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care';
 
 const TABS: { id: OpsTab; label: string; icon: string }[] = [
   { id: 'command', label: 'غرفة العمليات', icon: '🗺️' },
@@ -26,6 +27,7 @@ const TABS: { id: OpsTab; label: string; icon: string }[] = [
   { id: 'kyc', label: 'التحقق والامتثال', icon: '🛡️' },
   { id: 'finance', label: 'المركز المالي', icon: '💰' },
   { id: 'growth', label: 'محرّك النمو', icon: '🚀' },
+  { id: 'care', label: 'رعاية العملاء', icon: '🎧' },
 ];
 
 const money = (n: number) => `${Number(n || 0).toFixed(2)}`;
@@ -56,6 +58,7 @@ export const OperationsCenter: React.FC = () => {
       {tab === 'kyc' && <KycCenter />}
       {tab === 'finance' && <FinanceCenter />}
       {tab === 'growth' && <GrowthCenter />}
+      {tab === 'care' && <CustomerCareCenter />}
     </div>
   );
 };

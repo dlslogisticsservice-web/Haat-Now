@@ -12,6 +12,7 @@ const CheckoutPage = React.lazy(() => import('./features/checkout/CheckoutPage')
 const OrdersList = React.lazy(() => import('./features/orders/OrdersList').then(m => ({ default: m.OrdersList })));
 const WalletScreen = React.lazy(() => import('./features/wallet/WalletScreen').then(m => ({ default: m.WalletScreen })));
 const ProfileScreen = React.lazy(() => import('./features/profile/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
+const DiscoverScreen = React.lazy(() => import('./features/discover/DiscoverScreen').then(m => ({ default: m.DiscoverScreen })));
 // Role-gated portals are lazy-loaded — customers never download admin/merchant/driver
 // code (this keeps the Design Center / Experience Builder / Lottie out of the initial bundle).
 const MerchantApp = React.lazy(() => import('./features/merchant/MerchantApp').then(m => ({ default: m.MerchantApp })));
@@ -29,7 +30,7 @@ import { ExperienceSplash, ExperienceOnboarding, ExperienceLogin } from './exper
 import {
   Loader2, ShoppingBag, Bell, Home, ScrollText, ShoppingCart,
   Wallet, User, MessageCircle, Crown, X, ChevronRight, LogOut,
-  MapPin, ChevronDown, BellOff,
+  MapPin, ChevronDown, BellOff, Search,
 } from 'lucide-react';
 
 interface CartItem {
@@ -80,7 +81,7 @@ export default function App() {
   const [sessionValidating, setSessionValidating] = useState(true);
 
   // ── Navigation ──────────────────────────────────────────────────
-  const [currentScreen, setCurrentScreen] = useState<'home' | 'restaurant' | 'checkout' | 'orders' | 'wallet' | 'profile'>('home');
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'restaurant' | 'checkout' | 'orders' | 'wallet' | 'profile' | 'discover'>('home');
   const [selectedBranchId,     setSelectedBranchId]     = useState<string>('');
   const [selectedBranchName,   setSelectedBranchName]   = useState<string>('');
   const [selectedTrackingOrderId, setSelectedTrackingOrderId] = useState<string | undefined>(undefined);
@@ -399,6 +400,7 @@ export default function App() {
           {/* ── Full-screen portals ───────────────────────────────── */}
           {currentScreen === 'wallet'  && <WalletScreen customerId={session.id} />}
           {currentScreen === 'profile' && <ProfileScreen session={session} onLogout={handleLogout} />}
+          {currentScreen === 'discover' && <DiscoverScreen customerId={session.id} onOpenBranch={(bId) => { setSelectedBranchId(bId); setSelectedBranchName(''); setCurrentScreen('restaurant'); }} />}
           </React.Suspense>
 
           {/* ── Bottom Navigation ────────────────────────────────── */}
@@ -415,6 +417,20 @@ export default function App() {
                       <Home size={22} color={isActive ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)'} strokeWidth={isActive ? 2.5 : 1.75} />
                     </span>
                     <span className="nav-item__label" style={{ color: isActive ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)' }}>{t('nav.home')}</span>
+                  </button>
+                );
+              })()}
+
+              {/* Discover */}
+              {(() => {
+                const isActive = currentScreen === 'discover';
+                return (
+                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => setCurrentScreen('discover')} id="nav_discover" aria-label="discover">
+                    <span className="nav-item__indicator" />
+                    <span className="nav-item__icon-wrap">
+                      <Search size={22} color={isActive ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)'} strokeWidth={isActive ? 2.5 : 1.75} />
+                    </span>
+                    <span className="nav-item__label" style={{ color: isActive ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)' }}>{lang === 'ar' ? 'اكتشف' : 'Discover'}</span>
                   </button>
                 );
               })()}
