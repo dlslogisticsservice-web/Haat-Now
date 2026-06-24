@@ -9,8 +9,9 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
+import { KycCenter } from './KycCenter';
 
-type OpsTab = 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts';
+type OpsTab = 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc';
 
 const TABS: { id: OpsTab; label: string; icon: string }[] = [
   { id: 'dispatch', label: 'مركز الإرسال', icon: '🛰️' },
@@ -18,6 +19,7 @@ const TABS: { id: OpsTab; label: string; icon: string }[] = [
   { id: 'vehicles', label: 'المركبات', icon: '🛵' },
   { id: 'performance', label: 'أداء المندوبين', icon: '📊' },
   { id: 'payouts', label: 'المدفوعات', icon: '💸' },
+  { id: 'kyc', label: 'التحقق والامتثال', icon: '🛡️' },
 ];
 
 const money = (n: number) => `${Number(n || 0).toFixed(2)}`;
@@ -44,6 +46,7 @@ export const OperationsCenter: React.FC = () => {
       {tab === 'vehicles' && <VehiclesPanel />}
       {tab === 'performance' && <PerformancePanel />}
       {tab === 'payouts' && <PayoutsPanel />}
+      {tab === 'kyc' && <KycCenter />}
     </div>
   );
 };

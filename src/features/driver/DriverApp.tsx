@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
 import { DriverOpsPanel } from './DriverOpsPanel';
+import { OnboardingForm } from '../onboarding/OnboardingForm';
 
 // ── Types (unchanged) ─────────────────────────────────────────
 interface ActiveOrder {
@@ -215,11 +216,8 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   }
 
   if (!driverProfile) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-4" id="driver_not_registered">
-        <p className="text-body-md text-[var(--color-on-surface-variant)]">لم يتم تسجيلك كسائق. يرجى التواصل مع الإدارة.</p>
-      </div>
-    );
+    // Not yet a driver → self-registration + KYC onboarding flow.
+    return <OnboardingForm entityType="driver" />;
   }
 
   return (
