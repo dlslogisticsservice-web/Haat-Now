@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/Primitives';
 
-type CareTab = 'support' | 'moderation';
+type CareTab = 'support' | 'moderation' | 'search';
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
 
 export const CustomerCareCenter: React.FC = () => {
@@ -13,13 +13,36 @@ export const CustomerCareCenter: React.FC = () => {
   return (
     <div id="customer_care" dir="rtl" className="space-y-4">
       <div className="flex gap-2">
-        {([['support', 'الدعم وSLA'], ['moderation', 'مراجعة التقييمات']] as const).map(([id, label]) => (
+        {([['support', 'الدعم وSLA'], ['moderation', 'مراجعة التقييمات'], ['search', 'تحليلات البحث']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} className="px-3 py-1.5 rounded-xl text-sm font-bold cursor-pointer"
             style={tab === id ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' } : surface}>{label}</button>
         ))}
       </div>
       {tab === 'support' && <SupportPanel />}
       {tab === 'moderation' && <ModerationPanel />}
+      {tab === 'search' && <SearchAnalyticsPanel />}
+    </div>
+  );
+};
+
+const SearchAnalyticsPanel: React.FC = () => {
+  const [stats, setStats] = useState<{ top_terms: any[]; zero_result: any[] }>({ top_terms: [], zero_result: [] });
+  useEffect(() => { cxService.searchTermStats().then(setStats); }, []);
+  const col = (title: string, rows: any[], emptyTitle: string, accent?: string) => (
+    <Card className="p-4">
+      <p className="font-bold mb-2">{title}</p>
+      {rows.length === 0 ? <EmptyState title={emptyTitle} /> : rows.map((r, i) => (
+        <div key={i} className="flex items-center justify-between text-sm py-1 border-b last:border-0" style={{ borderColor: 'var(--color-outline-variant)' }}>
+          <span style={accent ? { color: accent } : {}}>{r.term}</span>
+          <Badge variant="secondary">{r.searches} بحث</Badge>
+        </div>
+      ))}
+    </Card>
+  );
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {col('الأكثر بحثًا', stats.top_terms, 'لا بيانات بحث بعد')}
+      {col('بحث بلا نتائج', stats.zero_result, 'لا توجد عمليات بحث فاشلة', 'var(--color-error)')}
     </div>
   );
 };

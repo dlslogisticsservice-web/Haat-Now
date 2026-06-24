@@ -2,6 +2,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { orderService } from '../../services/order.service';
 import { productService } from '../../services/product.service';
+import { OrderTrackingMap } from './OrderTrackingMap';
+import { cxService } from '../../services/cx.service';
+import { cartService } from '../../services/cart.service';
 import { sandboxStore } from '../../services/sandboxStore';
 import { trackingService } from '../../services/tracking.service';
 import { calculateDistanceKm, calculateEtaMinutes } from '../../services/location.service';
@@ -117,6 +120,28 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   const [loading,         setLoading]         = useState(true);
   const [detailsLoading,  setDetailsLoading]  = useState(false);
   const [courierProgress, setCourierProgress] = useState(0);
+  const [reordering, setReordering] = useState(false);
+
+  // One-click reorder: clone a previous order's items into the cart (missing/out-of-stock skipped).
+  const handleReorder = async (orderId: string) => {
+    setReordering(true);
+    try {
+      const { data: items } = await cxService.reorderItems(orderId);
+      if (!items.length) { alert('لا توجد أصناف لإعادة الطلب.'); return; }
+      cartService.clearCart();
+      let added = 0, skipped = 0;
+      for (const it of items) {
+        const { data: product } = await productService.getProductDetails(it.product_id);
+        if (!product || (product as any).is_active === false) { skipped++; continue; }
+        if (typeof product.stock === 'number' && product.stock <= 0) { skipped++; continue; } // out of stock
+        const variant = ((product as any).product_variants || []).find((v: any) => v.id === it.variant_id) || null;
+        try { cartService.addToCart(product, variant, it.quantity); added++; } catch { skipped++; }
+      }
+      alert(added > 0
+        ? `تمت إضافة ${added} صنف إلى السلة${skipped ? ` · تم تخطّي ${skipped} (غير متوفّر)` : ''} 🟢`
+        : 'تعذّر إعادة الطلب — الأصناف غير متوفّرة حاليًا.');
+    } finally { setReordering(false); }
+  };
   const [riderLoc,        setRiderLoc]        = useState<{ lat: number; lng: number } | null>(null);
   const canvasRef           = useRef<HTMLCanvasElement | null>(null);
   const containerRef        = useRef<HTMLDivElement | null>(null);
@@ -529,6 +554,20 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
           <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${courierProgress * 100}%`, background: 'var(--color-primary-fixed)', boxShadow: '0 0 8px rgba(163,249,91,0.5)' }} />
         </div>
       </div>
+
+      {/* Live tracking map (in-progress orders) */}
+      {['accepted', 'preparing', 'on_the_way'].includes(orderDetails.status) && (
+        <OrderTrackingMap orderId={selectedOrderId} />
+      )}
+
+      {/* Reorder (delivered) */}
+      {orderDetails.status === 'delivered' && (
+        <button onClick={() => handleReorder(selectedOrderId)} disabled={reordering}
+          className="w-full mt-4 h-12 rounded-2xl font-bold cursor-pointer flex items-center justify-center gap-2"
+          style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', opacity: reordering ? 0.6 : 1 }} id="reorder_btn">
+          {reordering ? '...جارٍ الإضافة' : '🔁 إعادة الطلب'}
+        </button>
+      )}
 
       {/* ════════════════════════════════════════════
           RATE YOUR ORDER (delivered)
