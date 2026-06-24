@@ -11,6 +11,7 @@ import { Card, StatCard } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
+import { DriverOpsPanel } from './DriverOpsPanel';
 
 // ── Types (unchanged) ─────────────────────────────────────────
 interface ActiveOrder {
@@ -297,6 +298,9 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         <StatCard label="مكتملة"   value={completedCount}                   icon={<Icon name="task_alt"    size={16} fill={1} />} accentColor="var(--color-tertiary-container)" />
         <StatCard label="الأرباح"  value={money(totalEarned)} icon={<Icon name="payments"    size={16} fill={1} />} accentColor="var(--color-neon)" />
       </div>
+
+      {/* ── Operations: shift / dispatch offers / wallet ──────── */}
+      <DriverOpsPanel driverId={driverId} />
 
       {/* ── Main Grid ─────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="driver_app_grids">
