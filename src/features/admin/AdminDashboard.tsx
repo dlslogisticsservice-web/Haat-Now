@@ -20,7 +20,9 @@ const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' && import.meta.env.
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 import { DesignCenter } from './DesignCenter';
 import { CampaignCenter } from './CampaignCenter';
-import { OperationsCenter } from './OperationsCenter';
+import { OperationsCenter, OpsTab } from './OperationsCenter';
+import { AdminSidebar, NavKey } from './AdminSidebar';
+import { AdminDashboardHome } from './AdminDashboardHome';
 
 // ── Types (unchanged) ─────────────────────────────────────────
 interface Ticket {
@@ -70,6 +72,12 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [loading,           setLoading]           = useState(true);
   const [payoutLoading,     setPayoutLoading]     = useState(false);
   const [activeTab,         setActiveTab]         = useState<AdminTab>('kpi');
+  const [opsTab,            setOpsTab]            = useState<OpsTab>('command');
+  const activeNav: NavKey = activeTab === 'ops' ? (`ops:${opsTab}` as NavKey) : (activeTab as NavKey);
+  const handleNav = (k: NavKey) => {
+    if (k.startsWith('ops:')) { setActiveTab('ops'); setOpsTab(k.slice(4) as OpsTab); }
+    else setActiveTab(k as AdminTab);
+  };
   // ── Coupon administration ──
   const [coupons,           setCoupons]           = useState<SbCoupon[]>([]);
   const [cForm,             setCForm]             = useState({ code: '', discount: '15', maxUses: '100', expires: '2026-12-31', country: '' });
@@ -197,264 +205,53 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   return (
     <div className="flex min-h-screen" id="admin_dashboard_full">
 
-      {/* ── Enterprise Sidebar ──────────────────────────────── */}
-      <EnterpriseSidebar
-        sections={navSections.map(s => ({
-          ...s,
-          items: s.items.map(item => ({
-            ...item,
-            badge: item.id === 'support' && tickets.filter(t => t.status === 'open').length > 0
-              ? tickets.filter(t => t.status === 'open').length : undefined,
-          })),
-        }))}
-        activeId={activeTab}
-        onSelect={(id) => setActiveTab(id as AdminTab)}
-        brandName="HAAT NOW"
-        brandSubtitle="لوحة الإدارة"
-        userInfo={{ name: 'مشغّل النظام', role: 'Super Admin' }}
+      {/* ── Enterprise grouped sidebar ──────────────────────── */}
+      <AdminSidebar
+        active={activeNav}
+        onSelect={handleNav}
+        lang={lang}
+        isSuper={isSuper}
+        supportBadge={tickets.filter(t => t.status === 'open').length || undefined}
+        onLogout={onLogout}
+        onToggleLang={toggleLang}
+        onRefresh={fetchAdminModuleData}
       />
 
       {/* ── Main Content ───────────────────────────────────── */}
       <main
-        className="flex-1 min-h-screen overflow-y-auto px-6 pb-6 md:px-8 md:pb-8 space-y-6 md:ms-[280px]"
+        className="flex-1 min-h-screen overflow-y-auto px-5 pb-6 md:px-8 md:pb-8 space-y-6 md:ms-[260px]"
         style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }}
         id="admin_main_content"
       >
         {/* ── Header ──────────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-3" id="admin_title_card">
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={onLogout}
-              id="admin_logout_btn"
-              leftIcon={<Icon name="logout" size={16} />}
-            >
-              تسجيل الخروج
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleLang}
-              id="admin_lang_btn"
-              leftIcon={<Icon name="language" size={16} />}
-            >
-              {lang === 'ar' ? 'EN' : 'ع'}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={fetchAdminModuleData}
-              id="admin_refresh_btn"
-              leftIcon={<Icon name="refresh" size={16} />}
-            >
-              تحديث
-            </Button>
+        {/* Mobile topbar */}
+        <div className="md:hidden flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-primary-fixed)' }}><Icon name="dashboard" size={16} className="text-[var(--color-on-primary-fixed)]" /></span>
+            <span className="font-extrabold text-sm" style={{ color: 'var(--color-on-surface)' }}>HAAT NOW</span>
           </div>
-          <div className="text-end hidden sm:block">
-            <div className="flex items-center gap-2.5 justify-end">
-              <h1 className="text-headline-lg-mobile font-bold text-[var(--color-on-surface)]">
-                لوحة تحكم الإدارة
-              </h1>
-              <Icon name="admin_panel_settings" size={24} className="text-[var(--color-primary-container)]" fill={1} />
-            </div>
-            <p className="text-body-md text-[var(--color-on-surface-variant)] mt-0.5">
-              إدارة الرسوم والمتغيرات وتذاكر الدعم
-            </p>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" onClick={toggleLang} leftIcon={<Icon name="language" size={16} />}>{lang === 'ar' ? 'EN' : 'ع'}</Button>
+            <Button variant="danger" size="sm" onClick={onLogout} leftIcon={<Icon name="logout" size={16} />}>{lang === 'ar' ? '' : ''}</Button>
           </div>
         </div>
-
-        {/* ── Mobile tab navigation (sidebar is desktop-only) ── */}
-        <div className="md:hidden flex gap-2 flex-wrap" id="admin_mobile_tabs">
-          {navSections[0].items.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                id={`admin_mtab_${item.id}`}
-                onClick={() => setActiveTab(item.id as AdminTab)}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-[var(--radius-lg)] text-label-md font-medium transition-all cursor-pointer"
-                style={{
-                  background: isActive ? 'var(--color-secondary-container)' : 'rgba(255,255,255,0.04)',
-                  color: isActive ? 'var(--color-on-secondary-container)' : 'var(--color-on-surface-variant)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                }}
-              >
-                <Icon name={item.icon} size={16} fill={isActive ? 1 : 0} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
+        {/* Mobile nav strip */}
+        <div className="md:hidden flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          {(([['kpi','لوحة','Home'],['ops:command','عمليات','Ops'],['ops:finance','مالية','Finance'],['ops:care','رعاية','Care'],['ops:growthb','تسويق','Growth'],['coupons','كوبونات','Coupons'],['support','دعم','Support'],['config','إعدادات','Settings']]) as [NavKey,string,string][]).map(([k,ar,en]) => (
+            <button key={k} onClick={() => handleNav(k)} className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer" style={activeNav===k?{background:'var(--color-primary-fixed)',color:'var(--color-on-primary-fixed)'}:{background:'var(--color-surface-container-high)',color:'var(--color-on-surface-variant)'}}>{lang==='ar'?ar:en}</button>
+          ))}
         </div>
 
-        {/* ═══════════════════════════════════════════════════ */}
-        {/* TAB: KPI ANALYTICS                                 */}
-        {/* ═══════════════════════════════════════════════════ */}
+        {/* TAB: Executive Dashboard */}
         {activeTab === 'kpi' && (
-          <div className="space-y-5" id="admin_kpis_tab">
-
-            {/* Platform Health Hero */}
-            <div
-              className="surface-z4 rounded-[var(--radius-sheet)] p-6 flex items-center justify-between"
-              id="admin_platform_health_hero"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: 'var(--color-lime-vb, #9ed442)', boxShadow: '0 0 10px rgba(158,212,66,0.6)' }} />
-                <div>
-                  <p className="text-label-sm font-semibold" style={{ color: 'var(--color-lime-vb, #9ed442)', textTransform: 'none' }}>المنصة تعمل بكامل طاقتها</p>
-                  <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>Supabase · Sandbox Mode</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-6 text-center">
-                <div>
-                  <p className="text-headline-sm font-bold" style={{ color: 'var(--color-t2, #f2f4f6)' }}>{analytics.totalMerchants}</p>
-                  <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>تاجر</p>
-                </div>
-                <div>
-                  <p className="text-headline-sm font-bold" style={{ color: 'var(--color-t2, #f2f4f6)' }}>{analytics.totalOrders}</p>
-                  <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>طلب</p>
-                </div>
-                <div>
-                  <p className="text-headline-sm font-bold" style={{ color: 'var(--color-t2, #f2f4f6)' }}>{analytics.totalDrivers}</p>
-                  <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>سائق</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Expanded analytics */}
-            {(() => {
-              const a = platformStats;
-              const cards = [
-                { label: 'إجمالي الإيرادات', val: `${a.revenue} ${cur}`, color: 'var(--color-primary-container)' },
-                { label: 'طلبات مكتملة', val: a.delivered, color: '#4ade80' },
-                { label: 'متوسط قيمة الطلب', val: `${a.avgOrder} ${cur}`, color: 'var(--color-t2, #f2f4f6)' },
-                { label: 'طلبات نشطة', val: a.activeOrders, color: '#fbbf24' },
-                { label: 'طلبات ملغاة', val: a.cancelled, color: '#f87171' },
-              ];
-              return (
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3" id="admin_expanded_analytics">
-                  {cards.map(c => (
-                    <Card key={c.label} variant="z2" radius="xl" padding="p-4">
-                      <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1" style={{ textTransform: 'none' }}>{c.label}</p>
-                      <p className="text-title-lg font-bold" style={{ color: c.color }}>{c.val}</p>
-                    </Card>
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* ── ASYMMETRIC KPI AREA: dominant orders (col-7) + stacked metrics (col-5) ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5" id="admin_kpis_grid">
-
-              {/* DOMINANT: Total orders with trend visualization */}
-              <Card variant="z3" radius="xl" padding="p-6" className="lg:col-span-7 space-y-5">
-                <div className="flex items-start justify-between">
-                  <Icon name="receipt_long" size={20} className="text-[var(--color-secondary)]" fill={1} />
-                  <div className="text-end">
-                    <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>إجمالي نشاط المنصة</p>
-                    <p className="text-display-md font-bold leading-none mt-1" style={{ color: 'var(--color-t2, #f2f4f6)' }}>{analytics.totalOrders}</p>
-                    <p className="text-label-sm mt-0.5" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>إجمالي الطلبات</p>
-                  </div>
-                </div>
-
-                {/* Trend bars visualization */}
-                <div>
-                  <p className="text-label-sm mb-2 text-end" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>نشاط المنصة (7 أيام)</p>
-                  <div className="flex items-end gap-1.5 h-16">
-                    {[35, 55, 40, 80, 60, 90, Math.min(100, analytics.totalOrders * 5 + 20)].map((h, i) => (
-                      <div key={i} className="flex-1 rounded-sm transition-all" style={{ height: `${h}%`, background: i === 6 ? 'rgba(158,212,66,0.55)' : 'rgba(255,255,255,0.08)' }} />
-                    ))}
-                  </div>
-                  <div className="flex justify-between mt-1">
-                    {['أحد','اث','ثلا','أرب','خم','جم','اليوم'].map(d => (
-                      <span key={d} style={{ fontSize: '9px', color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{d}</span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Supporting metrics row */}
-                <div className="grid grid-cols-3 gap-4 border-t border-[rgba(255,255,255,0.06)] pt-4">
-                  {[
-                    { label: 'معدل الاكتمال', val: '94%',       color: 'var(--color-tertiary-container)' },
-                    { label: 'متوسط التوصيل', val: '28 دقيقة',  color: 'var(--color-secondary)' },
-                    { label: 'تقييم المنصة',  val: '4.7',   color: 'var(--color-primary-container)' },
-                  ].map(({ label, val, color }) => (
-                    <div key={label} className="text-center">
-                      <p className="text-label-md font-bold" style={{ color, textTransform: 'none' }}>{val}</p>
-                      <p className="text-label-sm mt-0.5" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{label}</p>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-
-              {/* SECONDARY: Merchants + Drivers stacked */}
-              <div className="lg:col-span-5 space-y-3">
-                <StatCard
-                  label="الشركاء التجاريون"
-                  value={analytics.totalMerchants}
-                  icon={<Icon name="storefront" size={18} fill={1} />}
-                  accentColor="var(--color-primary-container)"
-                />
-                <StatCard
-                  label="كباتن التوصيل"
-                  value={analytics.totalDrivers}
-                  icon={<Icon name="delivery_dining" size={18} fill={1} />}
-                  accentColor="var(--color-tertiary-container)"
-                />
-                {/* Ticket queue card */}
-                <Card variant="z3" radius="xl" padding="p-4" className="space-y-3">
-                  <div className="flex items-center justify-end gap-2">
-                    <h4 className="text-label-md font-semibold text-[var(--color-on-surface)]">حالة الدعم</h4>
-                    <Icon name="queue" size={16} className="text-[var(--color-secondary)]" fill={1} />
-                  </div>
-                  {[
-                    { label: 'مفتوحة',    val: tickets.filter(t => t.status === 'open').length,        color: 'var(--color-error)' },
-                    { label: 'قيد المعالجة', val: tickets.filter(t => t.status === 'in_progress').length, color: 'var(--color-primary-container)' },
-                    { label: 'محلولة',    val: tickets.filter(t => t.status === 'resolved').length,    color: 'var(--color-tertiary-container)' },
-                  ].map(({ label, val, color }) => (
-                    <div key={label} className="flex items-center justify-between">
-                      <span className="text-headline-sm font-bold" style={{ color }}>{val}</span>
-                      <span className="text-label-sm text-[var(--color-on-surface-variant)]" style={{ textTransform: 'none' }}>{label}</span>
-                    </div>
-                  ))}
-                </Card>
-              </div>
-            </div>
-
-            {/* ── ACTIVITY FEED ── */}
-            <Card variant="z3" radius="xl" padding="p-5" className="space-y-4" id="admin_activity_feed">
-              <div className="flex items-center justify-end gap-2.5">
-                <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">آخر النشاطات</h3>
-                <Icon name="history" size={20} className="text-[var(--color-primary-container)]" fill={1} />
-              </div>
-              {tickets.length === 0 ? (
-                <p className="text-label-md text-[var(--color-on-surface-variant)] text-center py-4" style={{ textTransform: 'none' }}>لا توجد نشاطات بعد.</p>
-              ) : (
-                <div className="space-y-0 divide-y divide-[rgba(255,255,255,0.04)]">
-                  {tickets.slice(0, 5).map((tkt) => (
-                    <div key={tkt.id} className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={tkt.status === 'open' ? 'error' : tkt.status === 'resolved' ? 'success' : 'secondary'}>
-                          {tkt.status}
-                        </Badge>
-                        <span className="text-label-sm text-[var(--color-on-surface-variant)]" style={{ textTransform: 'none', letterSpacing: 0 }}>
-                          #{tkt.id.slice(-6).toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="text-end">
-                        <p className="text-label-md font-medium text-[var(--color-on-surface)]" style={{ textTransform: 'none' }}>
-                          {tkt.customers?.full_name || 'عميل'}
-                        </p>
-                        <p className="text-label-sm text-[var(--color-on-surface-variant)] truncate max-w-[200px]" style={{ textTransform: 'none' }}>
-                          {tkt.subject}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </div>
+          <AdminDashboardHome
+            lang={lang}
+            cur={cur}
+            analytics={analytics}
+            platform={platformStats}
+            supportOpen={tickets.filter(t => t.status === 'open').length}
+            onNavigate={handleNav}
+          />
         )}
 
         {/* ═══════════════════════════════════════════════════ */}
@@ -510,7 +307,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         )}
 
         {/* TAB: DESIGN CENTER (super admin only)             */}
-        {activeTab === 'ops' && isSuper && <OperationsCenter />}
+        {activeTab === 'ops' && <OperationsCenter tab={opsTab} onTab={setOpsTab} hideTabs />}
 
         {activeTab === 'design' && isSuper && <DesignCenter />}
 

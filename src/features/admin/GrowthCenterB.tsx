@@ -5,6 +5,8 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
+import { WorkspaceHeader } from '../../components/admin/EnterpriseUI';
+import { Target } from 'lucide-react';
 
 type GTab = 'coupons' | 'loyalty' | 'promotions' | 'banners' | 'campaigns' | 'segments' | 'retention' | 'analytics';
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
@@ -21,6 +23,7 @@ export const GrowthCenterB: React.FC = () => {
   const [tab, setTab] = useState<GTab>('analytics');
   return (
     <div id="growth_center_b" dir="rtl" className="space-y-4">
+      <WorkspaceHeader Icon={Target} title="إدارة النمو" subtitle="الكوبونات · الولاء · العروض · البانرات · الشرائح · التحليلات" />
       <div className="flex gap-2 flex-wrap">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className="px-3 py-1.5 rounded-xl text-sm font-bold cursor-pointer"

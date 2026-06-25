@@ -4,7 +4,8 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/Primitives';
-import { Star, Flag } from 'lucide-react';
+import { Star, Flag, Headset } from 'lucide-react';
+import { WorkspaceHeader } from '../../components/admin/EnterpriseUI';
 
 type CareTab = 'support' | 'moderation' | 'search';
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
@@ -13,6 +14,7 @@ export const CustomerCareCenter: React.FC = () => {
   const [tab, setTab] = useState<CareTab>('support');
   return (
     <div id="customer_care" dir="rtl" className="space-y-4">
+      <WorkspaceHeader Icon={Headset} title="رعاية العملاء" subtitle="التذاكر · SLA · مراجعة التقييمات · تحليلات البحث" />
       <div className="flex gap-2">
         {([['support', 'الدعم وSLA'], ['moderation', 'مراجعة التقييمات'], ['search', 'تحليلات البحث']] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)} className="px-3 py-1.5 rounded-xl text-sm font-bold cursor-pointer"

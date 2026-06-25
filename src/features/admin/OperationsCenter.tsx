@@ -17,7 +17,7 @@ import { CustomerCareCenter } from './CustomerCareCenter';
 import { GrowthCenterB } from './GrowthCenterB';
 import { Map, Route, MapPin, Truck, BarChart3, Banknote, ShieldCheck, Wallet, Rocket, Headset, Target, Star, LucideIcon } from 'lucide-react';
 
-type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care' | 'growthb';
+export type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care' | 'growthb';
 
 const TABS: { id: OpsTab; label: string; Icon: LucideIcon }[] = [
   { id: 'command', label: 'غرفة العمليات', Icon: Map },
@@ -37,21 +37,25 @@ const money = (n: number) => `${Number(n || 0).toFixed(2)}`;
 const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
 
-export const OperationsCenter: React.FC = () => {
-  const [tab, setTab] = useState<OpsTab>('dispatch');
+export const OperationsCenter: React.FC<{ tab?: OpsTab; onTab?: (t: OpsTab) => void; hideTabs?: boolean }> = ({ tab: extTab, onTab, hideTabs }) => {
+  const [intTab, setIntTab] = useState<OpsTab>('command');
+  const tab = extTab ?? intTab;
+  const setTab = (t: OpsTab) => { onTab ? onTab(t) : setIntTab(t); };
   return (
     <div id="operations_center" dir="rtl">
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className="px-3 py-2 rounded-xl text-sm font-bold cursor-pointer transition-all"
-            style={tab === t.id
-              ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }
-              : { background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
-            <t.Icon size={15} className="me-1 inline-block align-text-bottom" />{t.label}
-          </button>
-        ))}
-      </div>
+      {!hideTabs && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className="px-3 py-2 rounded-xl text-sm font-bold cursor-pointer transition-all"
+              style={tab === t.id
+                ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }
+                : { background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
+              <t.Icon size={15} className="me-1 inline-block align-text-bottom" />{t.label}
+            </button>
+          ))}
+        </div>
+      )}
       {tab === 'command' && <OperationsCommandCenter />}
       {tab === 'dispatch' && <DispatchPanel />}
       {tab === 'zones' && <ZonesPanel />}

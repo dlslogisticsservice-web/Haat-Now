@@ -4,6 +4,8 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
+import { WorkspaceHeader, MetricCard, DashboardGrid } from '../../components/admin/EnterpriseUI';
+import { Wallet, Banknote, Store, Bike, Coins, Receipt } from 'lucide-react';
 
 type FinTab = 'revenue' | 'settlements' | 'compensation' | 'refunds' | 'exports';
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
@@ -17,6 +19,7 @@ export const FinanceCenter: React.FC = () => {
   const [tab, setTab] = useState<FinTab>('revenue');
   return (
     <div id="finance_center" dir="rtl" className="space-y-4">
+      <WorkspaceHeader Icon={Wallet} title="المركز المالي" subtitle="الإيرادات · التسويات · المدفوعات · المحاسبة" />
       <div className="flex gap-2 flex-wrap">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className="px-3 py-1.5 rounded-xl text-sm font-bold cursor-pointer"
@@ -37,19 +40,17 @@ const RevenuePanel: React.FC = () => {
   useEffect(() => { financeService.revenueDashboard().then(r => setD(r.data)); }, []);
   if (!d) return <div className="py-10 flex justify-center"><Loader size={28} /></div>;
   const cards = [
-    ['إيرادات المنصة (عمولات)', d.platform_revenue], ['إجمالي العمولات', d.commission_total],
-    ['مستحق للتجار', d.merchant_payable], ['مستحق للمندوبين', d.driver_payable],
-    ['النقد لدى المنصة', d.platform_cash], ['عدد الطلبات المحتسبة', d.order_count],
-  ] as const;
+    { label: 'إيرادات المنصة', value: money(d.platform_revenue), Icon: Wallet, accent: '#9ed442' },
+    { label: 'إجمالي العمولات', value: money(d.commission_total), Icon: Coins, accent: '#4ade80' },
+    { label: 'مستحق للتجار', value: money(d.merchant_payable), Icon: Store, accent: '#fbbf24' },
+    { label: 'مستحق للمندوبين', value: money(d.driver_payable), Icon: Bike, accent: '#60a5fa' },
+    { label: 'النقد لدى المنصة', value: money(d.platform_cash), Icon: Banknote, accent: '#a78bfa' },
+    { label: 'الطلبات المحتسبة', value: d.order_count, Icon: Receipt },
+  ];
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-      {cards.map(([label, val]) => (
-        <Card key={label} className="p-4">
-          <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</p>
-          <p className="text-headline-sm font-bold mt-1">{label.includes('عدد') ? val : money(val as number)}</p>
-        </Card>
-      ))}
-    </div>
+    <DashboardGrid cols={3}>
+      {cards.map(c => <MetricCard key={c.label} label={c.label} value={c.value} Icon={c.Icon} accent={c.accent} />)}
+    </DashboardGrid>
   );
 };
 
