@@ -128,7 +128,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     setReordering(true);
     try {
       const { data: items } = await cxService.reorderItems(orderId);
-      if (!items.length) { alert('لا توجد أصناف لإعادة الطلب.'); return; }
+      if (!items.length) { alert(t('orders.reorderNoItems')); return; }
       cartService.clearCart();
       let added = 0, skipped = 0;
       for (const it of items) {
@@ -139,8 +139,8 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
         try { cartService.addToCart(product, variant, it.quantity); added++; } catch { skipped++; }
       }
       alert(added > 0
-        ? `تمت إضافة ${added} صنف إلى السلة${skipped ? ` · تم تخطّي ${skipped} (غير متوفّر)` : ''} 🟢`
-        : 'تعذّر إعادة الطلب — الأصناف غير متوفّرة حاليًا.');
+        ? t('orders.reorderAdded', { added }) + (skipped ? t('orders.reorderSkipped', { skipped }) : '')
+        : t('orders.reorderFailed'));
     } finally { setReordering(false); }
   };
   const [riderLoc,        setRiderLoc]        = useState<{ lat: number; lng: number } | null>(null);
@@ -244,9 +244,9 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     ctx.beginPath(); ctx.fillStyle = primaryColor; ctx.arc(dryX, dryY, 11, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = '#10150b'; ctx.lineWidth = 3; ctx.stroke();
     ctx.beginPath(); ctx.strokeStyle = 'rgba(163,249,91,0.35)'; ctx.lineWidth = 2; ctx.arc(dryX, dryY, 11 + Math.abs(Math.sin(Date.now()/200)*5), 0, Math.PI*2); ctx.stroke();
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '9px Arial';
-    ctx.fillText('المتجر', storeX-14, storeY+20);
-    ctx.fillText('البيت',  destX-10,  destY-14);
-  }, [dimensions, courierProgress]);
+    ctx.fillText(t('orders.store'), storeX-14, storeY+20);
+    ctx.fillText(t('orders.home'),  destX-10,  destY-14);
+  }, [dimensions, courierProgress, t]);
 
   useEffect(() => {
     if (!riderLoc || !orderDetails) return;
@@ -385,7 +385,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
             </div>
             <div>
               <p style={{ fontSize: '20px', color: 'white', fontWeight: 800, letterSpacing: '-0.02em', marginBottom: '8px' }}>{t('orders.empty')}</p>
-              <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: 1.6 }}>{t('orders.emptyHint')}<br />بتجربة توصيل فاخرة</p>
+              <p style={{ fontSize: '14px', color: 'var(--color-on-surface-variant)', lineHeight: 1.6 }}>{t('orders.emptyHint')}<br />{t('orders.emptyHint2')}</p>
             </div>
             <button
               onClick={onSelectOrderBack}
@@ -491,9 +491,9 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
             <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
               <div className="w-full h-full">
                 <Map defaultCenter={merchantLoc ?? { lat: 24.7136, lng: 46.6753 }} defaultZoom={13} gestureHandling={'greedy'} disableDefaultUI>
-                  {merchantLoc && <Marker position={merchantLoc} title="المتجر" />}
+                  {merchantLoc && <Marker position={merchantLoc} title={t('orders.store')} />}
                   {customerLoc && <Marker position={customerLoc} title={t('orders.homeLabel')} />}
-                  {riderLoc    && <Marker position={riderLoc}    title="السائق" />}
+                  {riderLoc    && <Marker position={riderLoc}    title={t('orders.driver')} />}
                 </Map>
               </div>
             </APIProvider>
