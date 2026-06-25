@@ -6,27 +6,30 @@ import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
 import { WorkspaceHeader, MetricCard, DashboardGrid } from '../../components/admin/EnterpriseUI';
 import { Wallet, Banknote, Store, Bike, Coins, Receipt } from 'lucide-react';
+import { useAppConfig } from '../../contexts/AppConfigContext';
 
 type FinTab = 'revenue' | 'settlements' | 'compensation' | 'refunds' | 'exports';
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
 const money = (n: number) => Number(n || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const TABS: { id: FinTab; label: string }[] = [
-  { id: 'revenue', label: 'الإيرادات' }, { id: 'settlements', label: 'التسويات' },
-  { id: 'compensation', label: 'التعويضات' }, { id: 'refunds', label: 'الاستردادات' }, { id: 'exports', label: 'التصدير المحاسبي' },
+const TABS: { id: FinTab; ar: string; en: string }[] = [
+  { id: 'revenue', ar: 'الإيرادات', en: 'Revenue' }, { id: 'settlements', ar: 'التسويات', en: 'Settlements' },
+  { id: 'compensation', ar: 'التعويضات', en: 'Compensation' }, { id: 'refunds', ar: 'الاستردادات', en: 'Refunds' }, { id: 'exports', ar: 'التصدير المحاسبي', en: 'Accounting export' },
 ];
 
 export const FinanceCenter: React.FC = () => {
+  const { lang } = useAppConfig();
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [tab, setTab] = useState<FinTab>('revenue');
   return (
-    <div id="finance_center" dir="rtl" className="space-y-4">
-      <WorkspaceHeader Icon={Wallet} title="المركز المالي" subtitle="الإيرادات · التسويات · المدفوعات · المحاسبة" />
+    <div id="finance_center" dir={lang === 'ar' ? 'rtl' : 'ltr'} className="space-y-4">
+      <WorkspaceHeader Icon={Wallet} title={L('المركز المالي', 'Finance Center')} subtitle={L('الإيرادات · التسويات · المدفوعات · المحاسبة', 'Revenue · Settlements · Payouts · Accounting')} />
       <div className="flex gap-2 flex-wrap">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className="px-3 py-1.5 rounded-xl text-sm font-bold cursor-pointer"
-            style={tab === t.id ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' } : surface}>{t.label}</button>
+            style={tab === t.id ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' } : surface}>{L(t.ar, t.en)}</button>
         ))}
       </div>
-      {tab === 'revenue' && <RevenuePanel />}
+      {tab === 'revenue' && <RevenuePanel L={L} />}
       {tab === 'settlements' && <SettlementsPanel />}
       {tab === 'compensation' && <CompensationPanel />}
       {tab === 'refunds' && <RefundsPanel />}
@@ -35,17 +38,17 @@ export const FinanceCenter: React.FC = () => {
   );
 };
 
-const RevenuePanel: React.FC = () => {
+const RevenuePanel: React.FC<{ L: (ar: string, en: string) => string }> = ({ L }) => {
   const [d, setD] = useState<RevenueDashboard | null>(null);
   useEffect(() => { financeService.revenueDashboard().then(r => setD(r.data)); }, []);
   if (!d) return <div className="py-10 flex justify-center"><Loader size={28} /></div>;
   const cards = [
-    { label: 'إيرادات المنصة', value: money(d.platform_revenue), Icon: Wallet, accent: '#9ed442' },
-    { label: 'إجمالي العمولات', value: money(d.commission_total), Icon: Coins, accent: '#4ade80' },
-    { label: 'مستحق للتجار', value: money(d.merchant_payable), Icon: Store, accent: '#fbbf24' },
-    { label: 'مستحق للمندوبين', value: money(d.driver_payable), Icon: Bike, accent: '#60a5fa' },
-    { label: 'النقد لدى المنصة', value: money(d.platform_cash), Icon: Banknote, accent: '#a78bfa' },
-    { label: 'الطلبات المحتسبة', value: d.order_count, Icon: Receipt },
+    { label: L('إيرادات المنصة', 'Platform Revenue'), value: money(d.platform_revenue), Icon: Wallet, accent: '#9ed442' },
+    { label: L('إجمالي العمولات', 'Total Commission'), value: money(d.commission_total), Icon: Coins, accent: '#4ade80' },
+    { label: L('مستحق للتجار', 'Merchant Payable'), value: money(d.merchant_payable), Icon: Store, accent: '#fbbf24' },
+    { label: L('مستحق للمندوبين', 'Driver Payable'), value: money(d.driver_payable), Icon: Bike, accent: '#60a5fa' },
+    { label: L('النقد لدى المنصة', 'Platform Cash'), value: money(d.platform_cash), Icon: Banknote, accent: '#a78bfa' },
+    { label: L('الطلبات المحتسبة', 'Settled Orders'), value: d.order_count, Icon: Receipt },
   ];
   return (
     <DashboardGrid cols={3}>

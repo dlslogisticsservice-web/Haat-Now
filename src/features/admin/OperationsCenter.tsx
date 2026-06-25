@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAppConfig } from '../../contexts/AppConfigContext';
 import { dispatchService, NearestDriver } from '../../services/ops/dispatch.service';
 import { zoneService, DeliveryZone } from '../../services/ops/zone.service';
 import { vehicleService, Vehicle } from '../../services/ops/vehicle.service';
@@ -19,18 +20,18 @@ import { Map, Route, MapPin, Truck, BarChart3, Banknote, ShieldCheck, Wallet, Ro
 
 export type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care' | 'growthb';
 
-const TABS: { id: OpsTab; label: string; Icon: LucideIcon }[] = [
-  { id: 'command', label: 'غرفة العمليات', Icon: Map },
-  { id: 'dispatch', label: 'مركز الإرسال', Icon: Route },
-  { id: 'zones', label: 'مناطق التوصيل', Icon: MapPin },
-  { id: 'vehicles', label: 'المركبات', Icon: Truck },
-  { id: 'performance', label: 'أداء المندوبين', Icon: BarChart3 },
-  { id: 'payouts', label: 'المدفوعات', Icon: Banknote },
-  { id: 'kyc', label: 'التحقق والامتثال', Icon: ShieldCheck },
-  { id: 'finance', label: 'المركز المالي', Icon: Wallet },
-  { id: 'growth', label: 'محرّك النمو', Icon: Rocket },
-  { id: 'care', label: 'رعاية العملاء', Icon: Headset },
-  { id: 'growthb', label: 'إدارة النمو', Icon: Target },
+const TABS: { id: OpsTab; ar: string; en: string; Icon: LucideIcon }[] = [
+  { id: 'command', ar: 'غرفة العمليات', en: 'Command Center', Icon: Map },
+  { id: 'dispatch', ar: 'مركز الإرسال', en: 'Dispatch', Icon: Route },
+  { id: 'zones', ar: 'مناطق التوصيل', en: 'Delivery Zones', Icon: MapPin },
+  { id: 'vehicles', ar: 'المركبات', en: 'Vehicles', Icon: Truck },
+  { id: 'performance', ar: 'أداء المندوبين', en: 'Driver Performance', Icon: BarChart3 },
+  { id: 'payouts', ar: 'المدفوعات', en: 'Payouts', Icon: Banknote },
+  { id: 'kyc', ar: 'التحقق والامتثال', en: 'KYC & Compliance', Icon: ShieldCheck },
+  { id: 'finance', ar: 'المركز المالي', en: 'Finance', Icon: Wallet },
+  { id: 'growth', ar: 'محرّك النمو', en: 'Growth Engine', Icon: Rocket },
+  { id: 'care', ar: 'رعاية العملاء', en: 'Customer Care', Icon: Headset },
+  { id: 'growthb', ar: 'إدارة النمو', en: 'Growth Mgmt', Icon: Target },
 ];
 
 const money = (n: number) => `${Number(n || 0).toFixed(2)}`;
@@ -38,11 +39,12 @@ const pct = (n: number) => `${Math.round((n || 0) * 100)}%`;
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
 
 export const OperationsCenter: React.FC<{ tab?: OpsTab; onTab?: (t: OpsTab) => void; hideTabs?: boolean }> = ({ tab: extTab, onTab, hideTabs }) => {
+  const { lang } = useAppConfig();
   const [intTab, setIntTab] = useState<OpsTab>('command');
   const tab = extTab ?? intTab;
   const setTab = (t: OpsTab) => { onTab ? onTab(t) : setIntTab(t); };
   return (
-    <div id="operations_center" dir="rtl">
+    <div id="operations_center" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
       {!hideTabs && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           {TABS.map(t => (
@@ -51,7 +53,7 @@ export const OperationsCenter: React.FC<{ tab?: OpsTab; onTab?: (t: OpsTab) => v
               style={tab === t.id
                 ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }
                 : { background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
-              <t.Icon size={15} className="me-1 inline-block align-text-bottom" />{t.label}
+              <t.Icon size={15} className="me-1 inline-block align-text-bottom" />{lang === 'ar' ? t.ar : t.en}
             </button>
           ))}
         </div>

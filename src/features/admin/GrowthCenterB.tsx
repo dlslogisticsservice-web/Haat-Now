@@ -7,27 +7,30 @@ import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
 import { WorkspaceHeader } from '../../components/admin/EnterpriseUI';
 import { Target } from 'lucide-react';
+import { useAppConfig } from '../../contexts/AppConfigContext';
 
 type GTab = 'coupons' | 'loyalty' | 'promotions' | 'banners' | 'campaigns' | 'segments' | 'retention' | 'analytics';
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
 const inp = 'px-2 py-1.5 rounded-lg text-sm w-full';
 const money = (n: number) => Number(n || 0).toFixed(2);
 const COLORS = ['#9ed442', '#4ade80', '#fbbf24', '#fb923c', '#f87171', '#a78bfa'];
-const TABS: { id: GTab; label: string }[] = [
-  { id: 'coupons', label: 'الكوبونات' }, { id: 'loyalty', label: 'الولاء' }, { id: 'promotions', label: 'العروض' },
-  { id: 'banners', label: 'البانرات' }, { id: 'campaigns', label: 'الحملات' }, { id: 'segments', label: 'الشرائح' },
-  { id: 'retention', label: 'الاحتفاظ' }, { id: 'analytics', label: 'التحليلات' },
+const TABS: { id: GTab; ar: string; en: string }[] = [
+  { id: 'coupons', ar: 'الكوبونات', en: 'Coupons' }, { id: 'loyalty', ar: 'الولاء', en: 'Loyalty' }, { id: 'promotions', ar: 'العروض', en: 'Promotions' },
+  { id: 'banners', ar: 'البانرات', en: 'Banners' }, { id: 'campaigns', ar: 'الحملات', en: 'Campaigns' }, { id: 'segments', ar: 'الشرائح', en: 'Segments' },
+  { id: 'retention', ar: 'الاحتفاظ', en: 'Retention' }, { id: 'analytics', ar: 'التحليلات', en: 'Analytics' },
 ];
 
 export const GrowthCenterB: React.FC = () => {
+  const { lang } = useAppConfig();
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [tab, setTab] = useState<GTab>('analytics');
   return (
-    <div id="growth_center_b" dir="rtl" className="space-y-4">
-      <WorkspaceHeader Icon={Target} title="إدارة النمو" subtitle="الكوبونات · الولاء · العروض · البانرات · الشرائح · التحليلات" />
+    <div id="growth_center_b" dir={lang === 'ar' ? 'rtl' : 'ltr'} className="space-y-4">
+      <WorkspaceHeader Icon={Target} title={L('إدارة النمو', 'Growth Management')} subtitle={L('الكوبونات · الولاء · العروض · البانرات · الشرائح · التحليلات', 'Coupons · Loyalty · Promotions · Banners · Segments · Analytics')} />
       <div className="flex gap-2 flex-wrap">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className="px-3 py-1.5 rounded-xl text-sm font-bold cursor-pointer"
-            style={tab === t.id ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' } : surface}>{t.label}</button>
+            style={tab === t.id ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' } : surface}>{L(t.ar, t.en)}</button>
         ))}
       </div>
       {tab === 'coupons' && <CouponsPanel />}
