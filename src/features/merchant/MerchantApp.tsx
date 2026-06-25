@@ -40,34 +40,30 @@ interface MerchantData { id: string; business_name: string; logo_url?: string | 
 
 type MerchantTab = 'incoming' | 'catalog' | 'inventory' | 'wallet' | 'profile';
 
-const SIDEBAR_SECTIONS: SidebarSection[] = [
-  {
-    items: [
-      { id: 'incoming',  label: 'الطلبات النشطة',  icon: 'notifications_active' },
-      { id: 'catalog',   label: 'المنيو والأسعار',  icon: 'restaurant_menu' },
-      { id: 'inventory', label: 'المخزون',          icon: 'inventory_2' },
-      { id: 'wallet',    label: 'تقارير الأرباح',   icon: 'payments' },
-      { id: 'profile',   label: 'الملف التجاري',    icon: 'store' },
-    ],
-  },
+const NAV: { id: MerchantTab; ar: string; en: string; icon: string }[] = [
+  { id: 'incoming',  ar: 'الطلبات النشطة', en: 'Active Orders',    icon: 'notifications_active' },
+  { id: 'catalog',   ar: 'المنيو والأسعار', en: 'Menu & Prices',   icon: 'restaurant_menu' },
+  { id: 'inventory', ar: 'المخزون',         en: 'Inventory',        icon: 'inventory_2' },
+  { id: 'wallet',    ar: 'تقارير الأرباح',  en: 'Earnings',         icon: 'payments' },
+  { id: 'profile',   ar: 'الملف التجاري',   en: 'Business Profile', icon: 'store' },
 ];
 
-const ORDER_STATUS_CFG: Record<string, { label: string; variant: 'warning' | 'secondary' | 'primary' | 'success' | 'error' | 'neutral' }> = {
-  pending:    { label: 'انتظار',    variant: 'warning' },
-  accepted:   { label: 'مقبول',     variant: 'secondary' },
-  preparing:  { label: 'يُحضَّر',   variant: 'secondary' },
-  on_the_way: { label: 'في الطريق', variant: 'primary' },
-  delivered:  { label: 'مكتمل',     variant: 'success' },
-  cancelled:  { label: 'ملغي',      variant: 'error' },
+const ORDER_STATUS_CFG: Record<string, { labelAr: string; labelEn: string; variant: 'warning' | 'secondary' | 'primary' | 'success' | 'error' | 'neutral' }> = {
+  pending:    { labelAr: 'انتظار',    labelEn: 'Pending',    variant: 'warning' },
+  accepted:   { labelAr: 'مقبول',     labelEn: 'Accepted',   variant: 'secondary' },
+  preparing:  { labelAr: 'يُحضَّر',   labelEn: 'Preparing',  variant: 'secondary' },
+  on_the_way: { labelAr: 'في الطريق', labelEn: 'On the way', variant: 'primary' },
+  delivered:  { labelAr: 'مكتمل',     labelEn: 'Completed',  variant: 'success' },
+  cancelled:  { labelAr: 'ملغي',      labelEn: 'Cancelled',  variant: 'error' },
 };
 
 // ── Image validation ───────────────────────────────────────────────────────
 const ALLOWED_IMG_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const MAX_IMG_BYTES = 5 * 1024 * 1024; // 5 MB
 
-function validateImage(file: File): string | null {
-  if (!ALLOWED_IMG_TYPES.includes(file.type)) return 'يُسمح فقط بصور JPG أو PNG أو WebP';
-  if (file.size > MAX_IMG_BYTES) return 'حجم الصورة يتجاوز الحد المسموح به (5 ميغابايت)';
+function validateImage(file: File, D: (ar: string, en: string) => string): string | null {
+  if (!ALLOWED_IMG_TYPES.includes(file.type)) return D('يُسمح فقط بصور JPG أو PNG أو WebP', 'Only JPG, PNG or WebP images are allowed');
+  if (file.size > MAX_IMG_BYTES) return D('حجم الصورة يتجاوز الحد المسموح به (5 ميغابايت)', 'Image exceeds the maximum size (5 MB)');
   return null;
 }
 
@@ -78,7 +74,7 @@ function readAsPreview(file: File, setFn: (url: string) => void) {
 }
 
 // ── Shared inline status chip ──────────────────────────────────────────────
-function UploadStatus({ error, success, successMsg = 'تم الحفظ بنجاح ✓' }: { error: string | null; success: boolean; successMsg?: string }) {
+function UploadStatus({ error, success, successMsg = 'تم الحفظ بنجاح' }: { error: string | null; success: boolean; successMsg?: string }) {
   if (error)   return <p className="text-label-sm text-end" style={{ color: 'var(--color-error)', textTransform: 'none' }}>{error}</p>;
   if (success) return <p className="text-label-sm text-end" style={{ color: 'var(--color-neon)', textTransform: 'none' }}>{successMsg}</p>;
   return null;
@@ -91,6 +87,8 @@ const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
   const { country, lang, toggleLang, price: money } = useAppConfig();
   const cur = country.currency.symbolAr;
+  const D = (ar: string, en: string) => (lang === 'ar' ? ar : en);
+  const sidebarSections = [{ items: NAV.map(n => ({ id: n.id, label: D(n.ar, n.en), icon: n.icon })) }];
 
   // ── Core state ─────────────────────────────────────────────────────────
   const [branches,           setBranches]           = useState<any[]>([]);
@@ -278,7 +276,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
       if (status === 'accepted')  notes = 'تم قبول طلبكم.';
       if (status === 'preparing') notes = 'جاري تجهيز طلبكم الآن.';
       const { error } = await orderService.updateOrderStatus(orderId, status, notes);
-      if (error) alert(`خطأ: ${(error as any).message}`);
+      if (error) alert(`${D('خطأ','Error')}: ${(error as any).message}`);
       else await reloadBranchData(selectedBranchId);
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
@@ -308,11 +306,11 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
   };
 
   const handleDeleteProduct = async (prodId: string) => {
-    if (!window.confirm('مسح هذا المنتج نهائياً؟')) return;
+    if (!window.confirm(D('مسح هذا المنتج نهائياً؟','Delete this product permanently?'))) return;
     setActionLoading(true);
     try {
       const { error } = await merchantService.deleteProduct(prodId);
-      if (error) alert(`لا يمكن مسح المنتج. ${(error as any).message}`);
+      if (error) alert(`${D('لا يمكن مسح المنتج.','Could not delete the product.')} ${(error as any).message}`);
       else await reloadBranchData(selectedBranchId);
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
@@ -344,15 +342,15 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     const productId = pendingProdIdRef.current;
     e.target.value = '';
     if (!file || !productId) return;
-    const err = validateImage(file);
+    const err = validateImage(file, D);
     if (err) { setProdImgError(err); return; }
     setProdImgError(null);
     setUploadingProdId(productId);
     try {
       const { url, error: upErr } = await storageService.uploadProductImage(productId, file);
-      if (upErr || !url) { setProdImgError('فشل رفع صورة الصنف. حاول مرة أخرى.'); return; }
+      if (upErr || !url) { setProdImgError(D('فشل رفع صورة الصنف. حاول مرة أخرى.','Failed to upload the product image. Try again.')); return; }
       const { error: dbErr } = await merchantService.addProductImage(productId, url);
-      if (dbErr) { setProdImgError('تم رفع الصورة لكن فشل الحفظ في قاعدة البيانات.'); return; }
+      if (dbErr) { setProdImgError(D('تم رفع الصورة لكن فشل الحفظ في قاعدة البيانات.','Image uploaded but saving to the database failed.')); return; }
       await reloadBranchData(selectedBranchId);
     } finally {
       setUploadingProdId(null);
@@ -365,7 +363,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    const err = validateImage(file);
+    const err = validateImage(file, D);
     if (err) { setLogoError(err); return; }
     setLogoError(null); setLogoSuccess(false);
     setPendingLogoFile(file);
@@ -377,16 +375,16 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     setLogoUploading(true); setLogoError(null); setLogoSuccess(false);
     try {
       const { url, error: upErr } = await storageService.uploadMerchantLogo(merchantId, pendingLogoFile);
-      if (upErr || !url) { setLogoError('فشل رفع الشعار. تحقق من اتصالك وحاول مرة أخرى.'); return; }
+      if (upErr || !url) { setLogoError(D('فشل رفع الشعار. تحقق من اتصالك وحاول مرة أخرى.','Failed to upload the logo. Check your connection and try again.')); return; }
       const { error: dbErr } = await supabase.from('merchants').upsert({
         id: merchantId,
-        business_name: merchantData?.business_name || branches[0]?.name || 'المتجر',
+        business_name: merchantData?.business_name || branches[0]?.name || D('المتجر','Store'),
         logo_url: url,
       });
-      if (dbErr) { setLogoError('تم رفع الشعار لكن فشل الحفظ.'); return; }
+      if (dbErr) { setLogoError(D('تم رفع الشعار لكن فشل الحفظ.','Logo uploaded but saving failed.')); return; }
       setMerchantData(prev => ({
         id: merchantId,
-        business_name: prev?.business_name || branches[0]?.name || 'المتجر',
+        business_name: prev?.business_name || branches[0]?.name || D('المتجر','Store'),
         logo_url: url,
       }));
       setPendingLogoFile(null);
@@ -402,7 +400,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    const err = validateImage(file);
+    const err = validateImage(file, D);
     if (err) { setCoverError(err); return; }
     setCoverError(null); setCoverSuccess(false);
     setPendingCoverFile(file);
@@ -414,9 +412,9 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     setCoverUploading(true); setCoverError(null); setCoverSuccess(false);
     try {
       const { url, error: upErr } = await storageService.uploadBranchCoverImage(merchantId, selectedBranchId, pendingCoverFile);
-      if (upErr || !url) { setCoverError('فشل رفع صورة الغلاف. تحقق من اتصالك وحاول مرة أخرى.'); return; }
+      if (upErr || !url) { setCoverError(D('فشل رفع صورة الغلاف. تحقق من اتصالك وحاول مرة أخرى.','Failed to upload the cover image. Check your connection and try again.')); return; }
       const { error: dbErr } = await merchantService.updateBranchInfo(selectedBranchId, { cover_image_url: url });
-      if (dbErr) { setCoverError('تم رفع الصورة لكن فشل الحفظ.'); return; }
+      if (dbErr) { setCoverError(D('تم رفع الصورة لكن فشل الحفظ.','Image uploaded but saving failed.')); return; }
       setBranches(prev => prev.map(b => b.id === selectedBranchId ? { ...b, cover_image_url: url } : b));
       setPendingCoverFile(null);
       setCoverSuccess(true);
@@ -439,17 +437,17 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader size={36} />
-        <p className="text-body-md text-[var(--color-on-surface-variant)]">جاري تحميل بيانات الفرع...</p>
+        <p className="text-body-md text-[var(--color-on-surface-variant)]">{D('جاري تحميل بيانات الفرع...','Loading branch data…')}</p>
       </div>
     );
   }
 
   const tabLabels: Record<MerchantTab, string> = {
-    incoming:  `الطلبات النشطة${activeOrdersList.length > 0 ? ` (${activeOrdersList.length})` : ''}`,
-    catalog:   'المنيو والأسعار',
-    inventory: 'إدارة المخزون',
-    wallet:    'تقارير الأرباح',
-    profile:   'الملف التجاري',
+    incoming:  `${D('الطلبات النشطة', 'Active Orders')}${activeOrdersList.length > 0 ? ` (${activeOrdersList.length})` : ''}`,
+    catalog:   D('المنيو والأسعار', 'Menu & Prices'),
+    inventory: D('إدارة المخزون', 'Inventory'),
+    wallet:    D('تقارير الأرباح', 'Earnings'),
+    profile:   D('الملف التجاري', 'Business Profile'),
   };
 
   // ── Cover image shown for currently selected branch ──────────────────────
@@ -457,7 +455,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
   const activeLogoUrl  = logoPreview  || merchantData?.logo_url          || null;
 
   return (
-    <div className="flex min-h-screen" id="merchant_portal_full">
+    <div className="flex min-h-screen" id="merchant_portal_full" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
       {/* ── Hidden file inputs (one per upload flow) ──────────────── */}
       <input ref={logoInputRef}    type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="sr-only" onChange={handleLogoFileChange} />
@@ -472,7 +470,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
           const file = e.target.files?.[0];
           e.target.value = '';
           if (!file) return;
-          const err = validateImage(file);
+          const err = validateImage(file, D);
           if (err) { setImgFormError(err); return; }
           setImgFormError(null);
           setNewProductImgFile(file);
@@ -482,7 +480,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
       {/* ── Enterprise Sidebar ──────────────────────────────────────── */}
       <EnterpriseSidebar
-        sections={SIDEBAR_SECTIONS.map(s => ({
+        sections={sidebarSections.map(s => ({
           ...s,
           items: s.items.map(item => ({
             ...item,
@@ -492,8 +490,8 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         activeId={activeTab}
         onSelect={(id) => setActiveTab(id as MerchantTab)}
         brandName="HAAT NOW"
-        brandSubtitle="بوابة التاجر"
-        userInfo={{ name: branches[0]?.name || 'الفرع', role: 'شريك تجاري' }}
+        brandSubtitle={D('بوابة التاجر','Merchant Portal')}
+        userInfo={{ name: branches[0]?.name || D('الفرع','Branch'), role: D('شريك تجاري','Business Partner') }}
       />
 
       {/* ── Main content ─────────────────────────────────────────────── */}
@@ -505,7 +503,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         {/* ── Top bar: logout + language ─────────────────────────────── */}
         <div className="flex items-center justify-between" id="merchant_topbar">
           <Button variant="danger" size="sm" onClick={onLogout} id="merchant_logout_btn" leftIcon={<Icon name="logout" size={16} />}>
-            تسجيل الخروج
+            {D('تسجيل الخروج','Sign out')}
           </Button>
           <Button variant="ghost" size="sm" onClick={toggleLang} id="merchant_lang_btn" leftIcon={<Icon name="language" size={16} />}>
             {lang === 'ar' ? 'EN' : 'ع'}
@@ -514,7 +512,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
         {/* ── Mobile tab navigation (sidebar is desktop-only) ─────────── */}
         <div className="md:hidden grid grid-cols-4 gap-1.5" id="merchant_mobile_tabs">
-          {SIDEBAR_SECTIONS[0].items.map((item) => {
+          {sidebarSections[0].items.map((item) => {
             const isActive = activeTab === item.id;
             return (
               <button
@@ -542,11 +540,11 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
               {tabLabels[activeTab]}
             </h1>
             <p className="text-body-md text-[var(--color-on-surface-variant)]">
-              إدارة الطلبات والمنيو بالوقت الفعلي
+              {D('إدارة الطلبات والمنيو بالوقت الفعلي','Manage orders and menu in real time')}
             </p>
           </div>
           <div className="flex flex-col gap-1.5 min-w-[200px]" id="select_field_wrapper">
-            <label className="text-label-sm text-[var(--color-on-surface-variant)]">الفرع النشط</label>
+            <label className="text-label-sm text-[var(--color-on-surface-variant)]">{D('الفرع النشط','Active branch')}</label>
             <select
               value={selectedBranchId || ''}
               onChange={handleBranchChange}
@@ -574,22 +572,22 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                   <Icon name="trending_up" size={18} fill={1} style={{ color: 'var(--color-neon)' }} />
                 </div>
                 <div>
-                  <p className="text-label-sm font-semibold" style={{ color: 'var(--color-t3, #aab0b6)', textTransform: 'none' }}>الأرباح المتراكمة</p>
-                  <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>الطور التجريبي · بدون عمولات</p>
+                  <p className="text-label-sm font-semibold" style={{ color: 'var(--color-t3, #aab0b6)', textTransform: 'none' }}>{D('الأرباح المتراكمة','Accumulated earnings')}</p>
+                  <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{D('الطور التجريبي · بدون عمولات','Trial phase · no commissions')}</p>
                 </div>
               </div>
               <div className="text-end">
                 <p className="text-display-md font-bold leading-none" style={{ color: 'var(--color-lime-vb, #9ed442)', textShadow: '0 0 20px rgba(158,212,66,0.4)' }}>
                   {earnings.toFixed(0)}
                 </p>
-                <p className="text-label-sm mt-0.5" style={{ color: 'var(--color-t3, #aab0b6)', textTransform: 'none' }}>ريال سعودي</p>
+                <p className="text-label-sm mt-0.5" style={{ color: 'var(--color-t3, #aab0b6)', textTransform: 'none' }}>{cur}</p>
               </div>
             </div>
             <div className="mt-6 space-y-3 border-t border-[rgba(255,255,255,0.06)] pt-5">
               {[
-                { label: 'الطلبات المكتملة',  val: `${deliveredCount} طلب`,        pct: Math.min(100, deliveredCount * 10) },
-                { label: 'متوسط قيمة السلة',  val: money(avgBasket),  pct: Math.min(100, (avgBasket / 80) * 100) },
-                { label: 'رسوم المنصة',        val: 'مجاني للشركاء',                pct: 0 },
+                { label: D('الطلبات المكتملة','Completed orders'),  val: `${deliveredCount} ${D('طلب','orders')}`,        pct: Math.min(100, deliveredCount * 10) },
+                { label: D('متوسط قيمة السلة','Avg basket value'),  val: money(avgBasket),  pct: Math.min(100, (avgBasket / 80) * 100) },
+                { label: D('رسوم المنصة','Platform fees'),        val: D('مجاني للشركاء','Free for partners'),                pct: 0 },
               ].map(({ label, val, pct }) => (
                 <div key={label}>
                   <div className="flex items-center justify-between mb-1">
@@ -608,10 +606,10 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
           {/* Stats cluster — col-4 */}
           <div className="lg:col-span-4 grid grid-cols-2 gap-3 content-start">
-            <StatCard label="طلبات نشطة"  value={activeOrdersList.length} icon={<Icon name="notifications_active" size={16} fill={1} />} accentColor="var(--color-primary-container)" className="text-sm" />
-            <StatCard label="مكتملة"       value={deliveredCount}           icon={<Icon name="task_alt" size={16} fill={1} />}             accentColor="var(--color-tertiary-container)" className="text-sm" />
-            <StatCard label="متوسط السلة"  value={`${avgBasket.toFixed(0)}`} icon={<Icon name="shopping_bag" size={16} fill={1} />}       accentColor="var(--color-secondary)" className="text-sm" />
-            <StatCard label="الفرع"        value={branches.length}           icon={<Icon name="store" size={16} fill={1} />}               accentColor="var(--color-neon)" className="text-sm" />
+            <StatCard label={D('طلبات نشطة','Active orders')}  value={activeOrdersList.length} icon={<Icon name="notifications_active" size={16} fill={1} />} accentColor="var(--color-primary-container)" className="text-sm" />
+            <StatCard label={D('مكتملة','Completed')}       value={deliveredCount}           icon={<Icon name="task_alt" size={16} fill={1} />}             accentColor="var(--color-tertiary-container)" className="text-sm" />
+            <StatCard label={D('متوسط السلة','Avg basket')}  value={`${avgBasket.toFixed(0)}`} icon={<Icon name="shopping_bag" size={16} fill={1} />}       accentColor="var(--color-secondary)" className="text-sm" />
+            <StatCard label={D('الفرع','Branch')}        value={branches.length}           icon={<Icon name="store" size={16} fill={1} />}               accentColor="var(--color-neon)" className="text-sm" />
           </div>
         </div>
 
@@ -624,7 +622,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
             {/* Active orders — col 8 */}
             <div className="lg:col-span-8 space-y-4" id="active_orders_list_wrapper">
               {activeOrdersList.length === 0 ? (
-                <EmptyState icon="inbox" title="لا توجد طلبات نشطة" description="اطلب كعميل وستظهر هنا فوراً!" />
+                <EmptyState icon="inbox" title={D('لا توجد طلبات نشطة','No active orders')} description={D('اطلب كعميل وستظهر هنا فوراً!','Place an order as a customer and it will appear here instantly!')} />
               ) : (
                 <div className="space-y-4" id="active_orders_grid">
                   {activeOrdersList.map((ord) => {
@@ -633,10 +631,10 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                       <Card key={ord.id} variant="z3" radius="xl" padding="p-5" className="space-y-4" id={`merch_order_card_${ord.id}`}>
                         <div className="flex items-start justify-between pb-3 border-b border-[rgba(255,255,255,0.06)]">
                           <div className="flex items-center gap-2">
-                            <Badge variant={cfg.variant} dot>{cfg.label}</Badge>
+                            <Badge variant={cfg.variant} dot>{D(cfg.labelAr, cfg.labelEn)}</Badge>
                           </div>
                           <div className="text-end">
-                            <p className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{ord.customers?.full_name || 'عميل'}</p>
+                            <p className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{ord.customers?.full_name || D('عميل','Customer')}</p>
                             <p className="text-label-sm text-[var(--color-on-surface-variant)]" style={{ textTransform: 'none' }}>{ord.customers?.phone_number || ''}</p>
                           </div>
                         </div>
@@ -645,21 +643,21 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                             <div key={idx} className="flex items-center justify-between" id={`merch_it_${idx}`}>
                               <span className="text-label-md" style={{ color: 'var(--color-primary-container)', textTransform: 'none' }}>{money(it.price * it.quantity)}</span>
                               <span className="text-label-md text-[var(--color-on-surface)]" style={{ direction: 'rtl' }}>
-                                {it.quantity} × {it.product_variants?.products?.name || 'وجبة'} ({it.product_variants?.name || 'أساسي'})
+                                {it.quantity} × {it.product_variants?.products?.name || D('وجبة','Meal')} ({it.product_variants?.name || D('أساسي','Standard')})
                               </span>
                             </div>
                           ))}
                         </div>
                         <div className="flex items-center justify-between pt-3 border-t border-[rgba(255,255,255,0.06)]">
                           <span className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>{money(ord.total_amount - 10)}</span>
-                          <span className="text-label-md text-[var(--color-on-surface-variant)]">صافي الفرع</span>
+                          <span className="text-label-md text-[var(--color-on-surface-variant)]">{D('صافي الفرع','Branch net')}</span>
                         </div>
                         <div className="flex flex-wrap gap-2 justify-end pt-1" id="merch_order_actions">
                           {ord.status === 'pending' && (
-                            <Button variant="primary" size="sm" loading={actionLoading} onClick={() => handleUpdateStatus(ord.id, 'accepted')} leftIcon={<Icon name="check_circle" size={16} fill={1} />}>قبول الطلب</Button>
+                            <Button variant="primary" size="sm" loading={actionLoading} onClick={() => handleUpdateStatus(ord.id, 'accepted')} leftIcon={<Icon name="check_circle" size={16} fill={1} />}>{D('قبول الطلب','Accept order')}</Button>
                           )}
                           {ord.status === 'accepted' && (
-                            <Button variant="secondary" size="sm" loading={actionLoading} onClick={() => handleUpdateStatus(ord.id, 'preparing')} leftIcon={<Icon name="restaurant" size={16} fill={1} />}>بدء التحضير</Button>
+                            <Button variant="secondary" size="sm" loading={actionLoading} onClick={() => handleUpdateStatus(ord.id, 'preparing')} leftIcon={<Icon name="restaurant" size={16} fill={1} />}>{D('بدء التحضير','Start preparing')}</Button>
                           )}
                           <span className="px-3 py-1.5 rounded-full text-label-sm" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>
                             #{ord.id.slice(-6).toUpperCase()}
@@ -674,20 +672,20 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
             {/* Archived orders — col 4 */}
             <div className="lg:col-span-4 space-y-3" id="merchant_history_col">
-              <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">الأرشيف ({archOrdersList.length})</h3>
+              <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{D('الأرشيف','Archive')} ({archOrdersList.length})</h3>
               <Card variant="z3" radius="xl" padding="p-4" className="max-h-[500px] overflow-y-auto space-y-3" id="archived_orders_box">
                 {archOrdersList.length === 0 ? (
-                  <p className="text-label-md text-[var(--color-on-surface-variant)] text-center py-8" style={{ textTransform: 'none' }}>لا توجد طلبات سابقة.</p>
+                  <p className="text-label-md text-[var(--color-on-surface-variant)] text-center py-8" style={{ textTransform: 'none' }}>{D('لا توجد طلبات سابقة.','No past orders.')}</p>
                 ) : (
                   archOrdersList.map(o => {
                     const cfg = ORDER_STATUS_CFG[o.status] || ORDER_STATUS_CFG.delivered;
                     return (
                       <div key={o.id} className="p-3 rounded-[var(--radius-lg)] space-y-2 surface-z2" id={`arch_card_${o.id}`}>
                         <div className="flex items-center justify-between">
-                          <Badge variant={cfg.variant} dot>{cfg.label}</Badge>
+                          <Badge variant={cfg.variant} dot>{D(cfg.labelAr, cfg.labelEn)}</Badge>
                           <span className="text-label-sm font-semibold" style={{ color: 'var(--color-primary-container)', textTransform: 'none' }}>{money(o.total_amount - 10)}</span>
                         </div>
-                        <p className="text-label-md text-[var(--color-on-surface)] text-end" style={{ textTransform: 'none' }}>{o.customers?.full_name || 'عميل'}</p>
+                        <p className="text-label-md text-[var(--color-on-surface)] text-end" style={{ textTransform: 'none' }}>{o.customers?.full_name || D('عميل','Customer')}</p>
                         <p className="text-label-sm text-[var(--color-on-surface-variant)] text-end" style={{ textTransform: 'none', letterSpacing: 0 }}>#{o.id.slice(-6).toUpperCase()}</p>
                       </div>
                     );
@@ -710,10 +708,10 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                 leftIcon={<Icon name="add" size={18} />}
                 id="add_new_prod_btn"
               >
-                إضافة صنف جديد
+                {D('إضافة صنف جديد','Add new item')}
               </Button>
               <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-                قائمة المنيو ({products.length} صنف)
+                {D('قائمة المنيو','Menu list')} ({products.length} {D('صنف','items')})
               </h3>
             </div>
 
@@ -726,12 +724,12 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
             {isAddingProduct && (
               <Card variant="z3" radius="xl" padding="p-6" className="max-w-lg mx-auto space-y-5" id="add_prod_form_wrapper">
                 <h4 className="text-headline-sm font-semibold text-[var(--color-on-surface)] text-end pb-3 border-b border-[rgba(255,255,255,0.06)]">
-                  بيانات الصنف الجديد
+                  {D('بيانات الصنف الجديد','New item details')}
                 </h4>
                 <form onSubmit={handleAddProductSubmit} className="space-y-4" id="add_prod_form">
                   <Input
-                    label="اسم الصنف"
-                    placeholder="مثال: شاورما عربي دبل جبن"
+                    label={D('اسم الصنف','Item name')}
+                    placeholder={D('مثال: شاورما عربي دبل جبن','e.g. Arabic shawarma double cheese')}
                     value={newProductName}
                     onChange={(e) => setNewProductName(e.target.value)}
                     required
@@ -739,7 +737,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                   />
                   <div className="grid grid-cols-2 gap-4">
                     <Input
-                      label={`السعر (${cur})`}
+                      label={`${D('السعر','Price')} (${cur})`}
                       type="number" step="0.1" placeholder="28.00"
                       value={newProductPrice}
                       onChange={(e) => setNewProductPrice(e.target.value)}
@@ -747,7 +745,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                       id="add_prod_price_input"
                     />
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-label-sm text-[var(--color-on-surface-variant)]">القسم</label>
+                      <label className="text-label-sm text-[var(--color-on-surface-variant)]">{D('القسم','Category')}</label>
                       <select
                         value={selectedCategoryId}
                         onChange={(e) => setSelectedCategoryId(e.target.value)}
@@ -761,7 +759,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
                   {/* Product image upload (optional) */}
                   <div className="space-y-2">
-                    <label className="text-label-sm text-[var(--color-on-surface-variant)]">صورة الصنف (اختياري)</label>
+                    <label className="text-label-sm text-[var(--color-on-surface-variant)]">{D('صورة الصنف (اختياري)','Item image (optional)')}</label>
                     <button
                       type="button"
                       onClick={() => formImgInputRef.current?.click()}
@@ -769,12 +767,12 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                       id="form_prod_img_picker"
                     >
                       {newProdImgPreview ? (
-                        <img src={newProdImgPreview} alt="معاينة" className="w-full h-full object-cover" />
+                        <img src={newProdImgPreview} alt={D('معاينة','Preview')} className="w-full h-full object-cover" />
                       ) : (
                         <div className="flex flex-col items-center gap-2 text-[var(--color-on-surface-variant)]">
                           <Icon name="add_photo_alternate" size={28} />
-                          <p className="text-label-sm" style={{ textTransform: 'none' }}>انقر لاختيار صورة</p>
-                          <p className="text-label-sm" style={{ textTransform: 'none', color: 'var(--color-on-surface-variant)', fontSize: '11px' }}>JPG · PNG · WebP · حتى 5 ميغابايت</p>
+                          <p className="text-label-sm" style={{ textTransform: 'none' }}>{D('انقر لاختيار صورة','Click to choose an image')}</p>
+                          <p className="text-label-sm" style={{ textTransform: 'none', color: 'var(--color-on-surface-variant)', fontSize: '11px' }}>{D('JPG · PNG · WebP · حتى 5 ميغابايت','JPG · PNG · WebP · up to 5 MB')}</p>
                         </div>
                       )}
                     </button>
@@ -785,7 +783,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                         className="text-label-sm w-full text-center"
                         style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}
                       >
-                        إزالة الصورة
+                        {D('إزالة الصورة','Remove image')}
                       </button>
                     )}
                     {imgFormError && (
@@ -797,8 +795,8 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                     <Button variant="ghost" size="sm" type="button" onClick={() => {
                       setIsAddingProduct(false);
                       setNewProductImgFile(null); setNewProdImgPreview(null); setImgFormError(null);
-                    }}>إلغاء</Button>
-                    <Button variant="primary" size="sm" type="submit" loading={actionLoading}>حفظ الصنف</Button>
+                    }}>{D('إلغاء','Cancel')}</Button>
+                    <Button variant="primary" size="sm" type="submit" loading={actionLoading}>{D('حفظ الصنف','Save item')}</Button>
                   </div>
                 </form>
               </Card>
@@ -806,7 +804,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
             {/* Products grid */}
             {products.length === 0 ? (
-              <EmptyState icon="restaurant_menu" title="قائمة الأصناف فارغة" description="أضف أول صنف من القائمة أعلاه" />
+              <EmptyState icon="restaurant_menu" title={D('قائمة الأصناف فارغة','Menu is empty')} description={D('أضف أول صنف من القائمة أعلاه','Add your first item from the bar above')} />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="catalogs_rendered_grid">
                 {products.map((product) => {
@@ -826,8 +824,8 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                           <img src={imgUrl} alt={product.name} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full surface-z2 flex flex-col items-center justify-center gap-1">
-                            <span style={{ fontSize: '28px' }}>🥪</span>
-                            <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>لا توجد صورة</p>
+                            <Icon name="restaurant" size={28} className="text-[var(--color-on-surface-variant)]" />
+                            <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{D('لا توجد صورة','No image')}</p>
                           </div>
                         )}
 
@@ -850,7 +848,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                             <div className="flex flex-col items-center gap-1 text-white">
                               <Icon name="camera_alt" size={20} />
                               <span className="text-label-sm" style={{ textTransform: 'none' }}>
-                                {imgUrl ? 'تغيير الصورة' : 'رفع صورة'}
+                                {imgUrl ? D('تغيير الصورة','Change image') : D('رفع صورة','Upload image')}
                               </span>
                             </div>
                           )}
@@ -876,7 +874,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                           id="delete_product_trigger"
                         >
                           <Icon name="delete" size={16} />
-                          <span style={{ textTransform: 'none' }}>حذف</span>
+                          <span style={{ textTransform: 'none' }}>{D('حذف','Delete')}</span>
                         </button>
                         <div className="flex items-center gap-2" id="quick_price_box">
                           <span className="text-label-sm text-[var(--color-on-surface-variant)]">{cur}</span>
@@ -911,10 +909,10 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
           <div id="merchant_inventory_tab" className="space-y-4">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
-                { label: 'إجمالي المنتجات', val: stats.total, color: 'var(--color-primary-container)' },
-                { label: 'إجمالي الوحدات', val: stats.units, color: 'var(--color-primary-container)' },
-                { label: 'مخزون منخفض', val: stats.low, color: '#fbbf24' },
-                { label: 'نفد المخزون', val: stats.out, color: '#f87171' },
+                { label: D('إجمالي المنتجات','Total products'), val: stats.total, color: 'var(--color-primary-container)' },
+                { label: D('إجمالي الوحدات','Total units'), val: stats.units, color: 'var(--color-primary-container)' },
+                { label: D('مخزون منخفض','Low stock'), val: stats.low, color: '#fbbf24' },
+                { label: D('نفد المخزون','Out of stock'), val: stats.out, color: '#f87171' },
               ].map(s => (
                 <Card key={s.label} variant="z2" radius="xl" padding="p-4">
                   <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{s.label}</p>
@@ -925,7 +923,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
             <Card variant="z2" radius="xl" padding="p-0" className="overflow-hidden">
               {inventory.map(p => {
                 const state = p.stock === 0 ? 'out' : p.stock <= p.low_threshold ? 'low' : 'ok';
-                const badge = state === 'out' ? { t: 'نفد', c: '#f87171' } : state === 'low' ? { t: 'منخفض', c: '#fbbf24' } : { t: 'متوفر', c: '#4ade80' };
+                const badge = state === 'out' ? { t: D('نفد','Out'), c: '#f87171' } : state === 'low' ? { t: D('منخفض','Low'), c: '#fbbf24' } : { t: D('متوفر','In stock'), c: '#4ade80' };
                 return (
                   <div key={p.id} className="p-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                     <div className="flex items-center justify-between gap-3">
@@ -936,7 +934,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                       <span className="px-2.5 py-1 rounded-lg text-xs font-bold shrink-0" style={{ background: `${badge.c}22`, color: badge.c }}>{badge.t}</span>
                     </div>
                     {(!p.active || p.stock === 0) && (
-                      <p className="text-xs mt-2" style={{ color: '#f87171' }}>⛔ متوقف عن الطلب — أعد التزويد لإتاحته</p>
+                      <p className="text-xs mt-2" style={{ color: '#f87171' }}>{D('متوقف عن الطلب — أعد التزويد لإتاحته','Disabled from ordering — restock to re-enable')}</p>
                     )}
                     <div className="flex items-center justify-between gap-3 mt-3">
                       <div className="flex items-center gap-2">
@@ -946,7 +944,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                         <button onClick={() => handleAdjustStock(p.id, +10)} className="px-2.5 h-8 rounded-lg cursor-pointer text-xs font-semibold" style={{ background: 'rgba(163,249,91,0.08)', color: 'var(--color-primary-fixed)' }}>+10</button>
                       </div>
                       <button onClick={() => openHistory(p.id)} className="text-xs font-semibold cursor-pointer" style={{ color: 'var(--color-on-surface-variant)' }}>
-                        {stockHistoryFor === p.id ? 'إخفاء السجل' : 'السجل'}
+                        {stockHistoryFor === p.id ? D('إخفاء السجل','Hide log') : D('السجل','Log')}
                       </button>
                     </div>
                     {stockHistoryFor === p.id && (
@@ -957,13 +955,13 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                             <span style={{ color: m.delta >= 0 ? '#4ade80' : '#f87171', fontWeight: 700 }}>{m.delta >= 0 ? '+' : ''}{m.delta}</span>
                           </div>
                         ))}
-                        {historyRows.length === 0 && <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>لا يوجد سجل بعد.</p>}
+                        {historyRows.length === 0 && <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{D('لا يوجد سجل بعد.','No log yet.')}</p>}
                       </div>
                     )}
                   </div>
                 );
               })}
-              {inventory.length === 0 && <p className="p-6 text-center text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>لا توجد منتجات في المخزون.</p>}
+              {inventory.length === 0 && <p className="p-6 text-center text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{D('لا توجد منتجات في المخزون.','No products in inventory.')}</p>}
             </Card>
           </div>
           );
@@ -975,10 +973,10 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
             {(() => {
               const a = merchantStats;
               const cards = [
-                { label: 'إجمالي الطلبات', val: a.orders },
-                { label: 'طلبات مكتملة', val: a.delivered },
-                { label: 'صافي الإيراد', val: `${a.revenue} ${cur}` },
-                { label: 'متوسط الطلب', val: `${a.avgOrder} ${cur}` },
+                { label: D('إجمالي الطلبات','Total orders'), val: a.orders },
+                { label: D('طلبات مكتملة','Completed orders'), val: a.delivered },
+                { label: D('صافي الإيراد','Net revenue'), val: `${a.revenue} ${cur}` },
+                { label: D('متوسط الطلب','Avg order'), val: `${a.avgOrder} ${cur}` },
               ];
               return (
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" id="merchant_analytics_row">
@@ -994,7 +992,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card variant="z3" radius="xl" padding="p-6" className="flex flex-col justify-between gap-6" id="earnings_balance_box">
               <div className="text-end">
-                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-3">رصيد الأرباح القابل للسحب</p>
+                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-3">{D('رصيد الأرباح القابل للسحب','Withdrawable earnings balance')}</p>
                 <p className="text-display-md font-bold" style={{ color: 'var(--color-primary-container)' }}>
                   {earnings.toFixed(2)}
                   <span className="text-headline-sm font-normal text-[var(--color-on-surface-variant)] mr-2">{cur}</span>
@@ -1002,9 +1000,9 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
               </div>
               <div className="space-y-3" id="earnings_analytics_rows">
                 {[
-                  { label: 'الطلبات المكتملة',  val: `${deliveredCount} طلب` },
-                  { label: 'متوسط قيمة السلة',  val: money(avgBasket) },
-                  { label: 'رسوم المنصة',        val: 'مجاني للشركاء' },
+                  { label: D('الطلبات المكتملة','Completed orders'),  val: `${deliveredCount} ${D('طلب','orders')}` },
+                  { label: D('متوسط قيمة السلة','Avg basket value'),  val: money(avgBasket) },
+                  { label: D('رسوم المنصة','Platform fees'),        val: D('مجاني للشركاء','Free for partners') },
                 ].map(({ label, val }) => (
                   <div key={label} className="flex items-center justify-between">
                     <span className="text-label-md text-[var(--color-on-surface)]" style={{ textTransform: 'none' }}>{val}</span>
@@ -1012,20 +1010,20 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                   </div>
                 ))}
               </div>
-              <Button variant="primary" size="lg" fullWidth onClick={() => alert('تم تسجيل طلب تحويل الأرباح للحساب البنكي 🟢')} id="payout_merch_trigger">
-                سحب الأرباح الفورية
+              <Button variant="primary" size="lg" fullWidth onClick={() => alert(D('تم تسجيل طلب تحويل الأرباح للحساب البنكي','Earnings transfer to your bank account has been requested'))} id="payout_merch_trigger">
+                {D('سحب الأرباح الفورية','Instant withdrawal')}
               </Button>
             </Card>
             <Card variant="z3" radius="xl" padding="p-6" className="space-y-4" id="ledger_merch_faq">
               <div className="flex items-center gap-2.5 justify-end">
-                <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">إرشاد المحاسبة</h3>
+                <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{D('إرشاد المحاسبة','Accounting guide')}</h3>
                 <Icon name="info" size={20} className="text-[var(--color-tertiary-container)]" fill={1} />
               </div>
               <div className="space-y-3">
                 {[
-                  `تحسب الأرباح بعد خصم رسوم التوصيل (${money(10)}) لصالح الكابتن.`,
-                  'بمجرد اكتمال التوصيل، تتحول الأموال تلقائياً للحساب البنكي المسجل.',
-                  'لا تُحصَّل أي عمولات إضافية خلال الطور التجريبي الحالي.',
+                  `${D('تحسب الأرباح بعد خصم رسوم التوصيل','Earnings are calculated after deducting the delivery fee')} (${money(10)}) ${D('لصالح الكابتن.','for the captain.')}`,
+                  D('بمجرد اكتمال التوصيل، تتحول الأموال تلقائياً للحساب البنكي المسجل.','Once delivery completes, funds transfer automatically to the registered bank account.'),
+                  D('لا تُحصَّل أي عمولات إضافية خلال الطور التجريبي الحالي.','No additional commissions are charged during the current trial phase.'),
                 ].map((text, i) => (
                   <div key={i} className="flex gap-3 items-start justify-end">
                     <p className="text-body-md text-[var(--color-on-surface-variant)] text-end leading-relaxed" style={{ direction: 'rtl' }}>{text}</p>
@@ -1047,7 +1045,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
             {/* ── Merchant Logo ──────────────────────────────────── */}
             <Card variant="z3" radius="xl" padding="p-6" className="space-y-5" id="merchant_logo_card">
               <div className="flex items-center justify-end gap-2">
-                <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">شعار المتجر</h3>
+                <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{D('شعار المتجر','Store logo')}</h3>
                 <Icon name="storefront" size={20} fill={1} className="text-[var(--color-tertiary-container)]" />
               </div>
 
@@ -1059,14 +1057,14 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                   id="logo_preview_box"
                 >
                   {activeLogoUrl ? (
-                    <img src={activeLogoUrl} alt="شعار المتجر" className="w-full h-full object-cover" />
+                    <img src={activeLogoUrl} alt={D('شعار المتجر','Store logo')} className="w-full h-full object-cover" />
                   ) : (
                     <Icon name="store" size={40} className="text-[var(--color-on-surface-variant)]" />
                   )}
                 </div>
               </div>
 
-              <UploadStatus error={logoError} success={logoSuccess} successMsg="تم حفظ الشعار بنجاح ✓" />
+              <UploadStatus error={logoError} success={logoSuccess} successMsg={D('تم حفظ الشعار بنجاح','Logo saved successfully')} />
 
               {/* Select file */}
               <Button
@@ -1076,7 +1074,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                 disabled={logoUploading}
                 id="logo_upload_btn"
               >
-                {activeLogoUrl ? 'تغيير الشعار' : 'رفع الشعار'}
+                {activeLogoUrl ? D('تغيير الشعار','Change logo') : D('رفع الشعار','Upload logo')}
               </Button>
 
               {/* Save — only when a new file is pending */}
@@ -1086,12 +1084,12 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                   onClick={handleLogoSave}
                   id="logo_save_btn"
                 >
-                  {logoUploading ? 'جاري الرفع…' : 'حفظ الشعار'}
+                  {logoUploading ? D('جاري الرفع…','Uploading…') : D('حفظ الشعار','Save logo')}
                 </Button>
               )}
 
               <p className="text-label-sm text-center" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>
-                JPG · PNG · WebP · حتى 2 ميغابايت
+                {D('JPG · PNG · WebP · حتى 2 ميغابايت','JPG · PNG · WebP · up to 2 MB')}
               </p>
             </Card>
 
@@ -1099,12 +1097,12 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
             <Card variant="z3" radius="xl" padding="p-6" className="space-y-5" id="branch_cover_card">
               <div className="flex items-center justify-end gap-2">
                 <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-                  صورة غلاف الفرع
+                  {D('صورة غلاف الفرع','Branch cover image')}
                 </h3>
                 <Icon name="panorama" size={20} fill={1} className="text-[var(--color-tertiary-container)]" />
               </div>
               <p className="text-label-sm text-end" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>
-                تظهر في شاشة المطعم كصورة بطولية للعميل
+                {D('تظهر في شاشة المطعم كصورة بطولية للعميل','Shown on the store screen as a hero image for the customer')}
               </p>
 
               {/* Cover preview — 16:9 */}
@@ -1115,17 +1113,17 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
               >
                 <div className="absolute inset-0">
                   {activeCoverUrl ? (
-                    <img src={activeCoverUrl} alt="غلاف الفرع" className="w-full h-full object-cover" />
+                    <img src={activeCoverUrl} alt={D('غلاف الفرع','Branch cover')} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                       <Icon name="panorama" size={36} className="text-[var(--color-on-surface-variant)]" />
-                      <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>لا توجد صورة غلاف</p>
+                      <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{D('لا توجد صورة غلاف','No cover image')}</p>
                     </div>
                   )}
                 </div>
               </div>
 
-              <UploadStatus error={coverError} success={coverSuccess} successMsg="تم حفظ صورة الغلاف بنجاح ✓" />
+              <UploadStatus error={coverError} success={coverSuccess} successMsg={D('تم حفظ صورة الغلاف بنجاح','Cover image saved successfully')} />
 
               {/* Select file */}
               <Button
@@ -1135,7 +1133,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                 disabled={coverUploading}
                 id="cover_upload_btn"
               >
-                {activeCoverUrl ? 'تغيير صورة الغلاف' : 'رفع صورة الغلاف'}
+                {activeCoverUrl ? D('تغيير صورة الغلاف','Change cover image') : D('رفع صورة الغلاف','Upload cover image')}
               </Button>
 
               {/* Save — only when a new file is pending */}
@@ -1145,7 +1143,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                   onClick={handleCoverSave}
                   id="cover_save_btn"
                 >
-                  {coverUploading ? 'جاري الرفع…' : 'حفظ صورة الغلاف'}
+                  {coverUploading ? D('جاري الرفع…','Uploading…') : D('حفظ صورة الغلاف','Save cover image')}
                 </Button>
               )}
 
