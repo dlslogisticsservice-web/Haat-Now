@@ -7,7 +7,6 @@ import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
-import { EnterpriseSidebar, SidebarSection } from '../../components/ui/EnterpriseSidebar';
 import { sandboxStore, SbCoupon } from '../../services/sandboxStore';
 import { authService } from '../../services/auth.service';
 import { couponService } from '../../services/coupon.service';
@@ -40,17 +39,6 @@ interface TicketMessage {
 }
 
 type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops';
-
-const SIDEBAR_SECTIONS: SidebarSection[] = [
-  {
-    items: [
-      { id: 'kpi',     label: 'الإحصائيات',   icon: 'bar_chart' },
-      { id: 'coupons', label: 'الكوبونات',     icon: 'sell' },
-      { id: 'config',  label: 'المتغيرات',     icon: 'tune' },
-      { id: 'support', label: 'Helpdesk',      icon: 'support_agent' },
-    ],
-  },
-];
 
 const PRIORITY_VARIANT: Record<string, 'error' | 'warning' | 'neutral' | 'secondary'> = {
   critical: 'error', high: 'error', medium: 'warning', low: 'neutral',
@@ -121,10 +109,6 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
       .catch(() => { if (alive) setIsSuper(false); });
     return () => { alive = false; };
   }, [adminId]);
-  const navSections = SIDEBAR_SECTIONS.map(s => ({
-    ...s,
-    items: isSuper ? [...s.items, { id: 'ops', label: 'مركز العمليات', icon: 'local_shipping' }, { id: 'campaigns', label: 'الحملات', icon: 'campaign' }, { id: 'design', label: 'مركز التصميم', icon: 'palette' }] : s.items,
-  }));
 
   useEffect(() => { fetchAdminModuleData(); refreshCoupons(); }, []);
 
