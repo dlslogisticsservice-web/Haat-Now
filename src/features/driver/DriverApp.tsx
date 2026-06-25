@@ -36,6 +36,7 @@ const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   const { country, lang, toggleLang, price: money } = useAppConfig();
   const cur = country.currency.symbolAr;
+  const D = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   // ── State (unchanged) ─────────────────────────────────────
   const [driverProfile,           setDriverProfile]           = useState<any>(null);
   const [isOnline,                setIsOnline]                = useState(false);
@@ -69,7 +70,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
     if (SANDBOX) return;  // no GPS/geolocation in demo mode (avoids permission prompts)
     if (watchIdRef.current !== null) return;
     if (!navigator.geolocation) {
-      alert('تحديد الموقع غير مدعوم في هذا المتصفح');
+      alert(D('تحديد الموقع غير مدعوم في هذا المتصفح','Location is not supported in this browser'));
       return;
     }
     const id = navigator.geolocation.watchPosition(
@@ -78,7 +79,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) {
-          alert('لم تُمنح صلاحية تحديد الموقع. يُرجى تفعيلها من إعدادات المتصفح.');
+          alert(D('لم تُمنح صلاحية تحديد الموقع. يُرجى تفعيلها من إعدادات المتصفح.','Location permission was denied. Please enable it in your browser settings.'));
         }
       },
       { enableHighAccuracy: true, timeout: 10000 },
@@ -159,7 +160,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   };
 
   const handleAcceptJob = async (orderId: string) => {
-    if (!isOnline) { alert('الرجاء الانتقال إلى وضع الاتصال أولاً!'); return; }
+    if (!isOnline) { alert(D('الرجاء الانتقال إلى وضع الاتصال أولاً!','Please go online first!')); return; }
     setActionLoading(true);
     try {
       if (SANDBOX) {
@@ -169,8 +170,8 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         return;
       }
       const { success, error } = await driverService.acceptDelivery(orderId, driverProfile.id);
-      if (error) alert(`فشل قبول الطلب: ${(error as any).message || error}`);
-      else if (success) { alert('تم قبول الطلب بنجاح!'); await reloadDriverState(driverProfile.id); }
+      if (error) alert(`${D('فشل قبول الطلب','Failed to accept order')}: ${(error as any).message || error}`);
+      else if (success) { alert(D('تم قبول الطلب بنجاح!','Order accepted successfully!')); await reloadDriverState(driverProfile.id); }
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
   };
@@ -188,14 +189,14 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         const { error } = await orderService.updateOrderStatus(job.id, 'on_the_way', 'الطلب في الطريق.');
         if (!error) {
           startGPSTracking(driverProfile.id);
-          alert('تم استلام الشحنة وتفعيل بث الإحداثيات 🚴');
+          alert(D('تم استلام الشحنة وتفعيل بث الإحداثيات','Shipment picked up & GPS tracking started'));
         }
       } else if (job.status === 'on_the_way') {
         // Phase 15: single atomic RPC — status transition + earnings + wallet in one transaction.
         const { error: deliveryError } = await walletService.completeDelivery(job.id, driverProfile.id);
         if (!deliveryError) {
           stopGPSTracking();
-          alert('تم تسليم الشحنة وتسجيل مكافأة بمحفظتك! 🏁');
+          alert(D('تم تسليم الشحنة وتسجيل مكافأة بمحفظتك!','Shipment delivered & a reward was added to your wallet!'));
         }
       }
       await reloadDriverState(driverProfile.id);
@@ -210,7 +211,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4" id="driver_core_loader">
         <Loader size={36} />
-        <p className="text-body-md text-[var(--color-on-surface-variant)]">جاري تحميل بيانات الكابتن...</p>
+        <p className="text-body-md text-[var(--color-on-surface-variant)]">{D('جاري تحميل بيانات الكابتن...','Loading captain data…')}</p>
       </div>
     );
   }
@@ -221,12 +222,12 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   }
 
   return (
-    <div className="min-h-screen px-6 pb-6 md:px-8 md:pb-8 space-y-5" style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }} id="driver_app_container">
+    <div className="min-h-screen px-6 pb-6 md:px-8 md:pb-8 space-y-5" style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }} id="driver_app_container" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
 
       {/* ── Top bar: logout + language ─────────────────────── */}
       <div className="flex items-center justify-between" id="driver_topbar">
         <Button variant="danger" size="sm" onClick={onLogout} id="driver_logout_btn" leftIcon={<Icon name="logout" size={16} />}>
-          تسجيل الخروج
+          {D("تسجيل الخروج", "Sign out")}
         </Button>
         <Button variant="ghost" size="sm" onClick={toggleLang} id="driver_lang_btn" leftIcon={<Icon name="language" size={16} />}>
           {lang === 'ar' ? 'EN' : 'ع'}
@@ -241,7 +242,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         <div className="flex items-center gap-2.5" id="driver_badge_box">
           <Icon name="local_shipping" size={20} className="text-[var(--color-primary-container)]" fill={1} />
           <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-            {driverProfile?.full_name || 'الكابتن'}
+            {driverProfile?.full_name || D('الكابتن','Captain')}
           </h3>
           <span className="text-label-sm text-[var(--color-on-surface-variant)]" style={{ textTransform: 'none', letterSpacing: 0 }}>
             #{driverProfile?.id.slice(-6).toUpperCase()}
@@ -269,32 +270,32 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
           id="toggle_online_presence"
         >
           <Icon name={isOnline ? 'wifi' : 'wifi_off'} size={28} fill={isOnline ? 1 : 0} />
-          <span>{isOnline ? 'متصل — نشط' : 'اضغط للاتصال'}</span>
+          <span>{isOnline ? D('متصل — نشط','Online — active') : D('اضغط للاتصال','Tap to go online')}</span>
         </button>
 
         {/* Supporting metrics row — secondary inside primary card */}
         <div className="grid grid-cols-3 gap-6 w-full max-w-sm border-t border-[rgba(255,255,255,0.06)] pt-5">
           <div className="text-center">
             <p className="text-headline-sm font-bold" style={{ color: 'var(--color-lime-vb, #9ed442)' }}>{totalEarned.toFixed(0)}</p>
-            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>ريال اليوم</p>
+            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{D('اليوم','Today')}</p>
           </div>
           <div className="text-center">
             <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{activeJobs.length}</p>
-            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>شحنة نشطة</p>
+            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{D('شحنة نشطة','Active')}</p>
           </div>
           <div className="text-center">
             <p className="text-headline-sm font-bold" style={{ color: availableFeed.length > 0 ? 'var(--color-lime-vb, #9ed442)' : 'var(--color-t3, #aab0b6)' }}>{availableFeed.length}</p>
-            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>طلب متاح</p>
+            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{D('طلب متاح','Available')}</p>
           </div>
         </div>
       </Card>
 
       {/* TERTIARY — Compact stat chips */}
       <div className="grid grid-cols-4 gap-3">
-        <StatCard label="نشطة"     value={activeJobs.length}               icon={<Icon name="inventory_2" size={16} fill={1} />} accentColor="var(--color-primary-container)" />
-        <StatCard label="متاحة"    value={availableFeed.length}             icon={<Icon name="storefront"  size={16} fill={1} />} accentColor="var(--color-secondary)" />
-        <StatCard label="مكتملة"   value={completedCount}                   icon={<Icon name="task_alt"    size={16} fill={1} />} accentColor="var(--color-tertiary-container)" />
-        <StatCard label="الأرباح"  value={money(totalEarned)} icon={<Icon name="payments"    size={16} fill={1} />} accentColor="var(--color-neon)" />
+        <StatCard label={D('نشطة','Active')}     value={activeJobs.length}               icon={<Icon name="inventory_2" size={16} fill={1} />} accentColor="var(--color-primary-container)" />
+        <StatCard label={D('متاحة','Available')}    value={availableFeed.length}             icon={<Icon name="storefront"  size={16} fill={1} />} accentColor="var(--color-secondary)" />
+        <StatCard label={D('مكتملة','Completed')}   value={completedCount}                   icon={<Icon name="task_alt"    size={16} fill={1} />} accentColor="var(--color-tertiary-container)" />
+        <StatCard label={D('الأرباح','Earnings')}  value={money(totalEarned)} icon={<Icon name="payments"    size={16} fill={1} />} accentColor="var(--color-neon)" />
       </div>
 
       {/* ── Operations: shift / dispatch offers / wallet ──────── */}
@@ -305,13 +306,13 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
 
         {/* Active jobs — col 8 */}
         <div className="lg:col-span-8 space-y-4" id="active_jobs_wrapper">
-          <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">شحناتي النشطة</h3>
+          <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{D('شحناتي النشطة','My active shipments')}</h3>
 
           {activeJobs.length === 0 ? (
             <EmptyState
               icon="directions_bike"
-              title="لا توجد شحنات نشطة"
-              description="اختر من السوق أدناه للبدء"
+              title={D('لا توجد شحنات نشطة','No active shipments')}
+              description={D('اختر من السوق أدناه للبدء','Pick from the market below to start')}
             />
           ) : (
             activeJobs.map((job) => (
@@ -333,10 +334,10 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                   </span>
                   <div className="text-end">
                     <p className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-                      {job.merchant_branches?.name || 'المطعم'}
+                      {job.merchant_branches?.name || D('المطعم','Restaurant')}
                     </p>
                     <p className="text-label-sm text-[var(--color-on-surface-variant)]">
-                      عميل: {job.customers?.full_name || 'تجريبي'}
+                      {D('عميل','Customer')}: {job.customers?.full_name || D('تجريبي','Demo')}
                       {job.customers?.phone_number ? ` · ${job.customers.phone_number}` : ''}
                     </p>
                   </div>
@@ -345,7 +346,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                 {/* Destination */}
                 <div className="flex items-start gap-2 justify-end">
                   <p className="text-label-md text-[var(--color-on-surface-variant)] text-end" style={{ textTransform: 'none' }}>
-                    الرياض، حي الياسمين — عنوان التسليم المسجل
+                    {D("الرياض، حي الياسمين — عنوان التسليم المسجل", "Riyadh, Al Yasmin — registered delivery address")}
                   </p>
                   <Icon name="location_on" size={18} className="text-[var(--color-primary-container)] shrink-0" fill={1} />
                 </div>
@@ -353,7 +354,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                 {/* Status badge */}
                 <div className="flex items-center justify-end">
                   <Badge variant="primary" dot>
-                    {job.status === 'preparing' ? 'جاهز للاستلام' : 'في الطريق'}
+                    {job.status === 'preparing' ? D('جاهز للاستلام','Ready for pickup') : D('في الطريق','On the way')}
                   </Badge>
                 </div>
 
@@ -367,7 +368,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                     leftIcon={<Icon name={job.status === 'preparing' ? 'inventory_2' : 'task_alt'} size={16} fill={1} />}
                     id="advance_job_trigger"
                   >
-                    {job.status === 'preparing' ? 'استلام الشحنة' : 'تأكيد التسليم'}
+                    {job.status === 'preparing' ? D('استلام الشحنة','Pick up') : D('تأكيد التسليم','Confirm delivery')}
                   </Button>
                 </div>
               </Card>
@@ -378,18 +379,18 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         {/* Feed / Market — col 4 */}
         <div className="lg:col-span-4 space-y-4" id="available_jobs_col">
           <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-            سوق الطلبات ({availableFeed.length})
+            {D('سوق الطلبات','Orders market')} ({availableFeed.length})
           </h3>
 
           {!isOnline ? (
             <Card variant="z3" radius="xl" padding="p-6" className="text-center space-y-3" id="driver_offline_alert">
               <Icon name="wifi_off" size={36} className="text-[var(--color-error)] mx-auto opacity-60" />
               <p className="text-body-md text-[var(--color-on-surface-variant)]">
-                قم بتفعيل الاتصال لعرض الطلبات المتاحة
+                {D("قم بتفعيل الاتصال لعرض الطلبات المتاحة", "Go online to see available orders")}
               </p>
             </Card>
           ) : availableFeed.length === 0 ? (
-            <EmptyState icon="storefront" title="لا توجد طلبات" description="لا توجد طلبات بانتظار سائق حالياً" />
+            <EmptyState icon="storefront" title={D('لا توجد طلبات','No orders')} description={D('لا توجد طلبات بانتظار سائق حالياً','No orders waiting for a driver right now')} />
           ) : (
             <div className="space-y-3" id="available_jobs_scroller">
               {availableFeed.map((f) => (
@@ -409,7 +410,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                       #{f.id.slice(-6).toUpperCase()}
                     </span>
                     <p className="text-label-md font-semibold text-[var(--color-on-surface)]">
-                      {f.merchant_branches?.name || 'المطعم'}
+                      {f.merchant_branches?.name || D('المطعم','Restaurant')}
                     </p>
                   </div>
 
@@ -417,7 +418,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                     <span className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>
                       {money(10)}
                     </span>
-                    <span className="text-label-md text-[var(--color-on-surface-variant)]">أجرة التوصيل</span>
+                    <span className="text-label-md text-[var(--color-on-surface-variant)]">{D('أجرة التوصيل','Delivery fee')}</span>
                   </div>
 
                   <Button
@@ -428,7 +429,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                     onClick={() => handleAcceptJob(f.id)}
                     id={`accept_job_btn_${f.id}`}
                   >
-                    قبول الطلب
+                    {D("قبول الطلب", "Accept order")}
                   </Button>
                 </Card>
               ))}
@@ -438,30 +439,30 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
           {/* Earnings summary */}
           <Card variant="z3" radius="xl" padding="p-5" className="space-y-4" id="driver_earnings_summary_card">
             <h4 className="text-headline-sm font-semibold text-[var(--color-on-surface)] text-end pb-3 border-b border-[rgba(255,255,255,0.06)]">
-              ملخص المحفظة
+              {D("ملخص المحفظة", "Wallet summary")}
             </h4>
             <div className="grid grid-cols-2 gap-3 text-center" id="driver_earnings_analytics">
               <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_1">
-                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">الرحلات</p>
+                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{D('الرحلات','Trips')}</p>
                 <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{completedCount}</p>
               </div>
               <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_2">
-                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">الأرباح</p>
+                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{D('الأرباح','Earnings')}</p>
                 <p className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>
                   {money(totalEarned)}
                 </p>
               </div>
               <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_3">
-                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">متوسط الرحلة</p>
+                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{D('متوسط الرحلة','Avg / trip')}</p>
                 <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{money(completedCount ? totalEarned / completedCount : 0)}</p>
               </div>
               <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_4">
-                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">قيد التوصيل</p>
+                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{D('قيد التوصيل','In delivery')}</p>
                 <p className="text-headline-sm font-bold" style={{ color: '#fbbf24' }}>{activeJobs.length}</p>
               </div>
             </div>
             <p className="text-label-sm text-[var(--color-on-surface-variant)] text-center leading-relaxed" style={{ textTransform: 'none', letterSpacing: 0 }}>
-              {money(10)} أجرة ثابتة لكل رحلة مكتملة
+              {money(10)} {D('أجرة ثابتة لكل رحلة مكتملة','fixed fee per completed trip')}
             </p>
           </Card>
         </div>
