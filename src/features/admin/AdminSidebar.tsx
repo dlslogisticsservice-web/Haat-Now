@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, Map, Route, MapPin, UserRound, Truck, Wallet, Banknote, TicketPercent,
   Headset, ShieldCheck, LifeBuoy, Target, Megaphone, Palette, Settings2, ChevronDown, LogOut,
-  Languages, RefreshCw, LucideIcon, Layers,
+  Languages, RefreshCw, LucideIcon, Layers, Bell, ScrollText, Search,
 } from 'lucide-react';
 
 export type NavKey =
-  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design'
+  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs'
   | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles'
   | 'ops:finance' | 'ops:payouts' | 'ops:care' | 'ops:kyc' | 'ops:growthb';
 
@@ -37,15 +37,22 @@ const GROUPS: Group[] = [
     { key: 'ops:growthb', ar: 'إدارة النمو', en: 'Growth', Icon: Target },
     { key: 'campaigns', ar: 'الحملات', en: 'Campaigns', Icon: Megaphone, super: true },
   ] },
-  { ar: 'الأمان', en: 'Security', items: [{ key: 'ops:kyc', ar: 'التحقق والامتثال', en: 'Compliance', Icon: ShieldCheck }] },
+  { ar: 'الأمان', en: 'Security', items: [
+    { key: 'ops:kyc', ar: 'التحقق والامتثال', en: 'Compliance', Icon: ShieldCheck },
+    { key: 'logs', ar: 'سجلّات النظام', en: 'System Logs', Icon: ScrollText, super: true },
+  ] },
   { ar: 'المنصّة', en: 'Platform', items: [{ key: 'design', ar: 'مركز التصميم', en: 'Design', Icon: Palette, super: true }] },
-  { ar: 'النظام', en: 'System', items: [{ key: 'config', ar: 'الإعدادات', en: 'Settings', Icon: Settings2 }] },
+  { ar: 'النظام', en: 'System', items: [
+    { key: 'notifications', ar: 'الإشعارات', en: 'Notifications', Icon: Bell },
+    { key: 'config', ar: 'الإعدادات', en: 'Settings', Icon: Settings2 },
+  ] },
 ];
 
 export const AdminSidebar: React.FC<{
   active: NavKey; onSelect: (k: NavKey) => void; lang: 'ar' | 'en'; isSuper: boolean;
-  supportBadge?: number; onLogout: () => void; onToggleLang: () => void; onRefresh: () => void;
-}> = ({ active, onSelect, lang, isSuper, supportBadge, onLogout, onToggleLang, onRefresh }) => {
+  supportBadge?: number; notifBadge?: number; onSearch?: () => void;
+  onLogout: () => void; onToggleLang: () => void; onRefresh: () => void;
+}> = ({ active, onSelect, lang, isSuper, supportBadge, notifBadge, onSearch, onLogout, onToggleLang, onRefresh }) => {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const toggle = (g: string) => setCollapsed(c => ({ ...c, [g]: !c[g] }));
@@ -63,6 +70,16 @@ export const AdminSidebar: React.FC<{
           <p className="font-extrabold text-sm tracking-tight" style={{ color: 'var(--color-on-surface)' }}>HAAT NOW</p>
           <p className="text-[10px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('منصة الإدارة', 'Admin Platform')}</p>
         </div>
+      </div>
+
+      {/* Global search trigger */}
+      <div className="px-3 pt-3">
+        <button onClick={onSearch} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer"
+          style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
+          <Search size={15} />
+          <span className="flex-1 text-start">{L('بحث شامل…', 'Search…')}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'var(--color-surface-container-lowest)' }}>Ctrl K</span>
+        </button>
       </div>
 
       {/* Nav groups */}
@@ -83,7 +100,7 @@ export const AdminSidebar: React.FC<{
                 <div className="space-y-0.5 mt-0.5">
                   {items.map(it => {
                     const on = active === it.key;
-                    const badge = it.key === 'support' ? supportBadge : undefined;
+                    const badge = it.key === 'support' ? supportBadge : it.key === 'notifications' ? notifBadge : undefined;
                     return (
                       <button key={it.key} onClick={() => onSelect(it.key)}
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all"

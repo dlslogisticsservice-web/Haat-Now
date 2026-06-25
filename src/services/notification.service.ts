@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { Notification, PushToken } from './types';
 
+// Monotonic counter so each realtime subscriber gets a distinct channel name.
+let _chanSeq = 0;
+
 export const notificationService = {
   // Query all in-app notifications dispatched to specific active user ID
   async getUserNotifications(userId: string): Promise<{ data: Notification[]; error: any }> {
@@ -62,5 +65,24 @@ export const notificationService = {
       .eq('target_user_id', userId)
       .eq('is_read', false);
     return { count: count ?? 0, error };
+  },
+
+  // Remove a notification permanently. Requires the delete grant from migration
+  // 20260626000001; callers handle the error gracefully if not yet applied.
+  async remove(notificationId: string): Promise<{ error: any }> {
+    const { error } = await supabase.from('notifications').delete().eq('id', notificationId);
+    return { error };
+  },
+
+  // Subscribe to live notification changes for a user via Supabase Realtime.
+  // Returns an unsubscribe function. Fires on every insert/update/delete.
+  // Each call gets a UNIQUE channel name so multiple independent subscribers
+  // (e.g. the sidebar badge + the notification center) don't collide on one channel.
+  subscribe(userId: string, onChange: () => void): () => void {
+    const channel = supabase
+      .channel(`notif:${userId}:${++_chanSeq}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `target_user_id=eq.${userId}` }, () => onChange())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }
 };

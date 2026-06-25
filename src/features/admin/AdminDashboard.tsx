@@ -22,6 +22,10 @@ import { CampaignCenter } from './CampaignCenter';
 import { OperationsCenter, OpsTab } from './OperationsCenter';
 import { AdminSidebar, NavKey } from './AdminSidebar';
 import { AdminDashboardHome } from './AdminDashboardHome';
+import { NotificationCenter } from './NotificationCenter';
+import { SystemLogs } from './SystemLogs';
+import { GlobalSearch } from './GlobalSearch';
+import { notificationService } from '../../services/notification.service';
 
 // ── Types (unchanged) ─────────────────────────────────────────
 interface Ticket {
@@ -38,7 +42,7 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs';
 
 const PRIORITY_VARIANT: Record<string, 'error' | 'warning' | 'neutral' | 'secondary'> = {
   critical: 'error', high: 'error', medium: 'warning', low: 'neutral',
@@ -61,11 +65,23 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [payoutLoading,     setPayoutLoading]     = useState(false);
   const [activeTab,         setActiveTab]         = useState<AdminTab>('kpi');
   const [opsTab,            setOpsTab]            = useState<OpsTab>('command');
+  const [searchOpen,        setSearchOpen]        = useState(false);
+  const [notifBadge,        setNotifBadge]        = useState(0);
   const activeNav: NavKey = activeTab === 'ops' ? (`ops:${opsTab}` as NavKey) : (activeTab as NavKey);
   const handleNav = (k: NavKey) => {
     if (k.startsWith('ops:')) { setActiveTab('ops'); setOpsTab(k.slice(4) as OpsTab); }
     else setActiveTab(k as AdminTab);
   };
+  // Ctrl/Cmd+K opens global search; live unread notification badge.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearchOpen(v => !v); } };
+    window.addEventListener('keydown', onKey);
+    let unsub = () => {};
+    const refreshBadge = () => notificationService.getUnreadCount(adminId).then(({ count }) => setNotifBadge(count));
+    refreshBadge();
+    unsub = notificationService.subscribe(adminId, refreshBadge);
+    return () => { window.removeEventListener('keydown', onKey); unsub(); };
+  }, [adminId]);
   // ── Coupon administration ──
   const [coupons,           setCoupons]           = useState<SbCoupon[]>([]);
   const [cForm,             setCForm]             = useState({ code: '', discount: '15', maxUses: '100', expires: '2026-12-31', country: '' });
@@ -196,10 +212,13 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         lang={lang}
         isSuper={isSuper}
         supportBadge={tickets.filter(t => t.status === 'open').length || undefined}
+        notifBadge={notifBadge || undefined}
+        onSearch={() => setSearchOpen(true)}
         onLogout={onLogout}
         onToggleLang={toggleLang}
         onRefresh={fetchAdminModuleData}
       />
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} lang={lang} onNavigate={handleNav} />
 
       {/* ── Main Content ───────────────────────────────────── */}
       <main
@@ -292,6 +311,8 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
 
         {/* TAB: DESIGN CENTER (super admin only)             */}
         {activeTab === 'ops' && <OperationsCenter tab={opsTab} onTab={setOpsTab} hideTabs />}
+        {activeTab === 'notifications' && <NotificationCenter adminId={adminId} lang={lang} onUnread={setNotifBadge} />}
+        {activeTab === 'logs' && isSuper && <SystemLogs lang={lang} />}
 
         {activeTab === 'design' && isSuper && <DesignCenter />}
 
