@@ -5,6 +5,7 @@ import { Eye, Save, UploadCloud, RotateCcw, Trash2, Smartphone, Tablet, Monitor,
 import { ExperienceBuilder } from './ExperienceBuilder';
 import { AssetsManager } from './AssetsManager';
 import { CountryBranding } from './CountryBranding';
+import { PlatformRegistry } from './PlatformRegistry';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 
 const ACCENT = 'var(--color-primary-fixed)';
@@ -48,11 +49,11 @@ function Text({ label, value, onChange, ph }: { label: string; value: string; on
   );
 }
 
-const SECTIONS = ['الثيم', 'الخطوط', 'البطاقات', 'الأزرار', 'الأيقونات', 'التخطيط', 'الهوية', 'الحركات', 'النشر', 'منشئ التجارب', 'الأصول', 'هوية الدول'] as const;
-const EXP_SECTIONS = ['منشئ التجارب', 'الأصول', 'هوية الدول'] as readonly string[];
+const SECTIONS = ['الثيم', 'الخطوط', 'البطاقات', 'الأزرار', 'الأيقونات', 'التخطيط', 'الهوية', 'الحركات', 'النشر', 'منشئ التجارب', 'الأصول', 'هوية الدول', 'سجل المنصة'] as const;
+const EXP_SECTIONS = ['منشئ التجارب', 'الأصول', 'هوية الدول', 'سجل المنصة'] as readonly string[];
 const DEVICE = { mobile: 393, tablet: 768, desktop: 1100 } as const;
 
-const SEC_EN: Record<string, string> = { 'الثيم':'Theme','الخطوط':'Fonts','البطاقات':'Cards','الأزرار':'Buttons','الأيقونات':'Icons','التخطيط':'Layout','الهوية':'Branding','الحركات':'Motion','النشر':'Publish','منشئ التجارب':'Experience','الأصول':'Assets','هوية الدول':'Country Branding' };
+const SEC_EN: Record<string, string> = { 'الثيم':'Theme','الخطوط':'Fonts','البطاقات':'Cards','الأزرار':'Buttons','الأيقونات':'Icons','التخطيط':'Layout','الهوية':'Branding','الحركات':'Motion','النشر':'Publish','منشئ التجارب':'Experience','الأصول':'Assets','هوية الدول':'Country Branding','سجل المنصة':'Platform Registry' };
 
 export function DesignCenter() {
   const { lang } = useAppConfig();
@@ -163,6 +164,7 @@ export function DesignCenter() {
           {section === 'منشئ التجارب' && <ExperienceBuilder />}
           {section === 'الأصول' && <AssetsManager />}
           {section === 'هوية الدول' && <CountryBranding />}
+          {section === 'سجل المنصة' && <PlatformRegistry />}
         </div>
 
         {/* actions (design tokens) — hidden for Experience sections which have their own publish */}
