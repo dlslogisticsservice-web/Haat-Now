@@ -50,8 +50,36 @@ are typechecked by Deno (`deno check`). Each runtime uses its own compiler.
 - **Production URL 200 / smoke test:** depends on the Vercel deploy above; cannot run without the
   deployment having occurred.
 
+## Final GitHub Actions status — VERIFIED GREEN
+Observed via the public GitHub API (the `gh` CLI is absent, but the repo
+`dlslogisticsservice-web/Haat-Now` is public, so run status is queryable):
+
+- **Previous commit `cc8f0b9` → `conclusion: failure`** (the red run the mission described).
+- **Fix commit `da84737` → run `28267201287` → overall `conclusion: success`:**
+
+| Job | Conclusion |
+|---|---|
+| Typecheck · Lint · Build | ✅ success (incl. the `tsc --noEmit` step that previously failed) |
+| Edge Functions (Deno check) | ✅ success (new job; Deno validated the functions) |
+| E2E (Puppeteer) | ✅ success (24/24 in CI) |
+| Deploy Preview (Vercel) | ⏭️ skipped (push, not a PR) |
+| Deploy Production (Vercel) | ⏭️ skipped (branch ≠ `main`, and no `VERCEL_TOKEN`) |
+
+**GitHub Actions = GREEN.** Root cause resolved in the real pipeline, not just locally.
+
+## Final Vercel status — BLOCKED on credentials/branch (documented, not faked)
+The two Vercel jobs are **skipped**, for two concrete reasons:
+1. **Branch:** this push is on `feat/auth-recovery-frontend-sprint`. `deploy-preview` runs only on
+   PRs; `deploy-production` runs only on `main`. I cannot open a PR-merge or push to `main`.
+2. **Secrets:** `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` are not set in the repo, and
+   I have no way to add them. The `deploy-production` job already runs `vercel deploy --prod`
+   automatically on `main` once those secrets exist (step-level guard skips cleanly when absent).
+
+So production auto-promotion is **configured and correct**; it is gated only on (a) merging to
+`main` and (b) an operator adding the three Vercel secrets — neither of which is possible from this
+environment. Production URL / smoke test therefore cannot be exercised here.
+
 ## Final state
-- Root cause fixed; **typecheck/build/E2E all green locally** with the exact CI commands.
-- GitHub Actions `quality` + `e2e` + `edge-functions` jobs are now correctly configured.
-- Production auto-promotion is configured and gated only on the three Vercel secrets (the single
-  remaining operator action).
+- ✅ GitHub Actions GREEN (verified, run `28267201287`).
+- ✅ Typecheck / Build / E2E / Edge-Functions all pass in CI.
+- ⏭️ Vercel Preview/Production skipped — gated on `main` + the 3 Vercel secrets (operator action).
