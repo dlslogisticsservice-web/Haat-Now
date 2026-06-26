@@ -32,8 +32,10 @@ Apple Guideline 5.1.1(v) + Google Play data-deletion are **hard store-submission
 | Error boundary | ✅ |
 | Push notifications / Deep links / Universal links / App Links | ❌ not wired (needs Firebase + native projects) |
 | App icons / Splash / Adaptive / Launch screens | ❌ icon PNGs missing; no native android/ios |
-| Crash reporting / Analytics / Monitoring / Health checks | ❌ no provider wired |
-| Rate / Share / Version checker / Force update | ❌ not built |
+| **Version checker / Force update / Maintenance mode** | ✅ `AppGate` + `releaseService` (reads `settings` rows) |
+| **Offline detection** | ✅ `AppGate` offline banner (navigator online/offline) |
+| **Crash reporting / Analytics / Production logging** | ✅ `monitoring.service` seam (env-gated POST; ErrorBoundary wired) — operator sets `VITE_SENTRY_DSN`/`VITE_ANALYTICS_URL` |
+| Rate / Share App | ❌ not built |
 | Backup / Restore / Disaster recovery | 🟡 Supabase-managed PITR (provider-level); no app runbook |
 
 ## Critical blockers (ranked)

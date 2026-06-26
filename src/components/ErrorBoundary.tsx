@@ -1,4 +1,5 @@
 import React from 'react';
+import { monitoring } from '../services/monitoring.service';
 
 // Production hardening: a top-level React error boundary so an uncaught render
 // error degrades to a recoverable fallback instead of a blank white screen.
@@ -17,6 +18,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     // Monitoring hook (do not throw): log + forward to the injected handler.
     // eslint-disable-next-line no-console
     console.error('[ErrorBoundary] uncaught render error:', error, info?.componentStack);
+    monitoring.captureError(error, { componentStack: info?.componentStack });
     try { this.props.onError?.(error, info); } catch { /* never let the handler crash the boundary */ }
   }
 
