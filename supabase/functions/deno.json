@@ -1,0 +1,13 @@
+{
+  "// note": "Deno config for Supabase Edge Functions. These run on Deno, NOT Node — they are excluded from the app's tsconfig and validated with `deno check` in CI.",
+  "compilerOptions": {
+    "lib": ["deno.window", "dom", "esnext"],
+    "strict": true
+  },
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2"
+  },
+  "lint": {
+    "rules": { "tags": ["recommended"] }
+  }
+}
