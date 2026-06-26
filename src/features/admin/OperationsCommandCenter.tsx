@@ -58,7 +58,7 @@ export const OperationsCommandCenter: React.FC = () => {
   const batch = async () => {
     setBusy(true); const { count, error } = await commandService.batchDispatch(20); setBusy(false);
     if (error) return toast.error(error.message);
-    toast.success(`تم إرسال ${count} طلب تلقائيًا.`); await refresh();
+    toast.success(`${L('تم إرسال','Dispatched')} ${count} ${L('طلب تلقائيًا.','orders automatically.')}`); await refresh();
   };
 
   const center = merchants[0] ?? drivers[0] ?? { lat: 24.7136, lng: 46.6753 }; // Riyadh fallback
@@ -70,15 +70,15 @@ export const OperationsCommandCenter: React.FC = () => {
   );
 
   return (
-    <div id="ops_command_center" dir="rtl" className="space-y-4">
+    <div id="ops_command_center" dir={lang === 'ar' ? 'rtl' : 'ltr'} className="space-y-4">
       {/* live summary */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-        {stat('طلبات نشطة', summary?.active_orders)}
-        {stat('غير معيّنة', summary?.unassigned_orders, 'var(--color-error)')}
-        {stat('قيد التوصيل', summary?.in_transit)}
-        {stat('مندوبون متصلون', summary?.online_drivers, 'var(--color-lime-vb, #9ed442)')}
-        {stat('متاحون', summary?.available_drivers)}
-        {stat('عروض معلّقة', summary?.pending_offers)}
+        {stat(L('طلبات نشطة','Active orders'), summary?.active_orders)}
+        {stat(L('غير معيّنة','Unassigned'), summary?.unassigned_orders, 'var(--color-error)')}
+        {stat(L('قيد التوصيل','In transit'), summary?.in_transit)}
+        {stat(L('مندوبون متصلون','Online drivers'), summary?.online_drivers, 'var(--color-lime-vb, #9ed442)')}
+        {stat(L('متاحون','Available'), summary?.available_drivers)}
+        {stat(L('عروض معلّقة','Pending offers'), summary?.pending_offers)}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -90,7 +90,7 @@ export const OperationsCommandCenter: React.FC = () => {
                 <button key={k} onClick={() => setLayers(l => ({ ...l, [k]: !l[k] }))}
                   className="px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer"
                   style={layers[k] ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' } : { background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
-                  {k === 'drivers' ? 'المندوبون' : k === 'orders' ? 'الطلبات' : k === 'merchants' ? 'المتاجر' : 'خريطة حرارية'}
+                  {k === 'drivers' ? L('المندوبون','Drivers') : k === 'orders' ? L('الطلبات','Orders') : k === 'merchants' ? L('المتاجر','Merchants') : L('خريطة حرارية','Heatmap')}
                 </button>
               ))}
             </div>
@@ -98,8 +98,8 @@ export const OperationsCommandCenter: React.FC = () => {
               <div style={{ height: 460 }}>
                 <APIProvider apiKey={MAPS_KEY}>
                   <Map defaultCenter={center} defaultZoom={11} gestureHandling="greedy" disableDefaultUI={false}>
-                    {layers.drivers && drivers.map(d => <Marker key={d.id} position={{ lat: d.lat, lng: d.lng }} icon={driverIcon(d.status)} title={`${d.full_name ?? 'مندوب'} (${d.status})`} />)}
-                    {layers.orders && orders.map(o => <Marker key={o.id} position={{ lat: o.lat, lng: o.lng }} icon={ICON('blue')} title={`طلب ${o.status} · ${o.total_amount}`} />)}
+                    {layers.drivers && drivers.map(d => <Marker key={d.id} position={{ lat: d.lat, lng: d.lng }} icon={driverIcon(d.status)} title={`${d.full_name ?? L('مندوب','Driver')} (${d.status})`} />)}
+                    {layers.orders && orders.map(o => <Marker key={o.id} position={{ lat: o.lat, lng: o.lng }} icon={ICON('blue')} title={`${L('طلب','Order')} ${o.status} · ${o.total_amount}`} />)}
                     {layers.merchants && merchants.map(m => <Marker key={m.id} position={{ lat: m.lat, lng: m.lng }} icon={ICON('red')} title={m.name} />)}
                     <HeatLayer points={orders.map(o => ({ lat: o.lat, lng: o.lng }))} enabled={layers.heat} />
                   </Map>
@@ -107,10 +107,9 @@ export const OperationsCommandCenter: React.FC = () => {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center gap-2 text-center p-8" style={{ height: 460 }}>
-                <p className="font-bold">الخريطة الحيّة جاهزة — يلزم مفتاح Google Maps</p>
+                <p className="font-bold">{L('الخريطة الحيّة جاهزة — يلزم مفتاح Google Maps','Live map ready — a Google Maps key is required')}</p>
                 <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                  اضبط <code>VITE_GOOGLE_MAPS_API_KEY</code> لعرض المندوبين ({drivers.length}) والطلبات ({orders.length}) والمتاجر ({merchants.length}) على الخريطة.
-                  البيانات الحيّة تعمل في اللوحات المجاورة.
+                  {L('اضبط','Set')} <code>VITE_GOOGLE_MAPS_API_KEY</code> {L('لعرض المندوبين','to show drivers')} ({drivers.length}) {L('والطلبات','and orders')} ({orders.length}) {L('والمتاجر','and merchants')} ({merchants.length}) {L('على الخريطة.','on the map.')} {L('البيانات الحيّة تعمل في اللوحات المجاورة.','Live data works in the adjacent panels.')}
                 </p>
               </div>
             )}
@@ -121,18 +120,18 @@ export const OperationsCommandCenter: React.FC = () => {
         <div className="space-y-3">
           <Card className="p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-sm">الإرسال الجماعي</span>
-              <Button size="sm" loading={busy} onClick={batch}>إرسال {summary?.unassigned_orders ?? 0} طلب</Button>
+              <span className="font-bold text-sm">{L('الإرسال الجماعي','Batch dispatch')}</span>
+              <Button size="sm" loading={busy} onClick={batch}>{L('إرسال','Dispatch')} {summary?.unassigned_orders ?? 0} {L('طلب','orders')}</Button>
             </div>
-            <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>أرسل الطلبات غير المعيّنة لأقرب المندوبين تلقائيًا.</p>
+            <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{L('أرسل الطلبات غير المعيّنة لأقرب المندوبين تلقائيًا.','Auto-dispatch unassigned orders to the nearest drivers.')}</p>
           </Card>
           <Card className="p-3">
-            <p className="font-bold text-sm mb-2">مراقبة الإرسال</p>
+            <p className="font-bold text-sm mb-2">{L('مراقبة الإرسال','Dispatch monitor')}</p>
             <div className="space-y-1.5 max-h-72 overflow-y-auto">
-              {feed.length === 0 ? <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>لا يوجد نشاط</p>
+              {feed.length === 0 ? <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{L('لا يوجد نشاط','No activity')}</p>
                 : feed.map(a => (
                   <div key={a.id} className="flex items-center justify-between text-xs">
-                    <span>{a.drivers?.full_name ?? '—'} · {a.method === 'auto' ? 'تلقائي' : 'يدوي'}</span>
+                    <span>{a.drivers?.full_name ?? '—'} · {a.method === 'auto' ? L('تلقائي','Auto') : L('يدوي','Manual')}</span>
                     <Badge variant={a.status === 'accepted' ? 'success' : a.status === 'offered' ? 'secondary' : 'error'}>{a.status}</Badge>
                   </div>
                 ))}
