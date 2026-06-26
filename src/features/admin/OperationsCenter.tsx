@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { toast } from '../../components/ui/feedback';
+import { toast, inputDialog } from '../../components/ui/feedback';
 import { supabase } from '../../lib/supabase';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { dispatchService, NearestDriver } from '../../services/ops/dispatch.service';
@@ -344,7 +344,7 @@ const PayoutsPanel: React.FC = () => {
     if (error) return toast.error(error.message); await load();
   };
   const reject = async (id: string) => {
-    const note = prompt('سبب الرفض (اختياري):') ?? undefined;
+    const note = (await inputDialog({ title: 'سبب الرفض (اختياري)', placeholder: 'اكتب السبب…' })) ?? undefined;
     setBusy(id); const { error } = await payoutService.reject(id, note); setBusy(null);
     if (error) return toast.error(error.message); await load();
   };

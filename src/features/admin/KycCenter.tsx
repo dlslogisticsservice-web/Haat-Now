@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { toast } from '../../components/ui/feedback';
+import { toast, inputDialog } from '../../components/ui/feedback';
 import { onboardingService, EntityType, KycQueueItem, DocRow, HistoryRow } from '../../services/onboarding.service';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -108,7 +108,7 @@ const ReviewPanel: React.FC<{ item: KycQueueItem; onDone: () => void }> = ({ ite
     setBusy(true); await onboardingService.reviewDocument(item.entity_type, docId, status); setBusy(false); await load();
   };
   const decide = async (decision: 'approved' | 'rejected') => {
-    const notes = decision === 'rejected' ? (prompt('سبب الرفض:') ?? undefined) : undefined;
+    const notes = decision === 'rejected' ? ((await inputDialog({ title: 'سبب الرفض', placeholder: 'اكتب السبب…' })) ?? undefined) : undefined;
     setBusy(true); const { error } = await onboardingService.reviewKyc(item.entity_type, item.entity_id, decision, notes);
     setBusy(false); if (error) return toast.error(error.message); onDone();
   };
@@ -140,9 +140,9 @@ const ReviewPanel: React.FC<{ item: KycQueueItem; onDone: () => void }> = ({ ite
           <Button size="sm" loading={busy} onClick={() => decide('approved')}>قبول الطلب (KYC)</Button>
           <Button size="sm" variant="secondary" loading={busy} onClick={() => decide('rejected')}>رفض الطلب</Button>
         </>}
-        <Button size="sm" variant="secondary" loading={busy} onClick={() => act(() => onboardingService.suspend(item.entity_type, item.entity_id, prompt('سبب التعليق:') ?? 'تعليق إداري'))}>تعليق</Button>
+        <Button size="sm" variant="secondary" loading={busy} onClick={async () => { const reason = (await inputDialog({ title: 'سبب التعليق', placeholder: 'اكتب السبب…' })) ?? 'تعليق إداري'; act(() => onboardingService.suspend(item.entity_type, item.entity_id, reason)); }}>تعليق</Button>
         <Button size="sm" variant="secondary" loading={busy} onClick={() => act(() => onboardingService.liftSuspension(item.entity_type, item.entity_id))}>رفع التعليق</Button>
-        <Button size="sm" variant="secondary" loading={busy} onClick={() => act(() => onboardingService.ban(item.entity_type, item.entity_id, prompt('سبب الحظر:') ?? 'حظر إداري'))}>حظر</Button>
+        <Button size="sm" variant="secondary" loading={busy} onClick={async () => { const reason = (await inputDialog({ title: 'سبب الحظر', placeholder: 'اكتب السبب…' })) ?? 'حظر إداري'; act(() => onboardingService.ban(item.entity_type, item.entity_id, reason)); }}>حظر</Button>
       </div>
 
       <div>

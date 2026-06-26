@@ -13,10 +13,15 @@ interface ConfirmReq {
   id: number; title?: string; message: string; confirmText?: string; cancelText?: string;
   danger?: boolean; resolve: (v: boolean) => void;
 }
+interface InputReq {
+  id: number; title?: string; message?: string; placeholder?: string; defaultValue?: string;
+  inputType?: 'text' | 'number'; confirmText?: string; cancelText?: string; resolve: (v: string | null) => void;
+}
 
 let _id = 0;
 let toasts: ToastItem[] = [];
 let confirms: ConfirmReq[] = [];
+let inputs: InputReq[] = [];
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach(l => l());
 
@@ -43,6 +48,19 @@ export function confirmDialog(opts: { title?: string; message: string; confirmTe
 const settle = (id: number, val: boolean) => {
   const c = confirms.find(x => x.id === id);
   if (c) { c.resolve(val); confirms = confirms.filter(x => x.id !== id); emit(); }
+};
+
+/** Prompt-replacement: resolves the entered string, or null on cancel/esc. */
+export function inputDialog(opts: { title?: string; message?: string; placeholder?: string; defaultValue?: string; inputType?: 'text' | 'number'; confirmText?: string; cancelText?: string }): Promise<string | null> {
+  return new Promise(resolve => {
+    const id = ++_id;
+    inputs = [...inputs, { id, ...opts, resolve }];
+    emit();
+  });
+}
+const settleInput = (id: number, val: string | null) => {
+  const r = inputs.find(x => x.id === id);
+  if (r) { r.resolve(val); inputs = inputs.filter(x => x.id !== id); emit(); }
 };
 
 const TOAST_CFG: Record<ToastKind, { Icon: typeof Info; color: string }> = {
@@ -93,6 +111,39 @@ const ConfirmModal: React.FC<{ req: ConfirmReq; lang: 'ar' | 'en' }> = ({ req, l
   );
 };
 
+const InputModal: React.FC<{ req: InputReq; lang: 'ar' | 'en' }> = ({ req, lang }) => {
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
+  const [val, setVal] = useState(req.defaultValue ?? '');
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') settleInput(req.id, null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [req.id]);
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.55)' }}
+      onClick={() => settleInput(req.id, null)} role="dialog" aria-modal="true" aria-label={req.title || req.message || 'input'} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+      <form onClick={e => e.stopPropagation()} onSubmit={e => { e.preventDefault(); settleInput(req.id, val); }}
+        className="w-full max-w-sm rounded-2xl p-5 space-y-4" style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)', boxShadow: '0 24px 60px rgba(0,0,0,0.5)' }}>
+        <div>
+          {req.title && <p className="font-bold text-[15px]" style={{ color: 'var(--color-on-surface)' }}>{req.title}</p>}
+          {req.message && <p className="text-sm mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>{req.message}</p>}
+        </div>
+        <input ref={inputRef} type={req.inputType || 'text'} value={val} onChange={e => setVal(e.target.value)} placeholder={req.placeholder}
+          className="w-full px-3 py-2.5 rounded-xl text-sm outline-none focus:ring-2"
+          style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid var(--color-outline-variant)' }} />
+        <div className="flex gap-2 justify-end">
+          <button type="button" onClick={() => settleInput(req.id, null)} className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer"
+            style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>{req.cancelText || L('إلغاء', 'Cancel')}</button>
+          <button type="submit" className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer"
+            style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }}>{req.confirmText || L('تأكيد', 'Confirm')}</button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
 export const FeedbackHost: React.FC<{ lang?: 'ar' | 'en' }> = ({ lang = 'ar' }) => {
   const [, force] = useState(0);
   useEffect(() => {
@@ -122,6 +173,8 @@ export const FeedbackHost: React.FC<{ lang?: 'ar' | 'en' }> = ({ lang = 'ar' }) 
       </div>
       {/* Confirm dialogs (one at a time) */}
       {confirms.length > 0 && <ConfirmModal req={confirms[confirms.length - 1]} lang={lang} />}
+      {/* Input dialogs (one at a time) */}
+      {inputs.length > 0 && <InputModal req={inputs[inputs.length - 1]} lang={lang} />}
     </>,
     document.body,
   );

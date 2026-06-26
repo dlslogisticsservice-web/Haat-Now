@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { toast } from '../../components/ui/feedback';
+import { toast, inputDialog } from '../../components/ui/feedback';
 import { shiftService, DriverShift } from '../../services/ops/shift.service';
 import { dispatchService } from '../../services/ops/dispatch.service';
 import { payoutService, WalletSummary } from '../../services/ops/payout.service';
@@ -46,11 +46,11 @@ export const DriverOpsPanel: React.FC<{ driverId: string }> = ({ driverId }) => 
     const { data, error } = await dispatchService.respond(assignmentId, accept);
     setBusy(false);
     if (error) return toast.error(error.message);
-    if (data === 'lost') toast.success(D('تم قبول الطلب من مندوب آخر.','The order was accepted by another driver.'));
+    if (data === 'lost') toast.info(D('تم قبول الطلب من مندوب آخر.','The order was accepted by another driver.'));
     await load();
   };
   const requestPayout = async () => {
-    const raw = prompt(`${D('الرصيد المتاح','Available balance')}: ${money(wallet.available)}\n${D('أدخل مبلغ السحب','Enter withdrawal amount')}:`);
+    const raw = await inputDialog({ title: D('سحب الأرباح', 'Withdraw earnings'), message: `${D('الرصيد المتاح', 'Available balance')}: ${money(wallet.available)}`, placeholder: D('أدخل مبلغ السحب', 'Enter withdrawal amount'), inputType: 'number' });
     if (!raw) return;
     const amount = Number(raw);
     if (!amount || amount <= 0) return toast.error(D('مبلغ غير صالح.','Invalid amount.'));
