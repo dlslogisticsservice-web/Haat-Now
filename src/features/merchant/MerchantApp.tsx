@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { toast, confirmDialog } from '../../components/ui/feedback';
+import { accountService } from '../../services/account.service';
 import { supabase } from '../../lib/supabase';
 import { merchantService } from '../../services/merchant.service';
 import { orderService } from '../../services/order.service';
@@ -515,9 +516,17 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
       >
         {/* ── Top bar: logout + language ─────────────────────────────── */}
         <div className="flex items-center justify-between" id="merchant_topbar">
-          <Button variant="danger" size="sm" onClick={onLogout} id="merchant_logout_btn" leftIcon={<Icon name="logout" size={16} />}>
-            {D('تسجيل الخروج','Sign out')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="danger" size="sm" onClick={onLogout} id="merchant_logout_btn" leftIcon={<Icon name="logout" size={16} />}>
+              {D('تسجيل الخروج','Sign out')}
+            </Button>
+            <button id="merchant_delete_account" onClick={async () => {
+              if (!(await confirmDialog({ title: D('حذف الحساب','Delete account'), message: D('سيتم حذف حسابك وبياناتك نهائيًا. لا يمكن التراجع.','Your account and data will be permanently deleted. This cannot be undone.'), danger: true, confirmText: D('تأكيد الحذف','Confirm delete') }))) return;
+              const { error } = await accountService.deleteMyAccount();
+              if (error) { toast.error(D('تعذّر حذف الحساب','Could not delete the account')); return; }
+              toast.success(D('تم حذف حسابك','Your account was deleted')); onLogout();
+            }} className="text-xs font-semibold cursor-pointer" style={{ color: '#f87171' }}>{D('حذف الحساب','Delete account')}</button>
+          </div>
           <Button variant="ghost" size="sm" onClick={toggleLang} id="merchant_lang_btn" leftIcon={<Icon name="language" size={16} />}>
             {lang === 'ar' ? 'EN' : 'ع'}
           </Button>

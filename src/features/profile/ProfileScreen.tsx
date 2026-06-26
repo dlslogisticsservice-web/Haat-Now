@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { toast, confirmDialog } from '../../components/ui/feedback';
+import { accountService } from '../../services/account.service';
 import { customerService, AddressWithZone, ZoneHierarchy } from '../../services/customer.service';
 import { storageService } from '../../services/storage.service';
 import { useAppConfig } from '../../contexts/AppConfigContext';
@@ -135,9 +136,11 @@ function SettingsDetail({ page, onBack, session, onLogout }: { page: SettingsPag
     toast.success(T('تم تنزيل بياناتك بصيغة JSON', 'Your data was downloaded as JSON'));
   };
   const requestDelete = async () => {
-    if (await confirmDialog({ title: T('حذف الحساب', 'Delete account'), message: T('سيتم إرسال طلب حذف حسابك وبياناتك نهائياً. لا يمكن التراجع.', 'A request to permanently delete your account and data will be submitted. This cannot be undone.'), danger: true, confirmText: T('تأكيد الحذف', 'Confirm delete') })) {
-      window.location.href = 'mailto:support@hatnow.com?subject=Account%20deletion%20request' + (session ? `%20${session.id}` : '');
-      toast.success(T('تم إرسال طلب الحذف', 'Deletion request submitted'));
+    if (await confirmDialog({ title: T('حذف الحساب', 'Delete account'), message: T('سيتم حذف حسابك وبياناتك الشخصية نهائيًا. لا يمكن التراجع.', 'Your account and personal data will be permanently deleted. This cannot be undone.'), danger: true, confirmText: T('تأكيد الحذف', 'Confirm delete') })) {
+      const { error } = await accountService.deleteMyAccount();
+      if (error) { toast.error(T('تعذّر حذف الحساب. حاول مرة أخرى.', 'Could not delete the account. Please try again.')); return; }
+      toast.success(T('تم حذف حسابك', 'Your account was deleted'));
+      onLogout?.();
     }
   };
   const logoutEverywhere = async () => {
