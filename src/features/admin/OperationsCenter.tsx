@@ -77,6 +77,7 @@ export const OperationsCenter: React.FC<{ tab?: OpsTab; onTab?: (t: OpsTab) => v
 
 // ════════════════════════ DISPATCH ════════════════════════
 const DispatchPanel: React.FC = () => {
+  const { lang } = useAppConfig(); const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [queue, setQueue] = useState<any[]>([]);
   const [feed, setFeed] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,8 +104,8 @@ const DispatchPanel: React.FC = () => {
     setBusy(o.id);
     const { data, error } = await dispatchService.autoDispatch(o.id);
     setBusy(null);
-    if (error) return toast.error(`فشل الإرسال: ${error.message}`);
-    if (!data) return toast.error('لا يوجد مندوب متاح حاليًا.');
+    if (error) return toast.error(`${L('فشل الإرسال','Dispatch failed')}: ${error.message}`);
+    if (!data) return toast.error(L('لا يوجد مندوب متاح حاليًا.','No driver available right now.'));
     await load();
   };
 
@@ -127,13 +128,13 @@ const DispatchPanel: React.FC = () => {
     setBusy(orderId);
     const { error } = await dispatchService.manualDispatch(orderId, driverId);
     setBusy(null);
-    if (error) return toast.error(`فشل التعيين: ${error.message}`);
+    if (error) return toast.error(`${L('فشل التعيين','Assignment failed')}: ${error.message}`);
     await load();
   };
 
   const expire = async () => {
     const { data } = await dispatchService.expireOffers();
-    toast.error(`تم إنهاء ${data} عرض منتهي الصلاحية.`);
+    toast.error(`${L('تم إنهاء','Expired')} ${data} ${L('عرض منتهي الصلاحية.','expired offers.')}`);
     await load();
   };
 
@@ -143,31 +144,31 @@ const DispatchPanel: React.FC = () => {
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="lg:col-span-2 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-bold text-lg">طابور الطلبات ({queue.length})</h3>
-          <Button variant="secondary" size="sm" onClick={expire}>إنهاء العروض المنتهية</Button>
+          <h3 className="font-bold text-lg">{L('طابور الطلبات','Order queue')} ({queue.length})</h3>
+          <Button variant="secondary" size="sm" onClick={expire}>{L('إنهاء العروض المنتهية','Expire stale offers')}</Button>
         </div>
-        {queue.length === 0 ? <EmptyState title="لا توجد طلبات بانتظار التعيين" /> : queue.map(o => (
+        {queue.length === 0 ? <EmptyState title={L('لا توجد طلبات بانتظار التعيين','No orders awaiting assignment')} /> : queue.map(o => (
           <Card key={o.id} className="p-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <p className="font-bold">#{o.id.slice(0, 8)} · {money(o.total_amount)} ر.س</p>
+                <p className="font-bold">#{o.id.slice(0, 8)} · {money(o.total_amount)} {L('ر.س','SAR')}</p>
                 <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                  {o.merchant_branches?.name ?? '—'} · {o.merchant_branches?.zones?.name ?? 'بلا منطقة'} · رسوم {money(o.delivery_fee)}
+                  {o.merchant_branches?.name ?? '—'} · {o.merchant_branches?.zones?.name ?? L('بلا منطقة','No zone')} · {L('رسوم','Fee')} {money(o.delivery_fee)}
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" loading={busy === o.id} onClick={() => doAuto(o)}>إرسال تلقائي</Button>
-                <Button size="sm" variant="secondary" onClick={() => findDrivers(o)}>تعيين يدوي</Button>
+                <Button size="sm" loading={busy === o.id} onClick={() => doAuto(o)}>{L('إرسال تلقائي','Auto dispatch')}</Button>
+                <Button size="sm" variant="secondary" onClick={() => findDrivers(o)}>{L('تعيين يدوي','Manual assign')}</Button>
               </div>
             </div>
             {candidates[o.id] && (
               <div className="mt-3 pt-3 border-t space-y-2" style={{ borderColor: 'var(--color-outline-variant)' }}>
                 {candidates[o.id].length === 0 ? (
-                  <p className="text-xs" style={{ color: 'var(--color-error)' }}>لا يوجد مندوبون متاحون قريبون.</p>
+                  <p className="text-xs" style={{ color: 'var(--color-error)' }}>{L('لا يوجد مندوبون متاحون قريبون.','No nearby available drivers.')}</p>
                 ) : candidates[o.id].map(c => (
                   <div key={c.driver_id} className="flex items-center justify-between text-sm">
-                    <span>{driverNames[c.driver_id] ?? c.driver_id.slice(0, 8)} · {c.distance_km.toFixed(1)} كم · أولوية {c.priority_score} · {c.active_orders} طلب</span>
-                    <Button size="sm" onClick={() => doManual(o.id, c.driver_id)}>تعيين</Button>
+                    <span>{driverNames[c.driver_id] ?? c.driver_id.slice(0, 8)} · {c.distance_km.toFixed(1)} {L('كم','km')} · {L('أولوية','priority')} {c.priority_score} · {c.active_orders} {L('طلب','orders')}</span>
+                    <Button size="sm" onClick={() => doManual(o.id, c.driver_id)}>{L('تعيين','Assign')}</Button>
                   </div>
                 ))}
               </div>
@@ -176,15 +177,15 @@ const DispatchPanel: React.FC = () => {
         ))}
       </div>
       <div className="space-y-3">
-        <h3 className="font-bold text-lg">سجل الإرسال</h3>
-        {feed.length === 0 ? <EmptyState title="لا يوجد نشاط" /> : feed.map(a => (
+        <h3 className="font-bold text-lg">{L('سجل الإرسال','Dispatch log')}</h3>
+        {feed.length === 0 ? <EmptyState title={L('لا يوجد نشاط','No activity')} /> : feed.map(a => (
           <Card key={a.id} className="p-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">{a.drivers?.full_name ?? '—'}</span>
               <Badge variant={a.status === 'accepted' ? 'success' : a.status === 'offered' ? 'secondary' : 'error'}>{a.status}</Badge>
             </div>
             <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-              {a.method === 'auto' ? 'تلقائي' : 'يدوي'} · محاولة {a.attempt}{a.distance_km != null ? ` · ${a.distance_km} كم` : ''}
+              {a.method === 'auto' ? L('تلقائي','Auto') : L('يدوي','Manual')} · {L('محاولة','attempt')} {a.attempt}{a.distance_km != null ? ` · ${a.distance_km} ${L('كم','km')}` : ''}
             </p>
           </Card>
         ))}
@@ -195,6 +196,7 @@ const DispatchPanel: React.FC = () => {
 
 // ════════════════════════ ZONES ════════════════════════
 const ZonesPanel: React.FC = () => {
+  const { lang } = useAppConfig(); const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [zones, setZones] = useState<DeliveryZone[]>([]);
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState<Record<string, Partial<DeliveryZone>>>({});
@@ -216,30 +218,30 @@ const ZonesPanel: React.FC = () => {
   if (loading) return <div className="py-12 flex justify-center"><Loader size={32} /></div>;
   return (
     <div className="space-y-3">
-      {zones.length === 0 ? <EmptyState title="لا توجد مناطق" /> : zones.map(z => (
+      {zones.length === 0 ? <EmptyState title={L('لا توجد مناطق','No zones')} /> : zones.map(z => (
         <Card key={z.id} className="p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="font-bold">{z.name}</p>
               <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                {z.cities?.name ?? '—'} · {z.polygon ? `مضلّع (${z.polygon.length} نقطة)` : 'بلا حدود مرسومة'}
+                {z.cities?.name ?? '—'} · {z.polygon ? `${L('مضلّع','Polygon')} (${z.polygon.length} ${L('نقطة','pts')})` : L('بلا حدود مرسومة','No drawn boundary')}
               </p>
             </div>
             <button onClick={() => toggle(z)} className="px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer"
               style={{ background: z.is_active ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.06)', color: z.is_active ? '#4ade80' : 'var(--color-on-surface-variant)' }}>
-              {z.is_active ? 'نشطة' : 'متوقفة'}
+              {z.is_active ? L('نشطة','Active') : L('متوقفة','Paused')}
             </button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {([['base_fee', 'رسوم أساسية'], ['per_km_fee', 'لكل كم'], ['min_fee', 'حد أدنى'], ['eta_minutes', 'وقت (دقيقة)']] as const).map(([key, label]) => (
+            {([['base_fee', 'رسوم أساسية', 'Base fee'], ['per_km_fee', 'لكل كم', 'Per km'], ['min_fee', 'حد أدنى', 'Min fee'], ['eta_minutes', 'وقت (دقيقة)', 'ETA (min)']] as const).map(([key, ar, en]) => (
               <label key={key} className="text-xs">
-                <span style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
+                <span style={{ color: 'var(--color-on-surface-variant)' }}>{L(ar, en)}</span>
                 <input type="number" value={field(z, key)} onChange={e => set(z.id, key, Number(e.target.value))}
                   className="w-full mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} />
               </label>
             ))}
           </div>
-          {edit[z.id] && <Button size="sm" className="mt-3" onClick={() => save(z)}>حفظ التغييرات</Button>}
+          {edit[z.id] && <Button size="sm" className="mt-3" onClick={() => save(z)}>{L('حفظ التغييرات','Save changes')}</Button>}
         </Card>
       ))}
     </div>
@@ -248,6 +250,7 @@ const ZonesPanel: React.FC = () => {
 
 // ════════════════════════ VEHICLES ════════════════════════
 const VehiclesPanel: React.FC = () => {
+  const { lang } = useAppConfig(); const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState<Record<string, Partial<Vehicle>>>({});
@@ -270,22 +273,22 @@ const VehiclesPanel: React.FC = () => {
       {vehicles.map(v => (
         <Card key={v.id} className="p-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="font-bold">{v.name_ar} <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>({v.type})</span></p>
-            <Badge variant={v.is_active ? 'success' : 'secondary'}>{v.is_active ? 'مفعّلة' : 'موقوفة'}</Badge>
+            <p className="font-bold">{lang === 'ar' ? v.name_ar : v.name_en} <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>({v.type})</span></p>
+            <Badge variant={v.is_active ? 'success' : 'secondary'}>{v.is_active ? L('مفعّلة','Active') : L('موقوفة','Disabled')}</Badge>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {([['capacity', 'السعة'], ['speed_kmh', 'السرعة كم/س'], ['pricing_modifier', 'معامل السعر']] as const).map(([key, label]) => (
+            {([['capacity', 'السعة', 'Capacity'], ['speed_kmh', 'السرعة كم/س', 'Speed km/h'], ['pricing_modifier', 'معامل السعر', 'Price modifier']] as const).map(([key, ar, en]) => (
               <label key={key} className="text-xs">
-                <span style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
+                <span style={{ color: 'var(--color-on-surface-variant)' }}>{L(ar, en)}</span>
                 <input type="number" step="0.1" value={field(v, key)} onChange={e => set(v.id, key, Number(e.target.value))}
                   className="w-full mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} />
               </label>
             ))}
           </div>
           <div className="flex gap-2 mt-3">
-            {edit[v.id] && <Button size="sm" onClick={() => save(v)}>حفظ</Button>}
+            {edit[v.id] && <Button size="sm" onClick={() => save(v)}>{L('حفظ','Save')}</Button>}
             <Button size="sm" variant="secondary" onClick={async () => { await vehicleService.update(v.id, { is_active: !v.is_active }); await load(); }}>
-              {v.is_active ? 'إيقاف' : 'تفعيل'}
+              {v.is_active ? L('إيقاف','Disable') : L('تفعيل','Enable')}
             </Button>
           </div>
         </Card>
@@ -327,6 +330,7 @@ const PerformancePanel: React.FC = () => {
 
 // ════════════════════════ PAYOUTS ════════════════════════
 const PayoutsPanel: React.FC = () => {
+  const { lang } = useAppConfig(); const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [reqs, setReqs] = useState<(PayoutRequest & { drivers?: any })[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -338,7 +342,7 @@ const PayoutsPanel: React.FC = () => {
     if (error) return toast.error(error.message); await load();
   };
   const reject = async (id: string) => {
-    const note = (await inputDialog({ title: 'سبب الرفض (اختياري)', placeholder: 'اكتب السبب…' })) ?? undefined;
+    const note = (await inputDialog({ title: L('سبب الرفض (اختياري)','Rejection reason (optional)'), placeholder: L('اكتب السبب…','Enter the reason…') })) ?? undefined;
     setBusy(id); const { error } = await payoutService.reject(id, note); setBusy(null);
     if (error) return toast.error(error.message); await load();
   };
@@ -347,23 +351,23 @@ const PayoutsPanel: React.FC = () => {
   const pending = reqs.filter(r => r.status === 'pending');
   return (
     <div className="space-y-4">
-      <h3 className="font-bold text-lg">طلبات السحب المعلّقة ({pending.length})</h3>
-      {pending.length === 0 ? <EmptyState title="لا توجد طلبات معلّقة" /> : pending.map(r => (
+      <h3 className="font-bold text-lg">{L('طلبات السحب المعلّقة','Pending withdrawals')} ({pending.length})</h3>
+      {pending.length === 0 ? <EmptyState title={L('لا توجد طلبات معلّقة','No pending requests')} /> : pending.map(r => (
         <Card key={r.id} className="p-4 flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <p className="font-bold">{r.drivers?.full_name ?? r.driver_id.slice(0, 8)} · {money(r.amount)} ر.س</p>
-            <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{new Date(r.requested_at).toLocaleString('ar')}</p>
+            <p className="font-bold">{r.drivers?.full_name ?? r.driver_id.slice(0, 8)} · {money(r.amount)} {L('ر.س','SAR')}</p>
+            <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{new Date(r.requested_at).toLocaleString(L('ar','en'))}</p>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" loading={busy === r.id} onClick={() => approve(r.id)}>موافقة وصرف</Button>
-            <Button size="sm" variant="secondary" onClick={() => reject(r.id)}>رفض</Button>
+            <Button size="sm" loading={busy === r.id} onClick={() => approve(r.id)}>{L('موافقة وصرف','Approve & pay')}</Button>
+            <Button size="sm" variant="secondary" onClick={() => reject(r.id)}>{L('رفض','Reject')}</Button>
           </div>
         </Card>
       ))}
-      <h3 className="font-bold text-lg mt-6">السجل</h3>
+      <h3 className="font-bold text-lg mt-6">{L('السجل','History')}</h3>
       {reqs.filter(r => r.status !== 'pending').map(r => (
         <Card key={r.id} className="p-3 flex items-center justify-between">
-          <span className="text-sm">{r.drivers?.full_name ?? r.driver_id.slice(0, 8)} · {money(r.amount)} ر.س</span>
+          <span className="text-sm">{r.drivers?.full_name ?? r.driver_id.slice(0, 8)} · {money(r.amount)} {L('ر.س','SAR')}</span>
           <Badge variant={r.status === 'paid' ? 'success' : 'error'}>{r.status}</Badge>
         </Card>
       ))}
