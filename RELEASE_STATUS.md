@@ -30,8 +30,13 @@ Apple Guideline 5.1.1(v) + Google Play data-deletion are **hard store-submission
 | CI/CD (typecheck/build/E2E/edge-functions) | ✅ GREEN (verified run 28267201287) |
 | Offline / Service worker / PWA manifest | ✅ shell SW + manifest |
 | Error boundary | ✅ |
-| Push notifications / Deep links / Universal links / App Links | ❌ not wired (needs Firebase + native projects) |
-| App icons / Splash / Adaptive / Launch screens | ❌ icon PNGs missing; no native android/ios |
+| **App icons / Adaptive icons** | ✅ generated from brand (PWA + Android all densities + adaptive); `npm run gen:icons` |
+| **Native android/ + ios/ projects** | ✅ generated (`cap add`); committed (compilable with SDK/Xcode) |
+| **iOS Info.plist (usage desc + ATT + export compliance + URL scheme)** | ✅ |
+| **AndroidManifest (deep links + App Links + permissions)** | ✅ |
+| Deep links (custom scheme) | ✅ `haatnow://` (Android + iOS) |
+| Push (FCM) / Universal Links / App Links verification | 🟡 prepared; needs Firebase configs + hosted `assetlinks.json`/`AASA` (operator) — see `NATIVE_RELEASE.md` |
+| Splash / Launch screens | 🟡 Capacitor defaults present; brand splash = operator asset |
 | **Version checker / Force update / Maintenance mode** | ✅ `AppGate` + `releaseService` (reads `settings` rows) |
 | **Offline detection** | ✅ `AppGate` offline banner (navigator online/offline) |
 | **Crash reporting / Analytics / Production logging** | ✅ `monitoring.service` seam (env-gated POST; ErrorBoundary wired) — operator sets `VITE_SENTRY_DSN`/`VITE_ANALYTICS_URL` |
