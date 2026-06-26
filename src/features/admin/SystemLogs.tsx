@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ScrollText, Search, RefreshCw, ShieldAlert } from 'lucide-react';
+import { ScrollText, RefreshCw, ShieldAlert } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { adminService, AuditLogRow } from '../../services/admin.service';
 import { WorkspaceHeader } from '../../components/admin/EnterpriseUI';
-import { EmptyState } from '../../components/ui/Primitives';
-import { SkeletonTable } from '../../components/ui/Skeleton';
+import { AdminDataTable, Column } from '../../components/admin/AdminDataTable';
 
 const card = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)' };
 const sevColor = (s?: string) => /error|critical/.test(s || '') ? '#f87171' : /warn/.test(s || '') ? '#fbbf24' : '#9ed442';
@@ -12,15 +11,14 @@ const sevColor = (s?: string) => /error|critical/.test(s || '') ? '#f87171' : /w
 export const SystemLogs: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [rows, setRows] = useState<AuditLogRow[]>([]);
-  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
 
   const load = useCallback(async () => {
-    const { data, error } = await adminService.auditLogs({ search: search.trim() || undefined, limit: 150 });
+    const { data, error } = await adminService.auditLogs({ limit: 200 });
     setRows(data); setLoading(false);
     setDenied(!!error && /permission|denied|42501/i.test(JSON.stringify(error)));
-  }, [search]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -30,46 +28,31 @@ export const SystemLogs: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
 
   const fmt = (d: string) => new Date(d).toLocaleString(L('ar', 'en'), { dateStyle: 'medium', timeStyle: 'medium' });
 
+  const columns: Column<AuditLogRow>[] = [
+    { key: 'time', header: L('الوقت', 'Time'), sortable: true, sortValue: r => r.created_at, csv: r => r.created_at, render: r => <span className="whitespace-nowrap" style={{ color: 'var(--color-on-surface-variant)' }}>{fmt(r.created_at)}</span> },
+    { key: 'action', header: L('الإجراء', 'Action'), sortable: true, sortValue: r => r.action, csv: r => r.action, render: r => <span className="inline-flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: sevColor(r.severity) }} />{r.action}</span> },
+    { key: 'table', header: L('الجدول', 'Table'), sortable: true, sortValue: r => r.table_name, csv: r => r.table_name, render: r => <span style={{ color: 'var(--color-on-surface-variant)' }}>{r.table_name}</span> },
+    { key: 'record', header: L('السجلّ', 'Record'), csv: r => r.record_id ?? '', render: r => <span className="font-mono text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>{r.record_id ? String(r.record_id).slice(0, 8) : '—'}</span> },
+  ];
+
   return (
     <div id="system_logs" dir={lang === 'ar' ? 'rtl' : 'ltr'} className="space-y-4">
-      <WorkspaceHeader Icon={ScrollText} title={L('سجلّات النظام', 'System Logs')} subtitle={L('سجلّ التدقيق · عرض لحظي · بحث متقدّم', 'Audit trail · Realtime viewer · Advanced search')} />
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl flex-1" style={card}>
-          <Search size={15} color="var(--color-on-surface-variant)" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={L('ابحث بالإجراء أو الجدول…', 'Search by action or table…')} className="flex-1 bg-transparent outline-none text-sm" style={{ color: 'var(--color-on-surface)' }} />
-        </div>
-        <button onClick={load} className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer" style={card}><RefreshCw size={16} color="var(--color-on-surface-variant)" /></button>
-      </div>
+      <WorkspaceHeader Icon={ScrollText} title={L('سجلّات النظام', 'System Logs')} subtitle={L('سجلّ التدقيق · عرض لحظي · بحث متقدّم', 'Audit trail · Realtime viewer · Advanced search')}
+        actions={<button onClick={load} aria-label={L('تحديث', 'Refresh')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={card}><RefreshCw size={15} color="var(--color-on-surface-variant)" /></button>} />
 
-      {loading ? <SkeletonTable rows={8} cols={4} />
-        : denied ? (
-          <div className="rounded-2xl p-6 flex items-center gap-3" style={card}>
-            <ShieldAlert size={22} color="#fbbf24" />
-            <div><p className="font-bold text-sm" style={{ color: 'var(--color-on-surface)' }}>{L('سجلّ التدقيق غير مُفعّل بعد', 'Audit trail not yet enabled')}</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>{L('سيُفعّل تلقائيًا بعد تطبيق ترحيل قاعدة البيانات.', 'Activates automatically once the database migration is applied.')}</p></div>
-          </div>
-        ) : rows.length === 0 ? <EmptyState title={L('لا توجد سجلّات', 'No logs')} />
-        : (
-          <div className="rounded-2xl overflow-hidden" style={card}>
-            <table className="w-full text-sm">
-              <thead><tr style={{ background: 'var(--color-surface-container-high)' }}>
-                {[L('الوقت', 'Time'), L('الإجراء', 'Action'), L('الجدول', 'Table'), L('السجلّ', 'Record')].map(h => (
-                  <th key={h} className="text-start px-3 py-2 text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{h}</th>
-                ))}
-              </tr></thead>
-              <tbody>
-                {rows.map(r => (
-                  <tr key={r.id} style={{ borderTop: '1px solid var(--color-outline-variant)' }}>
-                    <td className="px-3 py-2 whitespace-nowrap" style={{ color: 'var(--color-on-surface-variant)' }}>{fmt(r.created_at)}</td>
-                    <td className="px-3 py-2"><span className="inline-flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: sevColor(r.severity) }} /><span style={{ color: 'var(--color-on-surface)' }}>{r.action}</span></span></td>
-                    <td className="px-3 py-2" style={{ color: 'var(--color-on-surface-variant)' }}>{r.table_name}</td>
-                    <td className="px-3 py-2 font-mono text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>{r.record_id ? String(r.record_id).slice(0, 8) : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      {denied ? (
+        <div className="rounded-2xl p-6 flex items-center gap-3" style={card}>
+          <ShieldAlert size={22} color="#fbbf24" />
+          <div><p className="font-bold text-sm" style={{ color: 'var(--color-on-surface)' }}>{L('سجلّ التدقيق غير مُفعّل بعد', 'Audit trail not yet enabled')}</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>{L('سيُفعّل تلقائيًا بعد تطبيق ترحيل قاعدة البيانات.', 'Activates automatically once the database migration is applied.')}</p></div>
+        </div>
+      ) : (
+        <AdminDataTable
+          columns={columns} rows={rows} loading={loading} rowKey={r => r.id} lang={lang}
+          search={r => `${r.action} ${r.table_name}`} searchPlaceholder={L('ابحث بالإجراء أو الجدول…', 'Search by action or table…')}
+          exportName="audit_logs" emptyTitle={L('لا توجد سجلّات', 'No logs')} pageSize={15}
+        />
+      )}
     </div>
   );
 };
