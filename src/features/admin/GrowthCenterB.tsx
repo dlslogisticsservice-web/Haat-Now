@@ -4,7 +4,8 @@ import { growthbService } from '../../services/growthb.service';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { Loader, EmptyState } from '../../components/ui/Primitives';
+import { EmptyState } from '../../components/ui/Primitives';
+import { SkeletonChart } from '../../components/ui/Skeleton';
 import { WorkspaceHeader } from '../../components/admin/EnterpriseUI';
 import { Target } from 'lucide-react';
 import { useAppConfig } from '../../contexts/AppConfigContext';
@@ -262,7 +263,7 @@ const SegmentsPanel: React.FC = () => {
 const RetentionPanel: React.FC = () => {
   const [d, setD] = useState<any>(null);
   useEffect(() => { growthbService.retentionTargets().then(setD); }, []);
-  if (!d) return <div className="py-10 flex justify-center"><Loader size={28} /></div>;
+  if (!d) return <SkeletonChart height={200} />;
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
@@ -285,7 +286,7 @@ const RetentionPanel: React.FC = () => {
 const AnalyticsPanel: React.FC = () => {
   const [a, setA] = useState<any>(null);
   useEffect(() => { growthbService.analytics().then(setA); }, []);
-  if (!a) return <div className="py-10 flex justify-center"><Loader size={28} /></div>;
+  if (!a) return <div className="grid gap-3 lg:grid-cols-2"><SkeletonChart /><SkeletonChart /></div>;
   const cards = [
     ['استخدام الكوبونات', a.coupon_redemptions], ['إجمالي الخصم', money(a.coupon_discount_total)],
     ['حملات مُرسلة', a.campaigns_sent], ['مستلمو الحملات', a.campaign_recipients],

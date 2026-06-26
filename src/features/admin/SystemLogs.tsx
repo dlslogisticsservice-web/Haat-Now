@@ -3,7 +3,8 @@ import { ScrollText, Search, RefreshCw, ShieldAlert } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { adminService, AuditLogRow } from '../../services/admin.service';
 import { WorkspaceHeader } from '../../components/admin/EnterpriseUI';
-import { EmptyState, Loader } from '../../components/ui/Primitives';
+import { EmptyState } from '../../components/ui/Primitives';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 const card = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)' };
 const sevColor = (s?: string) => /error|critical/.test(s || '') ? '#f87171' : /warn/.test(s || '') ? '#fbbf24' : '#9ed442';
@@ -40,7 +41,7 @@ export const SystemLogs: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
         <button onClick={load} className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer" style={card}><RefreshCw size={16} color="var(--color-on-surface-variant)" /></button>
       </div>
 
-      {loading ? <div className="py-12 flex justify-center"><Loader size={28} /></div>
+      {loading ? <SkeletonTable rows={8} cols={4} />
         : denied ? (
           <div className="rounded-2xl p-6 flex items-center gap-3" style={card}>
             <ShieldAlert size={22} color="#fbbf24" />

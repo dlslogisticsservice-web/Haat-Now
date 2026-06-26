@@ -3,7 +3,8 @@ import { financeService, RevenueDashboard, SettlementRun, MerchantSettlement, Dr
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { Loader, EmptyState } from '../../components/ui/Primitives';
+import { EmptyState } from '../../components/ui/Primitives';
+import { SkeletonMetrics } from '../../components/ui/Skeleton';
 import { WorkspaceHeader, MetricCard, DashboardGrid } from '../../components/admin/EnterpriseUI';
 import { Wallet, Banknote, Store, Bike, Coins, Receipt } from 'lucide-react';
 import { useAppConfig } from '../../contexts/AppConfigContext';
@@ -41,7 +42,7 @@ export const FinanceCenter: React.FC = () => {
 const RevenuePanel: React.FC<{ L: (ar: string, en: string) => string }> = ({ L }) => {
   const [d, setD] = useState<RevenueDashboard | null>(null);
   useEffect(() => { financeService.revenueDashboard().then(r => setD(r.data)); }, []);
-  if (!d) return <div className="py-10 flex justify-center"><Loader size={28} /></div>;
+  if (!d) return <SkeletonMetrics count={6} />;
   const cards = [
     { label: L('إيرادات المنصة', 'Platform Revenue'), value: money(d.platform_revenue), Icon: Wallet, accent: '#9ed442' },
     { label: L('إجمالي العمولات', 'Total Commission'), value: money(d.commission_total), Icon: Coins, accent: '#4ade80' },

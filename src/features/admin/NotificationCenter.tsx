@@ -2,7 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Bell, CheckCheck, Trash2, AlertTriangle, Info, AlertCircle, Wallet, Truck, Headset, Megaphone, ShieldCheck, Filter } from 'lucide-react';
 import { notificationService } from '../../services/notification.service';
 import { WorkspaceHeader } from '../../components/admin/EnterpriseUI';
-import { EmptyState, Loader } from '../../components/ui/Primitives';
+import { EmptyState } from '../../components/ui/Primitives';
+import { SkeletonList } from '../../components/ui/Skeleton';
 import type { Notification } from '../../services/types';
 
 const card = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)' };
@@ -63,7 +64,7 @@ export const NotificationCenter: React.FC<{ adminId: string; lang: 'ar' | 'en'; 
         </button>
       </div>
 
-      {loading ? <div className="py-12 flex justify-center"><Loader size={28} /></div>
+      {loading ? <SkeletonList rows={6} />
         : shown.length === 0 ? <EmptyState title={L('لا توجد إشعارات', 'No notifications')} />
         : (
           <div className="space-y-2">
