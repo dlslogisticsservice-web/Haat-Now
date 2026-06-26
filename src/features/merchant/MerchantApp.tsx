@@ -15,6 +15,7 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { EnterpriseSidebar, SidebarSection } from '../../components/ui/EnterpriseSidebar';
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
+import { StoreManagement } from './StoreManagement';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Order {
@@ -39,12 +40,13 @@ interface Product {
 interface Category    { id: string; name: string }
 interface MerchantData { id: string; business_name: string; logo_url?: string | null }
 
-type MerchantTab = 'incoming' | 'catalog' | 'inventory' | 'wallet' | 'profile';
+type MerchantTab = 'incoming' | 'catalog' | 'inventory' | 'store' | 'wallet' | 'profile';
 
 const NAV: { id: MerchantTab; ar: string; en: string; icon: string }[] = [
   { id: 'incoming',  ar: 'الطلبات النشطة', en: 'Active Orders',    icon: 'notifications_active' },
   { id: 'catalog',   ar: 'المنيو والأسعار', en: 'Menu & Prices',   icon: 'restaurant_menu' },
   { id: 'inventory', ar: 'المخزون',         en: 'Inventory',        icon: 'inventory_2' },
+  { id: 'store',     ar: 'إدارة المتجر',    en: 'Store',            icon: 'tune' },
   { id: 'wallet',    ar: 'تقارير الأرباح',  en: 'Earnings',         icon: 'payments' },
   { id: 'profile',   ar: 'الملف التجاري',   en: 'Business Profile', icon: 'store' },
 ];
@@ -447,6 +449,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     incoming:  `${D('الطلبات النشطة', 'Active Orders')}${activeOrdersList.length > 0 ? ` (${activeOrdersList.length})` : ''}`,
     catalog:   D('المنيو والأسعار', 'Menu & Prices'),
     inventory: D('إدارة المخزون', 'Inventory'),
+    store:     D('إدارة المتجر', 'Store management'),
     wallet:    D('تقارير الأرباح', 'Earnings'),
     profile:   D('الملف التجاري', 'Business Profile'),
   };
@@ -967,6 +970,9 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
           </div>
           );
         })()}
+
+        {/* ══════════════════════ STORE MANAGEMENT ══════════════════════ */}
+        {activeTab === 'store' && selectedBranchId && <StoreManagement branchId={selectedBranchId} lang={lang} />}
 
         {/* ══════════════════════════════════════════════════════════ */}
         {activeTab === 'wallet' && (
