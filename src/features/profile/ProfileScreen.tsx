@@ -10,6 +10,7 @@ import {
   MapPinOff, Loader2, UserCircle2, Camera, Crown, PenLine, AlertCircle,
   CheckCircle2, Save, Settings, Trash2, Pencil, Wallet, Globe, Shield, Headphones,
   CreditCard, Plus, Banknote, Star, X as XIcon,
+  Download, FileText, ShieldCheck, UserX, ChevronDown,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -104,7 +105,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 // Functional settings detail (replaces the old "coming soon" placeholder).
-function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => void }) {
+function SettingsDetail({ page, onBack, session, onLogout }: { page: SettingsPage; onBack: () => void; session?: { id: string; phone_number: string; role: string }; onLogout?: () => void }) {
   const { Icon, title, subtitle } = SETTINGS_INFO[page];
   const { lang, setLang, country, setCountry } = useAppConfig();
   const { t } = useTranslation();
@@ -116,6 +117,42 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
   };
   const T = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const tt = (k: string) => (k && k.includes('.') ? t(k) : k);
+  const [openDoc, setOpenDoc] = useState<string | null>(null);
+
+  // GDPR/CCPA data export — downloads the account + locally-stored data as JSON.
+  const downloadMyData = () => {
+    const local: Record<string, unknown> = {};
+    for (const k of ['haat_cart', 'haat_lang', 'haat_country', 'haat_admin_recent_search', 'haat_notif_prefs']) {
+      const raw = localStorage.getItem(k);
+      if (raw == null) continue;
+      try { local[k] = JSON.parse(raw); } catch { local[k] = raw; }
+    }
+    const payload = { exported_at: new Date().toISOString(), account: session ? { id: session.id, phone: session.phone_number, role: session.role } : null, local };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'haat-my-data.json'; a.click();
+    URL.revokeObjectURL(url);
+    toast.success(T('تم تنزيل بياناتك بصيغة JSON', 'Your data was downloaded as JSON'));
+  };
+  const requestDelete = async () => {
+    if (await confirmDialog({ title: T('حذف الحساب', 'Delete account'), message: T('سيتم إرسال طلب حذف حسابك وبياناتك نهائياً. لا يمكن التراجع.', 'A request to permanently delete your account and data will be submitted. This cannot be undone.'), danger: true, confirmText: T('تأكيد الحذف', 'Confirm delete') })) {
+      window.location.href = 'mailto:support@hatnow.com?subject=Account%20deletion%20request' + (session ? `%20${session.id}` : '');
+      toast.success(T('تم إرسال طلب الحذف', 'Deletion request submitted'));
+    }
+  };
+  const logoutEverywhere = async () => {
+    if (await confirmDialog({ title: T('تسجيل الخروج من كل الأجهزة', 'Log out everywhere'), message: T('سيتم إنهاء جلستك على هذا الجهاز. أعد الدخول للمتابعة.', 'Your session on this device will end. Sign in again to continue.'), danger: true, confirmText: T('خروج', 'Log out') })) {
+      onLogout?.();
+    }
+  };
+  const LEGAL_DOCS: { key: string; title: string; body: string }[] = [
+    { key: 'privacy', title: T('سياسة الخصوصية', 'Privacy Policy'), body: T('نجمع الحد الأدنى من البيانات اللازمة لتنفيذ طلباتك (الاسم، الهاتف، العنوان، سجل الطلبات). تُشفَّر بياناتك ولا تُباع لأطراف خارجية. يمكنك طلب تصدير أو حذف بياناتك في أي وقت.', 'We collect the minimum data needed to fulfil your orders (name, phone, address, order history). Your data is encrypted and never sold to third parties. You may export or delete it at any time.') },
+    { key: 'terms', title: T('شروط الخدمة', 'Terms of Service'), body: T('باستخدامك التطبيق فإنك توافق على استخدامه لأغراض مشروعة فقط، وعلى دفع قيمة الطلبات ورسوم التوصيل المعروضة قبل التأكيد. تحتفظ المنصة بحق تعليق الحسابات المخالفة.', 'By using the app you agree to use it only for lawful purposes and to pay the order total and delivery fees shown before confirmation. The platform may suspend accounts that violate these terms.') },
+    { key: 'refund', title: T('سياسة الاسترداد', 'Refund Policy'), body: T('في حال وجود خطأ في الطلب أو عدم اكتمال التوصيل، يُعاد المبلغ إلى محفظتك خلال دقائق أو إلى وسيلة الدفع الأصلية خلال أيام عمل. تواصل مع الدعم لفتح طلب استرداد.', 'If an order is incorrect or undelivered, the amount is refunded to your wallet within minutes, or to the original payment method within business days. Contact support to open a refund request.') },
+    { key: 'cancellation', title: T('سياسة الإلغاء', 'Cancellation Policy'), body: T('يمكنك إلغاء الطلب مجاناً قبل قبول المتجر له. بعد بدء التحضير قد تُطبَّق رسوم جزئية. الطلبات المُسلَّمة غير قابلة للإلغاء.', 'You can cancel for free before the store accepts the order. After preparation begins a partial fee may apply. Delivered orders cannot be cancelled.') },
+    { key: 'cookie', title: T('سياسة ملفات الارتباط', 'Cookie Policy'), body: T('نستخدم تخزينًا محليًا أساسيًا (تفضيل اللغة، السلة، الجلسة) لتشغيل التطبيق. لا نستخدم ملفات تتبّع إعلانية لأطراف خارجية.', 'We use essential local storage (language preference, cart, session) to run the app. We do not use third-party advertising trackers.') },
+    { key: 'licenses', title: T('تراخيص المصادر المفتوحة', 'Open-Source Licenses'), body: T('يستخدم التطبيق مكتبات مفتوحة المصدر بما فيها React وVite وlucide-react وrecharts، وكلها مرخّصة بموجب MIT أو رخص متوافقة.', 'This app uses open-source libraries including React, Vite, lucide-react and recharts, all under MIT or compatible licenses.') },
+  ];
 
   // ── Payment methods CRUD (TASK B) ──
   const [pms, setPms] = useState<PayMethod[]>(loadPM);
@@ -305,25 +342,52 @@ function SettingsDetail({ page, onBack }: { page: SettingsPage; onBack: () => vo
         </div>
       )}
 
-      {/* ── PRIVACY & SECURITY ── */}
+      {/* ── PRIVACY, LEGAL & DATA RIGHTS (store compliance) ── */}
       {page === 'privacy' && (
-        <div style={cardStyle}>
-          {[
-            T('بياناتك مشفّرة ومحمية وتُستخدم فقط لتنفيذ طلباتك.', 'Your data is encrypted and used only to fulfil your orders.'),
-            T('لا نشارك رقم هاتفك أو عنوانك مع أطراف خارجية للتسويق.', 'We never share your phone or address with third parties for marketing.'),
-            T('يمكنك طلب حذف حسابك وبياناتك في أي وقت.', 'You can request deletion of your account and data at any time.'),
-          ].map(line => (
-            <div key={line} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '9px 2px' }}>
-              <Shield size={16} color={ACCENT} strokeWidth={1.8} style={{ marginTop: '2px', flexShrink: 0 }} />
-              <span style={{ color: 'white', fontSize: '13px', lineHeight: 1.55 }}>{line}</span>
-            </div>
-          ))}
-          <a href="mailto:support@hatnow.com?subject=Account%20deletion%20request" style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', height: '44px', marginTop: '8px',
-            borderRadius: '0.7rem', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.25)', color: '#ff8a8a', fontSize: '13px', fontWeight: 600, textDecoration: 'none',
-          }}>
-            <Trash2 size={16} strokeWidth={2} />{T('طلب حذف الحساب', 'Request account deletion')}
-          </a>
+        <div className="space-y-3" id="privacy_compliance">
+          {/* Data rights */}
+          <div style={cardStyle} className="space-y-2">
+            <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-on-surface-variant)' }}>{T('حقوقك في بياناتك (GDPR / CCPA)', 'Your data rights (GDPR / CCPA)')}</p>
+            <button onClick={downloadMyData} id="download_my_data" className="w-full flex items-center gap-2.5 cursor-pointer" style={{ height: '44px', padding: '0 12px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: 'white', fontSize: '13px', fontWeight: 600 }}>
+              <Download size={16} color={ACCENT} />{T('تنزيل / تصدير بياناتي', 'Download / export my data')}
+            </button>
+            <button onClick={logoutEverywhere} className="w-full flex items-center gap-2.5 cursor-pointer" style={{ height: '44px', padding: '0 12px', borderRadius: '0.7rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: 'white', fontSize: '13px', fontWeight: 600 }}>
+              <LogOut size={16} color={ACCENT} />{T('تسجيل الخروج من كل الأجهزة', 'Log out everywhere')}
+            </button>
+            <button onClick={requestDelete} id="delete_account" className="w-full flex items-center gap-2.5 cursor-pointer" style={{ height: '44px', padding: '0 12px', borderRadius: '0.7rem', background: 'rgba(255,80,80,0.08)', border: '1px solid rgba(255,80,80,0.25)', color: '#ff8a8a', fontSize: '13px', fontWeight: 700 }}>
+              <UserX size={16} />{T('حذف الحساب نهائياً', 'Delete account permanently')}
+            </button>
+          </div>
+
+          {/* Legal documents */}
+          <div style={cardStyle} className="space-y-1.5">
+            <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-on-surface-variant)' }}>{T('المستندات القانونية', 'Legal documents')}</p>
+            {LEGAL_DOCS.map(doc => (
+              <div key={doc.key} style={{ borderRadius: '0.6rem', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <button onClick={() => setOpenDoc(openDoc === doc.key ? null : doc.key)} className="w-full flex items-center gap-2.5 cursor-pointer" style={{ height: '42px', padding: '0 12px', background: 'none', border: 'none', color: 'white', fontSize: '13px', fontWeight: 600 }}>
+                  <FileText size={15} color={ACCENT} />
+                  <span style={{ flex: 1, textAlign: 'start' }}>{doc.title}</span>
+                  <ChevronDown size={15} style={{ transform: openDoc === doc.key ? 'rotate(180deg)' : 'none', transition: 'transform .15s', color: 'var(--color-on-surface-variant)' }} />
+                </button>
+                {openDoc === doc.key && <p style={{ padding: '0 12px 12px', color: 'var(--color-on-surface-variant)', fontSize: '12px', lineHeight: 1.6 }}>{doc.body}</p>}
+              </div>
+            ))}
+          </div>
+
+          {/* Permissions + age + compliance notes */}
+          <div style={cardStyle} className="space-y-2">
+            <p style={{ fontSize: '12px', fontWeight: 700, color: 'var(--color-on-surface-variant)' }}>{T('الأذونات والامتثال', 'Permissions & compliance')}</p>
+            {[
+              T('أذونات الموقع والكاميرا والإشعارات تُدار من إعدادات جهازك ويُطلب الإذن عند الحاجة فقط.', 'Location, camera and notification permissions are managed in your device settings and requested only when needed.'),
+              T('هذا التطبيق مخصّص لمن هم في سنّ 16 عامًا فأكثر.', 'This app is intended for users aged 16 and over.'),
+              T('بياناتك مشفّرة، لا تُباع، ولا تُستخدم للتتبّع الإعلاني عبر التطبيقات (شفافية تتبّع iOS).', 'Your data is encrypted, never sold, and not used for cross-app ad tracking (iOS App Tracking Transparency).'),
+            ].map(line => (
+              <div key={line} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <ShieldCheck size={15} color={ACCENT} strokeWidth={1.8} style={{ marginTop: '2px', flexShrink: 0 }} />
+                <span style={{ color: 'white', fontSize: '12px', lineHeight: 1.55 }}>{line}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -614,7 +678,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
             SETTINGS SUB-PAGE
         ══════════════════════════════════════════════════ */}
         {inSettingsPage && settingsPage && (
-          <SettingsDetail page={settingsPage} onBack={() => setSettingsPage(null)} />
+          <SettingsDetail page={settingsPage} onBack={() => setSettingsPage(null)} session={session} onLogout={onLogout} />
         )}
 
         {/* ══════════════════════════════════════════════════
