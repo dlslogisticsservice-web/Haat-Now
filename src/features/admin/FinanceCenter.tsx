@@ -60,6 +60,7 @@ const RevenuePanel: React.FC<{ L: (ar: string, en: string) => string }> = ({ L }
 };
 
 const SettlementsPanel: React.FC = () => {
+  const { lang } = useAppConfig(); const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const today = new Date().toISOString().slice(0, 10);
   const [start, setStart] = useState(today.slice(0, 8) + '01');
   const [end, setEnd] = useState(today);
@@ -91,35 +92,35 @@ const SettlementsPanel: React.FC = () => {
   return (
     <div className="space-y-4">
       <Card className="p-4 flex flex-wrap items-end gap-3">
-        <label className="text-xs">من<input type="date" value={start} onChange={e => setStart(e.target.value)} className="block mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} /></label>
-        <label className="text-xs">إلى<input type="date" value={end} onChange={e => setEnd(e.target.value)} className="block mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} /></label>
-        <Button size="sm" loading={busy} onClick={() => gen('merchant')}>تسوية التجار</Button>
-        <Button size="sm" loading={busy} onClick={() => gen('driver')}>تسوية المندوبين</Button>
+        <label className="text-xs">{L('من','From')}<input type="date" value={start} onChange={e => setStart(e.target.value)} className="block mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} /></label>
+        <label className="text-xs">{L('إلى','To')}<input type="date" value={end} onChange={e => setEnd(e.target.value)} className="block mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} /></label>
+        <Button size="sm" loading={busy} onClick={() => gen('merchant')}>{L('تسوية التجار','Settle merchants')}</Button>
+        <Button size="sm" loading={busy} onClick={() => gen('driver')}>{L('تسوية المندوبين','Settle drivers')}</Button>
       </Card>
 
       <div>
-        <h4 className="font-bold mb-2">مستحقات التجار المعلّقة ({pendingM.length})</h4>
-        {pendingM.length === 0 ? <EmptyState title="لا توجد" /> : pendingM.map(m => (
+        <h4 className="font-bold mb-2">{L('مستحقات التجار المعلّقة','Pending merchant payables')} ({pendingM.length})</h4>
+        {pendingM.length === 0 ? <EmptyState title={L('لا توجد','None')} /> : pendingM.map(m => (
           <Card key={m.id} className="p-3 flex items-center justify-between mb-2">
-            <span className="text-sm">{m.merchants?.business_name ?? m.merchant_id.slice(0, 8)} · صافي {money(m.net_payable)} (عمولة {money(m.total_commission)})</span>
-            <Button size="sm" onClick={() => payM(m.id)}>دفع</Button>
+            <span className="text-sm">{m.merchants?.business_name ?? m.merchant_id.slice(0, 8)} · {L('صافي','Net')} {money(m.net_payable)} ({L('عمولة','commission')} {money(m.total_commission)})</span>
+            <Button size="sm" onClick={() => payM(m.id)}>{L('دفع','Pay')}</Button>
           </Card>
         ))}
       </div>
       <div>
-        <h4 className="font-bold mb-2">مستحقات المندوبين المعلّقة ({pendingD.length})</h4>
-        {pendingD.length === 0 ? <EmptyState title="لا توجد" /> : pendingD.map(d => (
+        <h4 className="font-bold mb-2">{L('مستحقات المندوبين المعلّقة','Pending driver payables')} ({pendingD.length})</h4>
+        {pendingD.length === 0 ? <EmptyState title={L('لا توجد','None')} /> : pendingD.map(d => (
           <Card key={d.id} className="p-3 flex items-center justify-between mb-2">
-            <span className="text-sm">{d.drivers?.full_name ?? d.driver_id.slice(0, 8)} · صافي {money(d.net_payable)} (حوافز {money(d.total_incentives)} / خصومات {money(d.total_penalties)})</span>
-            <Button size="sm" onClick={() => payD(d.id)}>دفع</Button>
+            <span className="text-sm">{d.drivers?.full_name ?? d.driver_id.slice(0, 8)} · {L('صافي','Net')} {money(d.net_payable)} ({L('حوافز','incentives')} {money(d.total_incentives)} / {L('خصومات','penalties')} {money(d.total_penalties)})</span>
+            <Button size="sm" onClick={() => payD(d.id)}>{L('دفع','Pay')}</Button>
           </Card>
         ))}
       </div>
       <div>
-        <h4 className="font-bold mb-2">سجل دورات التسوية</h4>
+        <h4 className="font-bold mb-2">{L('سجل دورات التسوية','Settlement run history')}</h4>
         {runs.map(r => (
           <Card key={r.id} className="p-3 flex items-center justify-between mb-2">
-            <span className="text-sm">{r.run_type === 'merchant' ? 'تجار' : 'مندوبون'} · {r.period_start} → {r.period_end} · {r.entity_count} جهة · {money(r.total_amount)}</span>
+            <span className="text-sm">{r.run_type === 'merchant' ? L('تجار','Merchants') : L('مندوبون','Drivers')} · {r.period_start} → {r.period_end} · {r.entity_count} {L('جهة','entities')} · {money(r.total_amount)}</span>
             <Badge variant={r.status === 'paid' ? 'success' : 'secondary'}>{r.status}</Badge>
           </Card>
         ))}
@@ -129,13 +130,14 @@ const SettlementsPanel: React.FC = () => {
 };
 
 const CompensationPanel: React.FC = () => {
+  const { lang } = useAppConfig(); const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [list, setList] = useState<any[]>([]);
   const [f, setF] = useState({ entity_type: 'customer', entity_id: '', amount: '', reason: '' });
   const [busy, setBusy] = useState(false);
   const load = async () => { const { data } = await financeService.listCompensations(); setList(data); };
   useEffect(() => { load(); }, []);
   const issue = async () => {
-    if (!f.entity_id || !f.amount) return toast.error('أدخل المعرّف والمبلغ.');
+    if (!f.entity_id || !f.amount) return toast.error(L('أدخل المعرّف والمبلغ.','Enter the ID and amount.'));
     setBusy(true);
     const { error } = await financeService.issueCompensation(f.entity_type as any, f.entity_id, Number(f.amount), f.reason);
     setBusy(false);
@@ -145,16 +147,16 @@ const CompensationPanel: React.FC = () => {
   return (
     <div className="space-y-4">
       <Card className="p-4 space-y-2">
-        <p className="font-bold">إصدار تعويض</p>
+        <p className="font-bold">{L('إصدار تعويض','Issue compensation')}</p>
         <div className="grid grid-cols-2 gap-2">
           <select value={f.entity_type} onChange={e => setF({ ...f, entity_type: e.target.value })} className="px-2 py-1.5 rounded-lg text-sm" style={surface}>
-            <option value="customer">عميل</option><option value="merchant">تاجر</option><option value="driver">مندوب</option>
+            <option value="customer">{L('عميل','Customer')}</option><option value="merchant">{L('تاجر','Merchant')}</option><option value="driver">{L('مندوب','Driver')}</option>
           </select>
-          <input placeholder="المبلغ" type="number" value={f.amount} onChange={e => setF({ ...f, amount: e.target.value })} className="px-2 py-1.5 rounded-lg text-sm" style={surface} />
-          <input placeholder="معرّف الجهة (UUID)" value={f.entity_id} onChange={e => setF({ ...f, entity_id: e.target.value })} className="col-span-2 px-2 py-1.5 rounded-lg text-sm" style={surface} />
-          <input placeholder="السبب" value={f.reason} onChange={e => setF({ ...f, reason: e.target.value })} className="col-span-2 px-2 py-1.5 rounded-lg text-sm" style={surface} />
+          <input placeholder={L('المبلغ','Amount')} type="number" value={f.amount} onChange={e => setF({ ...f, amount: e.target.value })} className="px-2 py-1.5 rounded-lg text-sm" style={surface} />
+          <input placeholder={L('معرّف الجهة (UUID)','Entity ID (UUID)')} value={f.entity_id} onChange={e => setF({ ...f, entity_id: e.target.value })} className="col-span-2 px-2 py-1.5 rounded-lg text-sm" style={surface} />
+          <input placeholder={L('السبب','Reason')} value={f.reason} onChange={e => setF({ ...f, reason: e.target.value })} className="col-span-2 px-2 py-1.5 rounded-lg text-sm" style={surface} />
         </div>
-        <Button size="sm" loading={busy} onClick={issue}>إصدار</Button>
+        <Button size="sm" loading={busy} onClick={issue}>{L('إصدار','Issue')}</Button>
       </Card>
       {list.map(c => (
         <Card key={c.id} className="p-3 flex items-center justify-between">
@@ -167,9 +169,10 @@ const CompensationPanel: React.FC = () => {
 };
 
 const RefundsPanel: React.FC = () => {
+  const { lang } = useAppConfig(); const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [list, setList] = useState<any[]>([]);
   useEffect(() => { financeService.listRefunds().then(r => setList(r.data)); }, []);
-  if (list.length === 0) return <EmptyState title="لا توجد استردادات" />;
+  if (list.length === 0) return <EmptyState title={L('لا توجد استردادات','No refunds')} />;
   return <div className="space-y-2">{list.map(r => (
     <Card key={r.id} className="p-3 flex items-center justify-between">
       <span className="text-sm">#{r.order_id?.slice(0, 8)} · {money(r.amount)} {r.currency} · {r.reason ?? '—'}</span>
@@ -179,6 +182,7 @@ const RefundsPanel: React.FC = () => {
 };
 
 const ExportsPanel: React.FC = () => {
+  const { lang } = useAppConfig(); const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const today = new Date().toISOString().slice(0, 10);
   const [start, setStart] = useState(today.slice(0, 8) + '01');
   const [end, setEnd] = useState(today);
@@ -193,16 +197,16 @@ const ExportsPanel: React.FC = () => {
   return (
     <div className="space-y-3">
       <Card className="p-4 flex flex-wrap items-end gap-2">
-        <label className="text-xs">من<input type="date" value={start} onChange={e => setStart(e.target.value)} className="block mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} /></label>
-        <label className="text-xs">إلى<input type="date" value={end} onChange={e => setEnd(e.target.value)} className="block mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} /></label>
+        <label className="text-xs">{L('من','From')}<input type="date" value={start} onChange={e => setStart(e.target.value)} className="block mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} /></label>
+        <label className="text-xs">{L('إلى','To')}<input type="date" value={end} onChange={e => setEnd(e.target.value)} className="block mt-1 px-2 py-1.5 rounded-lg text-sm" style={surface} /></label>
         {(['revenue', 'commission', 'settlement', 'ledger'] as const).map(tp => (
           <Button key={tp} size="sm" variant="secondary" loading={busy} onClick={() => gen(tp)}>{tp}</Button>
         ))}
       </Card>
       {list.map(e => (
         <Card key={e.id} className="p-3 flex items-center justify-between">
-          <span className="text-sm">{e.export_type} · {e.period_start} → {e.period_end} · {e.row_count} سطر · {money(e.total_amount)}</span>
-          <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{new Date(e.generated_at).toLocaleDateString('ar')}</span>
+          <span className="text-sm">{e.export_type} · {e.period_start} → {e.period_end} · {e.row_count} {L('سطر','rows')} · {money(e.total_amount)}</span>
+          <span className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{new Date(e.generated_at).toLocaleDateString(L('ar','en'))}</span>
         </Card>
       ))}
     </div>
