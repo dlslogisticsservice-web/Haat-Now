@@ -52,14 +52,21 @@ export const AdminSidebar: React.FC<{
   active: NavKey; onSelect: (k: NavKey) => void; lang: 'ar' | 'en'; isSuper: boolean;
   supportBadge?: number; notifBadge?: number; onSearch?: () => void;
   onLogout: () => void; onToggleLang: () => void; onRefresh: () => void;
-}> = ({ active, onSelect, lang, isSuper, supportBadge, notifBadge, onSearch, onLogout, onToggleLang, onRefresh }) => {
+  mobileOpen?: boolean; onClose?: () => void;
+}> = ({ active, onSelect, lang, isSuper, supportBadge, notifBadge, onSearch, onLogout, onToggleLang, onRefresh, mobileOpen, onClose }) => {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const toggle = (g: string) => setCollapsed(c => ({ ...c, [g]: !c[g] }));
+  // Persistent on desktop; slide-in Drawer on mobile (off-canvas toward the start edge when closed).
+  const closedTransform = mobileOpen ? '' : (lang === 'ar' ? 'max-md:translate-x-full' : 'max-md:-translate-x-full');
+  const select = (k: NavKey) => { onSelect(k); onClose?.(); };
 
   return (
-    <aside className="hidden md:flex fixed inset-y-0 start-0 w-[260px] flex-col z-40"
-      dir={lang === 'ar' ? 'rtl' : 'ltr'}
+    <>
+      {/* Mobile drawer backdrop */}
+      {mobileOpen && <div className="md:hidden fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={onClose} aria-hidden="true" />}
+    <aside className={`fixed inset-y-0 start-0 w-[260px] flex flex-col z-50 md:z-40 transition-transform duration-200 md:translate-x-0 ${closedTransform}`}
+      dir={lang === 'ar' ? 'rtl' : 'ltr'} role="navigation" aria-label={L('التنقل الرئيسي', 'Main navigation')}
       style={{ background: 'var(--color-surface-container-lowest, #0a0f14)', borderInlineEnd: '1px solid var(--color-outline-variant)' }}>
       {/* Brand */}
       <div className="px-5 py-5 flex items-center gap-2.5" style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
@@ -102,7 +109,7 @@ export const AdminSidebar: React.FC<{
                     const on = active === it.key;
                     const badge = it.key === 'support' ? supportBadge : it.key === 'notifications' ? notifBadge : undefined;
                     return (
-                      <button key={it.key} onClick={() => onSelect(it.key)}
+                      <button key={it.key} onClick={() => select(it.key)}
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all"
                         style={on
                           ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontWeight: 700 }
@@ -129,5 +136,6 @@ export const AdminSidebar: React.FC<{
         <button onClick={onLogout} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer" style={{ color: '#f87171' }}><LogOut size={16} />{L('تسجيل الخروج', 'Sign out')}</button>
       </div>
     </aside>
+    </>
   );
 };

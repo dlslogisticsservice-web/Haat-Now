@@ -68,6 +68,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [activeTab,         setActiveTab]         = useState<AdminTab>('kpi');
   const [opsTab,            setOpsTab]            = useState<OpsTab>('command');
   const [searchOpen,        setSearchOpen]        = useState(false);
+  const [sidebarOpen,       setSidebarOpen]       = useState(false);
   const [notifBadge,        setNotifBadge]        = useState(0);
   const activeNav: NavKey = activeTab === 'ops' ? (`ops:${opsTab}` as NavKey) : (activeTab as NavKey);
   const handleNav = (k: NavKey) => {
@@ -219,6 +220,8 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         onLogout={onLogout}
         onToggleLang={toggleLang}
         onRefresh={fetchAdminModuleData}
+        mobileOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} lang={lang} onNavigate={handleNav} />
 
@@ -228,23 +231,20 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }}
         id="admin_main_content"
       >
-        {/* ── Header ──────────────────────────────────────── */}
-        {/* Mobile topbar */}
-        <div className="md:hidden flex items-center justify-between mb-1">
+        {/* ── Mobile AppBar (hamburger opens the sidebar Drawer; no top tabs on mobile) ── */}
+        <div className="md:hidden flex items-center justify-between mb-1 sticky top-0 z-30 -mx-5 px-5 py-2"
+          style={{ background: 'var(--color-background)', borderBottom: '1px solid var(--color-outline-variant)' }}>
           <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-primary-fixed)' }}><Icon name="dashboard" size={16} className="text-[var(--color-on-primary-fixed)]" /></span>
+            <button onClick={() => setSidebarOpen(true)} aria-label={lang === 'ar' ? 'فتح القائمة' : 'Open menu'} id="admin_drawer_btn"
+              className="w-9 h-9 rounded-lg flex items-center justify-center cursor-pointer" style={{ background: 'var(--color-surface-container-high)' }}>
+              <Icon name="menu" size={18} className="text-[var(--color-on-surface)]" />
+            </button>
             <span className="font-extrabold text-sm" style={{ color: 'var(--color-on-surface)' }}>HAAT NOW</span>
           </div>
           <div className="flex gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setSearchOpen(true)} leftIcon={<Icon name="search" size={16} />} />
             <Button variant="ghost" size="sm" onClick={toggleLang} leftIcon={<Icon name="language" size={16} />}>{lang === 'ar' ? 'EN' : 'ع'}</Button>
-            <Button variant="danger" size="sm" onClick={onLogout} leftIcon={<Icon name="logout" size={16} />}>{lang === 'ar' ? '' : ''}</Button>
           </div>
-        </div>
-        {/* Mobile nav strip */}
-        <div className="md:hidden flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-          {(([['kpi','لوحة','Home'],['ops:command','عمليات','Ops'],['ops:finance','مالية','Finance'],['ops:care','رعاية','Care'],['ops:growthb','تسويق','Growth'],['coupons','كوبونات','Coupons'],['support','دعم','Support'],['config','إعدادات','Settings']]) as [NavKey,string,string][]).map(([k,ar,en]) => (
-            <button key={k} onClick={() => handleNav(k)} className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer" style={activeNav===k?{background:'var(--color-primary-fixed)',color:'var(--color-on-primary-fixed)'}:{background:'var(--color-surface-container-high)',color:'var(--color-on-surface-variant)'}}>{lang==='ar'?ar:en}</button>
-          ))}
         </div>
 
         {/* TAB: Executive Dashboard */}
