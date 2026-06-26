@@ -16,6 +16,7 @@ import { Badge } from '../../components/ui/Badge';
 import { EnterpriseSidebar, SidebarSection } from '../../components/ui/EnterpriseSidebar';
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 import { StoreManagement } from './StoreManagement';
+import { KitchenQueue } from './KitchenQueue';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Order {
@@ -40,10 +41,11 @@ interface Product {
 interface Category    { id: string; name: string }
 interface MerchantData { id: string; business_name: string; logo_url?: string | null }
 
-type MerchantTab = 'incoming' | 'catalog' | 'inventory' | 'store' | 'wallet' | 'profile';
+type MerchantTab = 'incoming' | 'kitchen' | 'catalog' | 'inventory' | 'store' | 'wallet' | 'profile';
 
 const NAV: { id: MerchantTab; ar: string; en: string; icon: string }[] = [
   { id: 'incoming',  ar: 'الطلبات النشطة', en: 'Active Orders',    icon: 'notifications_active' },
+  { id: 'kitchen',   ar: 'شاشة المطبخ',    en: 'Kitchen',          icon: 'restaurant' },
   { id: 'catalog',   ar: 'المنيو والأسعار', en: 'Menu & Prices',   icon: 'restaurant_menu' },
   { id: 'inventory', ar: 'المخزون',         en: 'Inventory',        icon: 'inventory_2' },
   { id: 'store',     ar: 'إدارة المتجر',    en: 'Store',            icon: 'tune' },
@@ -217,7 +219,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         setInventory(sandboxStore.getProducts(merchantId));
         setMerchantStats(sandboxStore.getMerchantAnalytics());
         const sbOrders = sandboxStore.getMerchantOrders();
-        setOrders(sbOrders.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, customers: { full_name: o.customer_name } })) as any);
+        setOrders(sbOrders.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, created_at: o.created_at, order_items: o.items?.map((it) => ({ quantity: it.qty })), customers: { full_name: o.customer_name } })) as any);
         setEarnings(sbOrders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total_amount - o.delivery_fee), 0));
         return;
       }
@@ -272,7 +274,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
       if (SANDBOX) {
         sandboxStore.setStatus(orderId, status as any);
         const sb = sandboxStore.getMerchantOrders();
-        setOrders(sb.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, customers: { full_name: o.customer_name } })) as any);
+        setOrders(sb.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, created_at: o.created_at, order_items: o.items?.map((it) => ({ quantity: it.qty })), customers: { full_name: o.customer_name } })) as any);
         return;
       }
       let notes = '';
@@ -447,6 +449,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
   const tabLabels: Record<MerchantTab, string> = {
     incoming:  `${D('الطلبات النشطة', 'Active Orders')}${activeOrdersList.length > 0 ? ` (${activeOrdersList.length})` : ''}`,
+    kitchen:   D('شاشة المطبخ', 'Kitchen display'),
     catalog:   D('المنيو والأسعار', 'Menu & Prices'),
     inventory: D('إدارة المخزون', 'Inventory'),
     store:     D('إدارة المتجر', 'Store management'),
@@ -970,6 +973,9 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
           </div>
           );
         })()}
+
+        {/* ══════════════════════ KITCHEN DISPLAY ══════════════════════ */}
+        {activeTab === 'kitchen' && <KitchenQueue orders={orders} branchId={selectedBranchId} lang={lang} onAdvance={handleUpdateStatus} actionLoading={actionLoading} />}
 
         {/* ══════════════════════ STORE MANAGEMENT ══════════════════════ */}
         {activeTab === 'store' && selectedBranchId && <StoreManagement branchId={selectedBranchId} lang={lang} />}
