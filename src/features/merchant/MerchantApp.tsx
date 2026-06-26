@@ -17,6 +17,8 @@ import { EnterpriseSidebar, SidebarSection } from '../../components/ui/Enterpris
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 import { StoreManagement } from './StoreManagement';
 import { KitchenQueue } from './KitchenQueue';
+import { MerchantWalletCenter } from './MerchantWalletCenter';
+import { NotificationCenter } from '../admin/NotificationCenter';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Order {
@@ -41,7 +43,7 @@ interface Product {
 interface Category    { id: string; name: string }
 interface MerchantData { id: string; business_name: string; logo_url?: string | null }
 
-type MerchantTab = 'incoming' | 'kitchen' | 'catalog' | 'inventory' | 'store' | 'wallet' | 'profile';
+type MerchantTab = 'incoming' | 'kitchen' | 'catalog' | 'inventory' | 'store' | 'wallet' | 'walletcenter' | 'notifications' | 'profile';
 
 const NAV: { id: MerchantTab; ar: string; en: string; icon: string }[] = [
   { id: 'incoming',  ar: 'الطلبات النشطة', en: 'Active Orders',    icon: 'notifications_active' },
@@ -50,6 +52,8 @@ const NAV: { id: MerchantTab; ar: string; en: string; icon: string }[] = [
   { id: 'inventory', ar: 'المخزون',         en: 'Inventory',        icon: 'inventory_2' },
   { id: 'store',     ar: 'إدارة المتجر',    en: 'Store',            icon: 'tune' },
   { id: 'wallet',    ar: 'تقارير الأرباح',  en: 'Earnings',         icon: 'payments' },
+  { id: 'walletcenter', ar: 'المحفظة',      en: 'Wallet',           icon: 'account_balance_wallet' },
+  { id: 'notifications', ar: 'الإشعارات',   en: 'Notifications',    icon: 'notifications' },
   { id: 'profile',   ar: 'الملف التجاري',   en: 'Business Profile', icon: 'store' },
 ];
 
@@ -454,6 +458,8 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     inventory: D('إدارة المخزون', 'Inventory'),
     store:     D('إدارة المتجر', 'Store management'),
     wallet:    D('تقارير الأرباح', 'Earnings'),
+    walletcenter: D('المحفظة', 'Wallet center'),
+    notifications: D('الإشعارات', 'Notifications'),
     profile:   D('الملف التجاري', 'Business Profile'),
   };
 
@@ -976,6 +982,12 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
         {/* ══════════════════════ KITCHEN DISPLAY ══════════════════════ */}
         {activeTab === 'kitchen' && <KitchenQueue orders={orders} branchId={selectedBranchId} lang={lang} onAdvance={handleUpdateStatus} actionLoading={actionLoading} />}
+
+        {/* ══════════════════════ WALLET CENTER (real wallet.service) ══════════════════════ */}
+        {activeTab === 'walletcenter' && <MerchantWalletCenter merchantId={merchantId} lang={lang} />}
+
+        {/* ══════════════════════ NOTIFICATIONS (reuse generic center) ══════════════════════ */}
+        {activeTab === 'notifications' && <NotificationCenter adminId={merchantId} lang={lang} />}
 
         {/* ══════════════════════ STORE MANAGEMENT ══════════════════════ */}
         {activeTab === 'store' && selectedBranchId && <StoreManagement branchId={selectedBranchId} lang={lang} />}
