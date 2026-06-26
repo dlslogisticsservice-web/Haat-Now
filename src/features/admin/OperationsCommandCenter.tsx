@@ -6,6 +6,8 @@ import { dispatchService } from '../../services/ops/dispatch.service';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { useAppConfig } from '../../contexts/AppConfigContext';
+import { AdminDataTable, Column } from '../../components/admin/AdminDataTable';
 
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
@@ -28,6 +30,8 @@ const HeatLayer: React.FC<{ points: { lat: number; lng: number }[]; enabled: boo
 };
 
 export const OperationsCommandCenter: React.FC = () => {
+  const { lang } = useAppConfig();
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [summary, setSummary] = useState<OpsSummary | null>(null);
   const [drivers, setDrivers] = useState<LiveDriver[]>([]);
   const [orders, setOrders] = useState<LiveOrder[]>([]);
@@ -138,26 +142,24 @@ export const OperationsCommandCenter: React.FC = () => {
       </div>
 
       {/* zone analytics */}
-      <Card className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead><tr style={{ color: 'var(--color-on-surface-variant)' }} className="text-xs">
-            {['المنطقة', 'الحالة', 'طلبات نشطة', 'متصلون', 'متاحون', 'مكتمل اليوم', 'ETA'].map(h => <th key={h} className="px-3 py-2 text-start font-semibold">{h}</th>)}
-          </tr></thead>
-          <tbody>
-            {zones.map(z => (
-              <tr key={z.zone_id} className="border-t" style={{ borderColor: 'var(--color-outline-variant)' }}>
-                <td className="px-3 py-2 font-semibold">{z.zone_name}</td>
-                <td className="px-3 py-2"><Badge variant={z.is_active ? 'success' : 'secondary'}>{z.is_active ? 'نشطة' : 'متوقفة'}</Badge></td>
-                <td className="px-3 py-2">{z.active_orders}</td>
-                <td className="px-3 py-2">{z.online_drivers}</td>
-                <td className="px-3 py-2">{z.available_drivers}</td>
-                <td className="px-3 py-2">{z.delivered_today}</td>
-                <td className="px-3 py-2">{z.avg_eta} د</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+      <AdminDataTable
+        lang={lang}
+        rows={zones}
+        rowKey={z => z.zone_id}
+        search={z => z.zone_name}
+        searchPlaceholder={L('ابحث عن منطقة…', 'Search zone…')}
+        exportName="zone_analytics"
+        emptyTitle={L('لا توجد مناطق', 'No zones')}
+        columns={[
+          { key: 'zone', header: L('المنطقة', 'Zone'), sortable: true, sortValue: z => z.zone_name, csv: z => z.zone_name, render: z => <span className="font-semibold">{z.zone_name}</span> },
+          { key: 'status', header: L('الحالة', 'Status'), render: z => <Badge variant={z.is_active ? 'success' : 'secondary'}>{z.is_active ? L('نشطة', 'Active') : L('متوقفة', 'Paused')}</Badge> },
+          { key: 'active', header: L('طلبات نشطة', 'Active orders'), sortable: true, sortValue: z => z.active_orders, csv: z => z.active_orders },
+          { key: 'online', header: L('متصلون', 'Online'), sortable: true, sortValue: z => z.online_drivers, csv: z => z.online_drivers },
+          { key: 'available', header: L('متاحون', 'Available'), sortable: true, sortValue: z => z.available_drivers, csv: z => z.available_drivers },
+          { key: 'delivered', header: L('مكتمل اليوم', 'Delivered today'), sortable: true, sortValue: z => z.delivered_today, csv: z => z.delivered_today },
+          { key: 'eta', header: 'ETA', sortable: true, sortValue: z => z.avg_eta, csv: z => z.avg_eta, render: z => `${z.avg_eta} ${L('د', 'min')}` },
+        ] as Column<ZoneAnalytics>[]}
+      />
     </div>
   );
 };

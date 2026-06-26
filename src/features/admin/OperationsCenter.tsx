@@ -11,6 +11,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
+import { AdminDataTable, Column } from '../../components/admin/AdminDataTable';
 import { KycCenter } from './KycCenter';
 import { FinanceCenter } from './FinanceCenter';
 import { OperationsCommandCenter } from './OperationsCommandCenter';
@@ -295,39 +296,32 @@ const VehiclesPanel: React.FC = () => {
 
 // ════════════════════════ PERFORMANCE ════════════════════════
 const PerformancePanel: React.FC = () => {
-  const [rows, setRows] = useState<(DriverPerformance & { full_name: string })[]>([]);
+  const { lang } = useAppConfig();
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
+  type Row = DriverPerformance & { full_name: string };
+  const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const load = async () => { setLoading(true); const { data } = await performanceService.leaderboard(50); setRows(data); setLoading(false); };
   useEffect(() => { load(); }, []);
   const recalc = async (id: string) => { await performanceService.recalc(id); await load(); };
 
-  if (loading) return <div className="py-12 flex justify-center"><Loader size={32} /></div>;
-  if (rows.length === 0) return <EmptyState title="لا توجد بيانات أداء" />;
+  const columns: Column<Row>[] = [
+    { key: 'name', header: L('المندوب', 'Driver'), sortable: true, sortValue: r => r.full_name, csv: r => r.full_name, render: r => <span className="font-semibold">{r.full_name}</span> },
+    { key: 'completed', header: L('مكتملة', 'Completed'), sortable: true, sortValue: r => r.orders_completed, csv: r => r.orders_completed },
+    { key: 'accept', header: L('قبول', 'Accept'), sortable: true, sortValue: r => r.acceptance_rate, csv: r => r.acceptance_rate, render: r => pct(r.acceptance_rate) },
+    { key: 'complete', header: L('إكمال', 'Complete'), sortable: true, sortValue: r => r.completion_rate, csv: r => r.completion_rate, render: r => pct(r.completion_rate) },
+    { key: 'cancel', header: L('إلغاء', 'Cancel'), sortable: true, sortValue: r => r.cancellation_rate, csv: r => r.cancellation_rate, render: r => pct(r.cancellation_rate) },
+    { key: 'avg', header: L('متوسط (د)', 'Avg (min)'), sortable: true, sortValue: r => r.avg_delivery_minutes, csv: r => r.avg_delivery_minutes, render: r => r.avg_delivery_minutes.toFixed(0) },
+    { key: 'rating', header: L('تقييم', 'Rating'), sortable: true, sortValue: r => r.rating, csv: r => r.rating, render: r => <span className="inline-flex items-center gap-1"><Star size={13} fill="#fbbf24" color="#fbbf24" />{r.rating.toFixed(1)}</span> },
+    { key: 'earnings', header: L('أرباح', 'Earnings'), sortable: true, sortValue: r => r.total_earnings, csv: r => r.total_earnings, render: r => money(r.total_earnings) },
+    { key: 'action', header: '', render: r => <Button size="sm" variant="secondary" onClick={() => recalc(r.driver_id)}>{L('تحديث', 'Refresh')}</Button> },
+  ];
   return (
-    <Card className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr style={{ color: 'var(--color-on-surface-variant)' }} className="text-xs">
-            {['المندوب', 'مكتملة', 'قبول', 'إكمال', 'إلغاء', 'متوسط (د)', 'تقييم', 'أرباح', ''].map(h => <th key={h} className="px-3 py-2 text-start font-semibold">{h}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.driver_id} className="border-t" style={{ borderColor: 'var(--color-outline-variant)' }}>
-              <td className="px-3 py-2 font-semibold">{r.full_name}</td>
-              <td className="px-3 py-2">{r.orders_completed}</td>
-              <td className="px-3 py-2">{pct(r.acceptance_rate)}</td>
-              <td className="px-3 py-2">{pct(r.completion_rate)}</td>
-              <td className="px-3 py-2">{pct(r.cancellation_rate)}</td>
-              <td className="px-3 py-2">{r.avg_delivery_minutes.toFixed(0)}</td>
-              <td className="px-3 py-2"><span className="inline-flex items-center gap-1"><Star size={13} fill="#fbbf24" color="#fbbf24" />{r.rating.toFixed(1)}</span></td>
-              <td className="px-3 py-2">{money(r.total_earnings)}</td>
-              <td className="px-3 py-2"><Button size="sm" variant="secondary" onClick={() => recalc(r.driver_id)}>تحديث</Button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Card>
+    <AdminDataTable
+      columns={columns} rows={rows} loading={loading} rowKey={r => r.driver_id} lang={lang}
+      search={r => r.full_name} searchPlaceholder={L('ابحث باسم المندوب…', 'Search driver…')}
+      exportName="driver_performance" emptyTitle={L('لا توجد بيانات أداء', 'No performance data')} pageSize={15}
+    />
   );
 };
 
