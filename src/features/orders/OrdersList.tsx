@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Loader2, ScrollText, ChevronLeft, ChevronRight, Truck, Check, Phone,
   MessageSquare, Headphones, Hourglass, CheckCircle, ChefHat, Bike,
-  CheckCheck, XCircle, Star,
+  CheckCheck, XCircle, Star, RotateCcw,
 } from 'lucide-react';
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import type { LucideIcon } from 'lucide-react';
@@ -566,7 +566,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
         <button onClick={() => handleReorder(selectedOrderId)} disabled={reordering}
           className="w-full mt-4 h-12 rounded-2xl font-bold cursor-pointer flex items-center justify-center gap-2"
           style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', opacity: reordering ? 0.6 : 1 }} id="reorder_btn">
-          {reordering ? '...جارٍ الإضافة' : '🔁 إعادة الطلب'}
+          {reordering ? <><Loader2 size={16} className="animate-spin" /> {t('orders.reorderLoading')}</> : <><RotateCcw size={16} /> {t('orders.reorder')}</>}
         </button>
       )}
 

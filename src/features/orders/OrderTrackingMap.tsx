@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { APIProvider, Map, Marker, useMap } from '@vis.gl/react-google-maps';
+import { useTranslation } from 'react-i18next';
+import { Bike } from 'lucide-react';
 import { cxService, OrderTracking } from '../../services/cx.service';
 
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
@@ -22,6 +24,7 @@ const RouteLine: React.FC<{ from: { lat: number; lng: number } | null; to: { lat
 
 /** Live Google-Maps order tracking driven by the order_tracking RPC + realtime. */
 export const OrderTrackingMap: React.FC<{ orderId: string }> = ({ orderId }) => {
+  const { t: tr } = useTranslation();
   const [t, setT] = useState<OrderTracking | null>(null);
 
   const refresh = async () => setT(await cxService.tracking(orderId));
@@ -58,8 +61,8 @@ export const OrderTrackingMap: React.FC<{ orderId: string }> = ({ orderId }) => 
         <div style={{ height: 280 }}>
           <APIProvider apiKey={MAPS_KEY}>
             <Map defaultCenter={center} defaultZoom={13} gestureHandling="greedy" disableDefaultUI={true}>
-              <Marker position={dest} icon={ICON('red')} title="وجهة التوصيل" />
-              {driver && <Marker position={driver} icon={ICON('green')} title={t.driver?.name ?? 'المندوب'} />}
+              <Marker position={dest} icon={ICON('red')} title={tr('orders.homeLocation')} />
+              {driver && <Marker position={driver} icon={ICON('green')} title={t.driver?.name ?? tr('orders.driver')} />}
               <RouteLine from={driver} to={dest} />
             </Map>
           </APIProvider>
@@ -73,8 +76,8 @@ export const OrderTrackingMap: React.FC<{ orderId: string }> = ({ orderId }) => 
       {/* Driver info */}
       {t.driver && (
         <div className="px-4 py-3 flex items-center justify-between" style={{ color: 'white', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>🛵 {t.driver.name}</span>
-          {t.driver.phone && <a href={`tel:${t.driver.phone}`} style={{ color: '#9ed442', fontSize: 13, fontWeight: 700 }}>اتصال</a>}
+          <span style={{ fontSize: 14, fontWeight: 600 }} className="inline-flex items-center gap-1.5"><Bike size={15} /> {t.driver.name}</span>
+          {t.driver.phone && <a href={`tel:${t.driver.phone}`} style={{ color: '#9ed442', fontSize: 13, fontWeight: 700 }}>{tr('orders.call')}</a>}
         </div>
       )}
     </div>
