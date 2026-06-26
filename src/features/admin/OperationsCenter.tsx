@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { supabase } from '../../lib/supabase';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { dispatchService, NearestDriver } from '../../services/ops/dispatch.service';
@@ -101,8 +102,8 @@ const DispatchPanel: React.FC = () => {
     setBusy(o.id);
     const { data, error } = await dispatchService.autoDispatch(o.id);
     setBusy(null);
-    if (error) return alert(`فشل الإرسال: ${error.message}`);
-    if (!data) return alert('لا يوجد مندوب متاح حاليًا.');
+    if (error) return toast.error(`فشل الإرسال: ${error.message}`);
+    if (!data) return toast.error('لا يوجد مندوب متاح حاليًا.');
     await load();
   };
 
@@ -125,13 +126,13 @@ const DispatchPanel: React.FC = () => {
     setBusy(orderId);
     const { error } = await dispatchService.manualDispatch(orderId, driverId);
     setBusy(null);
-    if (error) return alert(`فشل التعيين: ${error.message}`);
+    if (error) return toast.error(`فشل التعيين: ${error.message}`);
     await load();
   };
 
   const expire = async () => {
     const { data } = await dispatchService.expireOffers();
-    alert(`تم إنهاء ${data} عرض منتهي الصلاحية.`);
+    toast.error(`تم إنهاء ${data} عرض منتهي الصلاحية.`);
     await load();
   };
 
@@ -203,7 +204,7 @@ const ZonesPanel: React.FC = () => {
   const save = async (z: DeliveryZone) => {
     const patch = edit[z.id]; if (!patch) return;
     const { error } = await zoneService.update(z.id, patch);
-    if (error) return alert(error.message);
+    if (error) return toast.error(error.message);
     setEdit(prev => { const n = { ...prev }; delete n[z.id]; return n; });
     await load();
   };
@@ -257,7 +258,7 @@ const VehiclesPanel: React.FC = () => {
   const save = async (v: Vehicle) => {
     const patch = edit[v.id]; if (!patch) return;
     const { error } = await vehicleService.update(v.id, patch as any);
-    if (error) return alert(error.message);
+    if (error) return toast.error(error.message);
     setEdit(p => { const n = { ...p }; delete n[v.id]; return n; });
     await load();
   };
@@ -340,12 +341,12 @@ const PayoutsPanel: React.FC = () => {
 
   const approve = async (id: string) => {
     setBusy(id); const { error } = await payoutService.approve(id); setBusy(null);
-    if (error) return alert(error.message); await load();
+    if (error) return toast.error(error.message); await load();
   };
   const reject = async (id: string) => {
     const note = prompt('سبب الرفض (اختياري):') ?? undefined;
     setBusy(id); const { error } = await payoutService.reject(id, note); setBusy(null);
-    if (error) return alert(error.message); await load();
+    if (error) return toast.error(error.message); await load();
   };
 
   if (loading) return <div className="py-12 flex justify-center"><Loader size={32} /></div>;

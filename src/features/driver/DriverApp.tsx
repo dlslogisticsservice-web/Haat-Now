@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { supabase } from '../../lib/supabase';
 import { driverService } from '../../services/driver.service';
 import { orderService } from '../../services/order.service';
@@ -70,7 +71,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
     if (SANDBOX) return;  // no GPS/geolocation in demo mode (avoids permission prompts)
     if (watchIdRef.current !== null) return;
     if (!navigator.geolocation) {
-      alert(D('تحديد الموقع غير مدعوم في هذا المتصفح','Location is not supported in this browser'));
+      toast.error(D('تحديد الموقع غير مدعوم في هذا المتصفح','Location is not supported in this browser'));
       return;
     }
     const id = navigator.geolocation.watchPosition(
@@ -79,7 +80,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) {
-          alert(D('لم تُمنح صلاحية تحديد الموقع. يُرجى تفعيلها من إعدادات المتصفح.','Location permission was denied. Please enable it in your browser settings.'));
+          toast.error(D('لم تُمنح صلاحية تحديد الموقع. يُرجى تفعيلها من إعدادات المتصفح.','Location permission was denied. Please enable it in your browser settings.'));
         }
       },
       { enableHighAccuracy: true, timeout: 10000 },
@@ -154,13 +155,13 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
       const targetState = !isOnline;
       if (SANDBOX) { setIsOnline(targetState); return; }
       const { error } = await driverService.toggleOnline(driverProfile.id, targetState);
-      if (!error) setIsOnline(targetState); else alert((error as any).message);
+      if (!error) setIsOnline(targetState); else toast.error((error as any).message);
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
   };
 
   const handleAcceptJob = async (orderId: string) => {
-    if (!isOnline) { alert(D('الرجاء الانتقال إلى وضع الاتصال أولاً!','Please go online first!')); return; }
+    if (!isOnline) { toast.error(D('الرجاء الانتقال إلى وضع الاتصال أولاً!','Please go online first!')); return; }
     setActionLoading(true);
     try {
       if (SANDBOX) {
@@ -170,8 +171,8 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         return;
       }
       const { success, error } = await driverService.acceptDelivery(orderId, driverProfile.id);
-      if (error) alert(`${D('فشل قبول الطلب','Failed to accept order')}: ${(error as any).message || error}`);
-      else if (success) { alert(D('تم قبول الطلب بنجاح!','Order accepted successfully!')); await reloadDriverState(driverProfile.id); }
+      if (error) toast.error(`${D('فشل قبول الطلب','Failed to accept order')}: ${(error as any).message || error}`);
+      else if (success) { toast.success(D('تم قبول الطلب بنجاح!','Order accepted successfully!')); await reloadDriverState(driverProfile.id); }
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
   };
@@ -189,14 +190,14 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         const { error } = await orderService.updateOrderStatus(job.id, 'on_the_way', 'الطلب في الطريق.');
         if (!error) {
           startGPSTracking(driverProfile.id);
-          alert(D('تم استلام الشحنة وتفعيل بث الإحداثيات','Shipment picked up & GPS tracking started'));
+          toast.error(D('تم استلام الشحنة وتفعيل بث الإحداثيات','Shipment picked up & GPS tracking started'));
         }
       } else if (job.status === 'on_the_way') {
         // Phase 15: single atomic RPC — status transition + earnings + wallet in one transaction.
         const { error: deliveryError } = await walletService.completeDelivery(job.id, driverProfile.id);
         if (!deliveryError) {
           stopGPSTracking();
-          alert(D('تم تسليم الشحنة وتسجيل مكافأة بمحفظتك!','Shipment delivered & a reward was added to your wallet!'));
+          toast.success(D('تم تسليم الشحنة وتسجيل مكافأة بمحفظتك!','Shipment delivered & a reward was added to your wallet!'));
         }
       }
       await reloadDriverState(driverProfile.id);

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { supabase } from '../../lib/supabase';
 import { adminService } from '../../services/admin.service';
 import { Icon } from '../../components/ui/Icon';
@@ -157,8 +158,8 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     setPayoutLoading(true);
     const { error } = await adminService.updateAppConfig(key, value, desc);
     setPayoutLoading(false);
-    if (error) alert(`خطأ في الحفظ: ${(error as any).message}`);
-    else { alert('تم تحديث التكوين بنجاح'); await fetchAdminModuleData(); }
+    if (error) toast.error(`خطأ في الحفظ: ${(error as any).message}`);
+    else { toast.success('تم تحديث التكوين بنجاح'); await fetchAdminModuleData(); }
   };
 
   const handleSelectTicket = async (tktId: string) => {
@@ -175,7 +176,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     if (!replyText || !selectedTicketId) return;
     setPayoutLoading(true);
     const { data, error } = await adminService.sendAdminReply(selectedTicketId, adminId, replyText);
-    if (error) alert((error as any).message);
+    if (error) toast.error((error as any).message);
     else if (data) {
       setTicketMessages([...ticketMessages, data as unknown as TicketMessage]); setReplyText('');
       await adminService.updateTicketStatus(selectedTicketId, 'in_progress');
@@ -189,7 +190,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     setPayoutLoading(true);
     await adminService.updateTicketStatus(tktId, 'resolved');
     setPayoutLoading(false);
-    alert('تم تحديد التذكرة كـ "محلول"');
+    toast.error('تم تحديد التذكرة كـ "محلول"');
     await fetchAdminModuleData(); setSelectedTicketId(null);
   };
 

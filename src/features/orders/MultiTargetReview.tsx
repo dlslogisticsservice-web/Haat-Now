@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { Star } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { cxService } from '../../services/cx.service';
@@ -56,7 +57,7 @@ export const MultiTargetReview: React.FC<{ orderId: string; customerId: string; 
     const st = state[key(t)];
     if (!st || st.rating < 1) return;
     const { error } = await cxService.submitReview(orderId, t.type, t.id, st.rating, st.comment.trim() || undefined);
-    if (error) return alert(error.message);
+    if (error) return toast.error(error.message);
     set(t, { done: true });
   };
 

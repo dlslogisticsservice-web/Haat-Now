@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { supabase } from '../../lib/supabase';
 import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
@@ -251,7 +252,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
       const { data, error } = await supabase.from('addresses')
         .insert({ customer_id: customerId, zone_id: selectedZoneId, address_line: newAddressText, label: t('checkout.customLocation') })
         .select().single();
-      if (error) alert(`${t('checkout.addAddressError')}: ${error.message}`);
+      if (error) toast.error(`${t('checkout.addAddressError')}: ${error.message}`);
       else { setAddresses([data, ...addresses]); setSelectedAddress(data.id); setNewAddressText(''); setIsAddingAddress(false); }
     } catch (err) { console.error(err); }
     finally { setActionLoading(false); }
@@ -269,7 +270,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         is_default: paymentMethods.length === 0,
       };
       const { data, error } = await checkoutService.createPaymentMethod(pmPayload);
-      if (error) alert(error.message);
+      if (error) toast.error(error.message);
       else if (data) { setPaymentMethods([data, ...paymentMethods]); setSelectedPayment(data.id); setCardNumber(''); setCardHolder(''); setIsAddingCard(false); }
     } catch (err) { console.error(err); }
     finally { setActionLoading(false); }
@@ -308,9 +309,9 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
       setShowSuccessModal(true);
       return;
     }
-    if (addresses.length === 0) { alert(t('checkout.addAddressFirst')); return; }
-    if (!selectedAddress) { alert(t('checkout.selectAddress')); return; }
-    if (!selectedPayment)  { alert(t('checkout.selectPayment'));   return; }
+    if (addresses.length === 0) { toast.error(t('checkout.addAddressFirst')); return; }
+    if (!selectedAddress) { toast.error(t('checkout.selectAddress')); return; }
+    if (!selectedPayment)  { toast.error(t('checkout.selectPayment'));   return; }
     // Open the payment tab synchronously (before any async ops) — required by iOS Safari.
     // Browsers allow window.open only in a direct user-gesture stack; async calls get blocked.
     const paymentTabRef = window.open('about:blank', '_moyasar_payment');
@@ -341,7 +342,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           deliveryFee:       deliveryFee,
         },
       );
-      if (orderErr) { paymentTabRef?.close(); alert(`${t('checkout.orderError')}: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
+      if (orderErr) { paymentTabRef?.close(); toast.error(`${t('checkout.orderError')}: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
       if (orderData) {
         // EF2-11: Call payment-initiate Edge Function with the customer JWT
         const accessToken = await authService.getAccessToken();
@@ -365,7 +366,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           const errMsg = (initiateData['error'] as Record<string, unknown> | undefined)?.['message']
             ?? (initiateData['message'] as string | undefined)
             ?? t('checkout.tryAgain');
-          alert(`${t('checkout.payStartFail')}: ${errMsg}`);
+          toast.error(`${t('checkout.payStartFail')}: ${errMsg}`);
           setSwipeComplete(false); setHandleLeft(8);
           return;
         }
@@ -376,7 +377,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
 
         if (!paymentUrl) {
           paymentTabRef?.close();
-          alert(t('checkout.noPayLink'));
+          toast.error(t('checkout.noPayLink'));
           setSwipeComplete(false); setHandleLeft(8);
           return;
         }
@@ -398,7 +399,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         setPaymentStatus('verifying');
         startVerifyPolling(initiateData['paymentAttemptId'] as string, orderData.id);
       }
-    } catch (err) { paymentTabRef?.close(); console.error(err); alert(t('checkout.internalError')); setSwipeComplete(false); setHandleLeft(8); }
+    } catch (err) { paymentTabRef?.close(); console.error(err); toast.error(t('checkout.internalError')); setSwipeComplete(false); setHandleLeft(8); }
     finally { setActionLoading(false); }
   };
 

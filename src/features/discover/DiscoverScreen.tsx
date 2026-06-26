@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { useTranslation } from 'react-i18next';
 import { Flame } from 'lucide-react';
 import { cxService } from '../../services/cx.service';
@@ -121,10 +122,10 @@ const RewardsTab: React.FC<{ customerId: string }> = ({ customerId }) => {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [customerId]);
   const redeem = async (rewardId: string, cost: number) => {
-    if (points < cost) return alert(t('discover.insufficientPoints'));
+    if (points < cost) return toast.error(t('discover.insufficientPoints'));
     setBusy(true); const { data, error } = await growthbService.redeemReward(customerId, rewardId); setBusy(false);
-    if (error) return alert(error.message);
-    alert(data?.reward === 'wallet_credit' ? t('discover.redeemedWallet', { value: data.value, cur }) : t('discover.redeemedActivated'));
+    if (error) return toast.error(error.message);
+    toast.success(data?.reward === 'wallet_credit' ? t('discover.redeemedWallet', { value: data.value, cur }) : t('discover.redeemedActivated'));
     await load();
   };
   if (loading) return <div className="py-10 flex justify-center"><Loader size={28} /></div>;
@@ -162,11 +163,11 @@ const SupportTab: React.FC<{ customerId: string }> = ({ customerId }) => {
   const load = async () => { const { data } = await cxService.myTickets(customerId); setTickets(data); };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [customerId]);
   const create = async () => {
-    if (!f.subject || !f.message) return alert(t('discover.enterSubjectMessage'));
+    if (!f.subject || !f.message) return toast.error(t('discover.enterSubjectMessage'));
     setBusy(true);
     const { error } = await cxService.createTicket(f.subject, f.type as any, f.message);
     setBusy(false);
-    if (error) return alert(error.message);
+    if (error) return toast.error(error.message);
     setF({ subject: '', type: 'general', message: '' }); await load();
   };
   return (

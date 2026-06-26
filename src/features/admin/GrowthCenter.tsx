@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { growthService, Affiliate, Influencer, AudienceSegment, MessageCampaign, LoyaltyTier } from '../../services/growth.service';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -40,9 +41,9 @@ const CashbackPanel: React.FC = () => {
   const load = async () => { const { data } = await growthService.cashbackCampaigns(); setList(data); };
   useEffect(() => { load(); }, []);
   const create = async () => {
-    if (!f.name || !f.rate) return alert('أدخل الاسم والنسبة.');
+    if (!f.name || !f.rate) return toast.error('أدخل الاسم والنسبة.');
     const { error } = await growthService.createCashbackCampaign({ name: f.name, type: f.type, rate: Number(f.rate), min_order: Number(f.min_order || 0), max_cashback: f.max_cashback ? Number(f.max_cashback) : null });
-    if (error) return alert(error.message);
+    if (error) return toast.error(error.message);
     setF({ name: '', type: 'percent', rate: '', min_order: '', max_cashback: '' }); await load();
   };
   return (
@@ -71,9 +72,9 @@ const AffiliatesPanel: React.FC = () => {
   const load = async () => { const { data } = await growthService.affiliates(); setList(data); };
   useEffect(() => { load(); }, []);
   const create = async () => {
-    if (!f.name) return alert('أدخل الاسم.');
+    if (!f.name) return toast.error('أدخل الاسم.');
     const { error } = await growthService.createAffiliate(f.name, Number(f.commission || 0), Number(f.reward || 10));
-    if (error) return alert(error.message); setF({ name: '', commission: '', reward: '' }); await load();
+    if (error) return toast.error(error.message); setF({ name: '', commission: '', reward: '' }); await load();
   };
   return (
     <div className="space-y-3">
@@ -99,9 +100,9 @@ const InfluencersPanel: React.FC = () => {
   const load = async () => { const { data } = await growthService.influencers(); setList(data); };
   useEffect(() => { load(); }, []);
   const create = async () => {
-    if (!f.name) return alert('أدخل الاسم.');
+    if (!f.name) return toast.error('أدخل الاسم.');
     const { error } = await growthService.createInfluencer(f.name, f.handle, f.platform, Number(f.reach || 0), Number(f.commission || 0), Number(f.reward || 10));
-    if (error) return alert(error.message); setF({ name: '', handle: '', platform: 'instagram', reach: '', commission: '', reward: '' }); await load();
+    if (error) return toast.error(error.message); setF({ name: '', handle: '', platform: 'instagram', reach: '', commission: '', reward: '' }); await load();
   };
   return (
     <div className="space-y-3">
@@ -134,9 +135,9 @@ const SegmentsPanel: React.FC = () => {
   const def = () => ({ min_orders: Number(minOrders || 0) });
   const doEstimate = async () => setEstimate(await growthService.estimateSegment(def()));
   const create = async () => {
-    if (!name) return alert('أدخل الاسم.');
+    if (!name) return toast.error('أدخل الاسم.');
     const { error } = await growthService.createSegment(name, def());
-    if (error) return alert(error.message); setName(''); setMinOrders(''); setEstimate(null); await load();
+    if (error) return toast.error(error.message); setName(''); setMinOrders(''); setEstimate(null); await load();
   };
   return (
     <div className="space-y-3">
@@ -163,11 +164,11 @@ const CampaignsPanel: React.FC = () => {
   const load = async () => { const [{ data: c }, { data: s }] = await Promise.all([growthService.campaigns(), growthService.segments()]); setList(c); setSegs(s); };
   useEffect(() => { load(); }, []);
   const create = async () => {
-    if (!f.name) return alert('أدخل الاسم.');
+    if (!f.name) return toast.error('أدخل الاسم.');
     const { error } = await growthService.createCampaign({ name: f.name, channel: f.channel, segment_id: f.segment_id || null, body: f.body });
-    if (error) return alert(error.message); setF({ name: '', channel: 'push', segment_id: '', body: '' }); await load();
+    if (error) return toast.error(error.message); setF({ name: '', channel: 'push', segment_id: '', body: '' }); await load();
   };
-  const send = async (id: string) => { const { recipients, error } = await growthService.sendCampaign(id); if (error) return alert(error.message); alert(`تم الإرسال إلى ${recipients} مستلم.`); await load(); };
+  const send = async (id: string) => { const { recipients, error } = await growthService.sendCampaign(id); if (error) return toast.error(error.message); toast.error(`تم الإرسال إلى ${recipients} مستلم.`); await load(); };
   return (
     <div className="space-y-3">
       <Card className="p-4 grid grid-cols-2 gap-2">

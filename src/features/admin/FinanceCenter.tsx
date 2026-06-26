@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { financeService, RevenueDashboard, SettlementRun, MerchantSettlement, DriverSettlement } from '../../services/finance.service';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -81,7 +82,7 @@ const SettlementsPanel: React.FC = () => {
       ? await financeService.generateMerchantSettlement(start, end)
       : await financeService.generateDriverSettlement(start, end);
     setBusy(false);
-    if (error) return alert(error.message);
+    if (error) return toast.error(error.message);
     await load();
   };
   const payM = async (id: string) => { await financeService.payMerchantSettlement(id); await load(); };
@@ -134,11 +135,11 @@ const CompensationPanel: React.FC = () => {
   const load = async () => { const { data } = await financeService.listCompensations(); setList(data); };
   useEffect(() => { load(); }, []);
   const issue = async () => {
-    if (!f.entity_id || !f.amount) return alert('أدخل المعرّف والمبلغ.');
+    if (!f.entity_id || !f.amount) return toast.error('أدخل المعرّف والمبلغ.');
     setBusy(true);
     const { error } = await financeService.issueCompensation(f.entity_type as any, f.entity_id, Number(f.amount), f.reason);
     setBusy(false);
-    if (error) return alert(error.message);
+    if (error) return toast.error(error.message);
     setF({ entity_type: 'customer', entity_id: '', amount: '', reason: '' }); await load();
   };
   return (
@@ -187,7 +188,7 @@ const ExportsPanel: React.FC = () => {
   useEffect(() => { load(); }, []);
   const gen = async (type: 'revenue' | 'commission' | 'settlement' | 'ledger') => {
     setBusy(true); const { error } = await financeService.generateExport(type, start, end); setBusy(false);
-    if (error) return alert(error.message); await load();
+    if (error) return toast.error(error.message); await load();
   };
   return (
     <div className="space-y-3">

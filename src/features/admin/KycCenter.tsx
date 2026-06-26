@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { onboardingService, EntityType, KycQueueItem, DocRow, HistoryRow } from '../../services/onboarding.service';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -100,7 +101,7 @@ const ReviewPanel: React.FC<{ item: KycQueueItem; onDone: () => void }> = ({ ite
 
   const viewDoc = async (path: string) => {
     const { url, error } = await onboardingService.signedDocUrl(path);
-    if (error || !url) return alert('تعذر فتح المستند.');
+    if (error || !url) return toast.error('تعذر فتح المستند.');
     window.open(url, '_blank');
   };
   const reviewDoc = async (docId: string, status: 'approved' | 'rejected') => {
@@ -109,10 +110,10 @@ const ReviewPanel: React.FC<{ item: KycQueueItem; onDone: () => void }> = ({ ite
   const decide = async (decision: 'approved' | 'rejected') => {
     const notes = decision === 'rejected' ? (prompt('سبب الرفض:') ?? undefined) : undefined;
     setBusy(true); const { error } = await onboardingService.reviewKyc(item.entity_type, item.entity_id, decision, notes);
-    setBusy(false); if (error) return alert(error.message); onDone();
+    setBusy(false); if (error) return toast.error(error.message); onDone();
   };
   const act = async (fn: () => Promise<{ error: any }>) => {
-    setBusy(true); const { error } = await fn(); setBusy(false); if (error) return alert(error.message); onDone();
+    setBusy(true); const { error } = await fn(); setBusy(false); if (error) return toast.error(error.message); onDone();
   };
 
   return (

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { shiftService, DriverShift } from '../../services/ops/shift.service';
 import { dispatchService } from '../../services/ops/dispatch.service';
 import { payoutService, WalletSummary } from '../../services/ops/payout.service';
@@ -44,20 +45,20 @@ export const DriverOpsPanel: React.FC<{ driverId: string }> = ({ driverId }) => 
     setBusy(true);
     const { data, error } = await dispatchService.respond(assignmentId, accept);
     setBusy(false);
-    if (error) return alert(error.message);
-    if (data === 'lost') alert(D('تم قبول الطلب من مندوب آخر.','The order was accepted by another driver.'));
+    if (error) return toast.error(error.message);
+    if (data === 'lost') toast.success(D('تم قبول الطلب من مندوب آخر.','The order was accepted by another driver.'));
     await load();
   };
   const requestPayout = async () => {
     const raw = prompt(`${D('الرصيد المتاح','Available balance')}: ${money(wallet.available)}\n${D('أدخل مبلغ السحب','Enter withdrawal amount')}:`);
     if (!raw) return;
     const amount = Number(raw);
-    if (!amount || amount <= 0) return alert(D('مبلغ غير صالح.','Invalid amount.'));
+    if (!amount || amount <= 0) return toast.error(D('مبلغ غير صالح.','Invalid amount.'));
     setBusy(true);
     const { error } = await payoutService.request(driverId, amount);
     setBusy(false);
-    if (error) return alert(error.message);
-    alert(D('تم إرسال طلب السحب','Withdrawal request sent')); await load();
+    if (error) return toast.error(error.message);
+    toast.success(D('تم إرسال طلب السحب','Withdrawal request sent')); await load();
   };
 
   return (

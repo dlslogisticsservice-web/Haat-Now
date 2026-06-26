@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { toast, confirmDialog } from '../../components/ui/feedback';
 import { supabase } from '../../lib/supabase';
 import { orderService } from '../../services/order.service';
 import { productService } from '../../services/product.service';
@@ -128,7 +129,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     setReordering(true);
     try {
       const { data: items } = await cxService.reorderItems(orderId);
-      if (!items.length) { alert(t('orders.reorderNoItems')); return; }
+      if (!items.length) { toast.error(t('orders.reorderNoItems')); return; }
       cartService.clearCart();
       let added = 0, skipped = 0;
       for (const it of items) {
@@ -138,7 +139,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
         const variant = ((product as any).product_variants || []).find((v: any) => v.id === it.variant_id) || null;
         try { cartService.addToCart(product, variant, it.quantity); added++; } catch { skipped++; }
       }
-      alert(added > 0
+      toast.success(added > 0
         ? t('orders.reorderAdded', { added }) + (skipped ? t('orders.reorderSkipped', { skipped }) : '')
         : t('orders.reorderFailed'));
     } finally { setReordering(false); }
@@ -332,11 +333,11 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   };
 
   const handleCancelOrder = async (orderId: string) => {
-    if (!window.confirm(t('orders.cancelConfirm'))) return;
+    if (!(await confirmDialog({ message: t('orders.cancelConfirm'), danger: true }))) return;
     try {
       const { success, error } = await orderService.cancelOrder(orderId, 'إلغاء سريع من المستخدم');
-      if (success) { alert(t('orders.cancelSuccess')); fetchOrders(); fetchOrderDetails(orderId); }
-      else alert(`${t('orders.cancelFail')}: ${(error as any)?.message || error}`);
+      if (success) { toast.success(t('orders.cancelSuccess')); fetchOrders(); fetchOrderDetails(orderId); }
+      else toast.error(`${t('orders.cancelFail')}: ${(error as any)?.message || error}`);
     } catch (e) { console.error(e); }
   };
 
@@ -350,7 +351,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
         .select().single();
       if (ticket) {
         await supabase.from('support_messages').insert({ ticket_id: ticket.id, sender_type: 'customer', sender_id: customerId, message_text: `أرغب في شكوى بخصوص: ${ticketSubject}.` });
-        alert(t('orders.ticketOpened'));
+        toast.error(t('orders.ticketOpened'));
         setTicketSubject(''); setShowTicketInput(false);
       } else console.error(err);
     } catch (ex) { console.error(ex); }

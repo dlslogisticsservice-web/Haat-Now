@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { toast, confirmDialog } from '../../components/ui/feedback';
 import { customerService, AddressWithZone, ZoneHierarchy } from '../../services/customer.service';
 import { storageService } from '../../services/storage.service';
 import { useAppConfig } from '../../contexts/AppConfigContext';
@@ -510,15 +511,15 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
   };
 
   const handleAddrDelete = async (addrId: string) => {
-    if (!window.confirm(T('هل أنت متأكد من حذف هذا العنوان؟','Are you sure you want to delete this address?'))) return;
+    if (!(await confirmDialog({ message: T('هل أنت متأكد من حذف هذا العنوان؟', 'Are you sure you want to delete this address?'), danger: true }))) return;
     const { error } = await customerService.deleteAddress(addrId);
-    if (error) { alert(T('فشل حذف العنوان.','Failed to delete the address.')); return; }
+    if (error) { toast.error(T('فشل حذف العنوان.','Failed to delete the address.')); return; }
     setAddresses(prev => prev.filter(a => a.id !== addrId));
   };
 
   const handleSetDefault = async (addrId: string) => {
     const { error } = await customerService.setDefaultAddress(session.id, addrId);
-    if (error) { alert(T('فشل تحديد العنوان الافتراضي.','Failed to set the default address.')); return; }
+    if (error) { toast.error(T('فشل تحديد العنوان الافتراضي.','Failed to set the default address.')); return; }
     setAddresses(prev => prev.map(a => ({ ...a, is_default: a.id === addrId })));
   };
 

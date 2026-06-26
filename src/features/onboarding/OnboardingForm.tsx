@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { supabase } from '../../lib/supabase';
 import { onboardingService, EntityType, AccountStatus } from '../../services/onboarding.service';
 import { Card } from '../../components/ui/Card';
@@ -58,7 +59,7 @@ export const OnboardingForm: React.FC<{ entityType: EntityType }> = ({ entityTyp
       ? await onboardingService.submitMerchant({ business_name: form.name || '', contact_email: form.email || '', contact_phone: form.phone || '', tax_number: form.tax, commercial_registration_number: form.cr, business_type: form.btype, address: form.address })
       : await onboardingService.submitDriver({ full_name: form.name || '', phone: form.phone || '', national_id_number: form.nid, license_number: form.license, license_expiry: form.expiry || undefined, vehicle_plate: form.plate });
     setBusy(false);
-    if (res.error) return alert(res.error.message);
+    if (res.error) return toast.error(res.error.message);
     if (userId) await refresh(userId);
   };
 
@@ -66,12 +67,12 @@ export const OnboardingForm: React.FC<{ entityType: EntityType }> = ({ entityTyp
     if (!file || !userId || !entityId) return;
     setBusy(true);
     const { path, error } = await onboardingService.uploadDocument(userId, entityType, docType, file);
-    if (error || !path) { setBusy(false); return alert('فشل رفع الملف.'); }
+    if (error || !path) { setBusy(false); return toast.error('فشل رفع الملف.'); }
     const rec = entityType === 'merchant'
       ? await onboardingService.recordMerchantDocument(entityId, docType, path, file.name)
       : await onboardingService.recordDriverDocument(entityId, docType, path, file.name);
     setBusy(false);
-    if (rec.error) return alert(rec.error.message);
+    if (rec.error) return toast.error(rec.error.message);
     setDocs(p => ({ ...p, [docType]: file.name }));
   };
 

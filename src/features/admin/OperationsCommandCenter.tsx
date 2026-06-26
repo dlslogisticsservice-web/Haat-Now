@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { APIProvider, Map, Marker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { commandService, LiveDriver, LiveOrder, LiveMerchant, OpsSummary, ZoneAnalytics } from '../../services/ops/command.service';
 import { dispatchService } from '../../services/ops/dispatch.service';
@@ -52,8 +53,8 @@ export const OperationsCommandCenter: React.FC = () => {
 
   const batch = async () => {
     setBusy(true); const { count, error } = await commandService.batchDispatch(20); setBusy(false);
-    if (error) return alert(error.message);
-    alert(`تم إرسال ${count} طلب تلقائيًا.`); await refresh();
+    if (error) return toast.error(error.message);
+    toast.success(`تم إرسال ${count} طلب تلقائيًا.`); await refresh();
   };
 
   const center = merchants[0] ?? drivers[0] ?? { lat: 24.7136, lng: 46.6753 }; // Riyadh fallback

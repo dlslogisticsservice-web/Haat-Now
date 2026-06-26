@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toast } from '../../components/ui/feedback';
 import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
 import { growthbService } from '../../services/growthb.service';
 import { Card } from '../../components/ui/Card';
@@ -53,7 +54,7 @@ const CouponsPanel: React.FC = () => {
   const load = async () => { const [{ data }, { data: r }] = await Promise.all([growthbService.listCoupons(), growthbService.couponRedemptions()]); setList(data); setReds(r); };
   useEffect(() => { load(); }, []);
   const create = async () => {
-    if (!f.code) return alert('أدخل الكود.');
+    if (!f.code) return toast.error('أدخل الكود.');
     const payload: any = { code: f.code.toUpperCase(), discount_type: f.discount_type, is_active: true,
       min_order_amount: Number(f.min_order_amount || 0), per_customer_limit: Number(f.per_customer_limit || 0),
       first_order_only: f.first_order_only, new_customer_only: f.new_customer_only,
@@ -62,7 +63,7 @@ const CouponsPanel: React.FC = () => {
     if (f.discount_type === 'percent') payload.discount_percent = Number(f.discount_percent || 0);
     else payload.discount_value = Number(f.discount_value || 0);
     const { error } = await growthbService.createCoupon(payload);
-    if (error) return alert(error.message);
+    if (error) return toast.error(error.message);
     setF({ ...f, code: '', discount_percent: '', discount_value: '' }); await load();
   };
   const redCount = (id: string) => reds.filter(r => r.coupon_id === id).length;
@@ -123,9 +124,9 @@ const LoyaltyPanel: React.FC = () => {
   };
   useEffect(() => { load(); }, []);
   const create = async () => {
-    if (!f.name || !f.points_cost) return alert('أدخل الاسم والنقاط.');
+    if (!f.name || !f.points_cost) return toast.error('أدخل الاسم والنقاط.');
     const { error } = await growthbService.createReward({ name: f.name, reward_type: f.reward_type, points_cost: Number(f.points_cost), value: Number(f.value || 0), is_active: true });
-    if (error) return alert(error.message); setF({ name: '', reward_type: 'wallet_credit', points_cost: '', value: '' }); await load();
+    if (error) return toast.error(error.message); setF({ name: '', reward_type: 'wallet_credit', points_cost: '', value: '' }); await load();
   };
   return (
     <div className="space-y-4">
@@ -157,9 +158,9 @@ const PromotionsPanel: React.FC = () => {
   const load = async () => { const { data } = await growthbService.listPromotions(); setList(data); };
   useEffect(() => { load(); }, []);
   const create = async () => {
-    if (!f.name) return alert('أدخل الاسم.');
+    if (!f.name) return toast.error('أدخل الاسم.');
     const { error } = await growthbService.createPromotion({ name: f.name, type: f.type, discount_value: f.discount_value ? Number(f.discount_value) : null, start_at: f.start_at || null, end_at: f.end_at || null, hour_start: f.hour_start ? Number(f.hour_start) : null, hour_end: f.hour_end ? Number(f.hour_end) : null, is_active: true });
-    if (error) return alert(error.message); setF({ name: '', type: 'flash_sale', discount_value: '', start_at: '', end_at: '', hour_start: '', hour_end: '' }); await load();
+    if (error) return toast.error(error.message); setF({ name: '', type: 'flash_sale', discount_value: '', start_at: '', end_at: '', hour_start: '', hour_end: '' }); await load();
   };
   return (
     <div className="space-y-3">
@@ -189,9 +190,9 @@ const BannersPanel: React.FC = () => {
   const load = async () => { const { data } = await growthbService.listBanners(); setList(data); };
   useEffect(() => { load(); }, []);
   const create = async () => {
-    if (!f.title || !f.image_url) return alert('أدخل العنوان ورابط الصورة.');
+    if (!f.title || !f.image_url) return toast.error('أدخل العنوان ورابط الصورة.');
     const { error } = await growthbService.createBanner({ title: f.title, image_url: f.image_url, link_url: f.link_url || null, placement: f.placement, priority: Number(f.priority || 0), start_date: f.start_date || null, end_date: f.end_date || null, target_country: f.target_country || null, is_active: true });
-    if (error) return alert(error.message); setF({ title: '', image_url: '', link_url: '', placement: 'home', priority: '', start_date: '', end_date: '', target_country: '' }); await load();
+    if (error) return toast.error(error.message); setF({ title: '', image_url: '', link_url: '', placement: 'home', priority: '', start_date: '', end_date: '', target_country: '' }); await load();
   };
   const ctr = (b: any) => b.impressions > 0 ? `${((b.clicks / b.impressions) * 100).toFixed(1)}%` : '—';
   return (
@@ -234,7 +235,7 @@ const SegmentsPanel: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const load = async () => setCounts(await growthbService.segmentCounts());
   useEffect(() => { load(); }, []);
-  const recompute = async () => { setBusy(true); const { rows } = await growthbService.recomputeSegments(); setBusy(false); alert(`تمت إعادة تصنيف ${rows} عميل.`); await load(); };
+  const recompute = async () => { setBusy(true); const { rows } = await growthbService.recomputeSegments(); setBusy(false); toast.error(`تمت إعادة تصنيف ${rows} عميل.`); await load(); };
   const labels: Record<string, string> = { new: 'جديد', active: 'نشط', vip: 'مميّز', inactive: 'خامل', at_risk: 'معرّض للخطر', lost: 'مفقود' };
   const data = Object.entries(counts).map(([k, v]) => ({ name: labels[k] || k, value: v }));
   return (

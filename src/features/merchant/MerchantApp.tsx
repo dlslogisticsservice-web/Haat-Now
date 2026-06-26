@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { toast, confirmDialog } from '../../components/ui/feedback';
 import { supabase } from '../../lib/supabase';
 import { merchantService } from '../../services/merchant.service';
 import { orderService } from '../../services/order.service';
@@ -276,7 +277,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
       if (status === 'accepted')  notes = 'تم قبول طلبكم.';
       if (status === 'preparing') notes = 'جاري تجهيز طلبكم الآن.';
       const { error } = await orderService.updateOrderStatus(orderId, status, notes);
-      if (error) alert(`${D('خطأ','Error')}: ${(error as any).message}`);
+      if (error) toast.error(`${D('خطأ','Error')}: ${(error as any).message}`);
       else await reloadBranchData(selectedBranchId);
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
@@ -292,7 +293,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         branch_id: selectedBranchId, category_id: selectedCategoryId,
         name: newProductName, price: Number(newProductPrice),
       });
-      if (error) { alert(`Failed to add product: ${(error as any).message}`); return; }
+      if (error) { toast.error(`Failed to add product: ${(error as any).message}`); return; }
       if (newProduct?.id && newProductImgFile) {
         const { url, error: upErr } = await storageService.uploadProductImage(newProduct.id, newProductImgFile);
         if (!upErr && url) await merchantService.addProductImage(newProduct.id, url);
@@ -306,11 +307,11 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
   };
 
   const handleDeleteProduct = async (prodId: string) => {
-    if (!window.confirm(D('مسح هذا المنتج نهائياً؟','Delete this product permanently?'))) return;
+    if (!(await confirmDialog({ message: D('مسح هذا المنتج نهائياً؟', 'Delete this product permanently?'), danger: true }))) return;
     setActionLoading(true);
     try {
       const { error } = await merchantService.deleteProduct(prodId);
-      if (error) alert(`${D('لا يمكن مسح المنتج.','Could not delete the product.')} ${(error as any).message}`);
+      if (error) toast.error(`${D('لا يمكن مسح المنتج.','Could not delete the product.')} ${(error as any).message}`);
       else await reloadBranchData(selectedBranchId);
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
@@ -325,7 +326,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         id: product.id, branch_id: selectedBranchId, category_id: product.category_id,
         name: product.name, price: val,
       });
-      if (error) alert((error as any).message);
+      if (error) toast.error((error as any).message);
       else await reloadBranchData(selectedBranchId);
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
@@ -1010,7 +1011,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                   </div>
                 ))}
               </div>
-              <Button variant="primary" size="lg" fullWidth onClick={() => alert(D('تم تسجيل طلب تحويل الأرباح للحساب البنكي','Earnings transfer to your bank account has been requested'))} id="payout_merch_trigger">
+              <Button variant="primary" size="lg" fullWidth onClick={() => toast.success(D('تم تسجيل طلب تحويل الأرباح للحساب البنكي','Earnings transfer to your bank account has been requested'))} id="payout_merch_trigger">
                 {D('سحب الأرباح الفورية','Instant withdrawal')}
               </Button>
             </Card>

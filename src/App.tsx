@@ -4,6 +4,7 @@ import { notificationService } from './services/notification.service';
 import { sandboxStore } from './services/sandboxStore';
 import { cartService } from './services/cart.service';
 import { LoginScreen } from './features/auth/LoginScreen';
+import { FeedbackHost } from './components/ui/feedback';
 import { HomeScreen } from './features/home/HomeScreen';
 // Non-landing customer screens are lazy-loaded (loaded on navigation) to keep the
 // initial bundle small. HomeScreen stays eager as the first paint.
@@ -294,6 +295,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
+      <FeedbackHost lang={lang} />
 
       {/* ══════════════════════════════════════════════════════════
           CUSTOMER PORTAL
