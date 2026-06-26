@@ -54,6 +54,7 @@ interface AdminDashboardProps { adminId: string; onLogout: () => void }
 export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const { country, lang, toggleLang } = useAppConfig();
   const cur = country.currency.symbolAr;
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   // ── State (unchanged) ─────────────────────────────────────
   const [analytics,         setAnalytics]         = useState({ totalOrders: 0, totalMerchants: 0, totalDrivers: 0 });
   const [tickets,           setTickets]           = useState<Ticket[]>([]);
@@ -158,8 +159,8 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     setPayoutLoading(true);
     const { error } = await adminService.updateAppConfig(key, value, desc);
     setPayoutLoading(false);
-    if (error) toast.error(`خطأ في الحفظ: ${(error as any).message}`);
-    else { toast.success('تم تحديث التكوين بنجاح'); await fetchAdminModuleData(); }
+    if (error) toast.error(`${L('خطأ في الحفظ','Save error')}: ${(error as any).message}`);
+    else { toast.success(L('تم تحديث التكوين بنجاح','Configuration updated successfully')); await fetchAdminModuleData(); }
   };
 
   const handleSelectTicket = async (tktId: string) => {
@@ -190,7 +191,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     setPayoutLoading(true);
     await adminService.updateTicketStatus(tktId, 'resolved');
     setPayoutLoading(false);
-    toast.error('تم تحديد التذكرة كـ "محلول"');
+    toast.success(L('تم تحديد التذكرة كمحلول','Ticket marked as resolved'));
     await fetchAdminModuleData(); setSelectedTicketId(null);
   };
 
@@ -198,7 +199,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4" id="admin_module_loader">
         <Loader size={36} />
-        <p className="text-body-md text-[var(--color-on-surface-variant)]">جاري تحميل لوحة الإدارة...</p>
+        <p className="text-body-md text-[var(--color-on-surface-variant)]">{L('جاري تحميل لوحة الإدارة...','Loading admin panel…')}</p>
       </div>
     );
   }
@@ -265,47 +266,47 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="admin_coupons_tab">
             {/* Create coupon */}
             <Card variant="z3" radius="xl" padding="p-6" className="space-y-4" id="coupon_create_box">
-              <h3 className="text-title-md font-bold text-white text-end">إنشاء كوبون جديد</h3>
+              <h3 className="text-title-md font-bold text-white text-end">{L('إنشاء كوبون جديد','Create new coupon')}</h3>
               <div className="space-y-3">
-                <input id="coupon_code_input" value={cForm.code} onChange={e => setCForm({ ...cForm, code: e.target.value })} placeholder="كود الكوبون (مثال: HAAT20)" dir="ltr"
+                <input id="coupon_code_input" value={cForm.code} onChange={e => setCForm({ ...cForm, code: e.target.value })} placeholder={L('كود الكوبون (مثال: HAAT20)','Coupon code (e.g. HAAT20)')} dir="ltr"
                   className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} />
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">نسبة الخصم %</label>
+                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">{L('نسبة الخصم %','Discount %')}</label>
                     <input type="number" value={cForm.discount} onChange={e => setCForm({ ...cForm, discount: e.target.value })} className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
-                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">حد الاستخدام</label>
+                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">{L('حد الاستخدام','Usage limit')}</label>
                     <input type="number" value={cForm.maxUses} onChange={e => setCForm({ ...cForm, maxUses: e.target.value })} className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">تاريخ الانتهاء</label>
+                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">{L('تاريخ الانتهاء','Expiry date')}</label>
                     <input type="date" value={cForm.expires} onChange={e => setCForm({ ...cForm, expires: e.target.value })} className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
-                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">الدولة</label>
+                  <div><label className="text-label-sm text-[var(--color-on-surface-variant)] block mb-1 text-end">{L('الدولة','Country')}</label>
                     <select value={cForm.country} onChange={e => setCForm({ ...cForm, country: e.target.value })} className="w-full h-11 rounded-xl px-3 text-white" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <option value="">كل الدول</option><option value="EG">مصر</option><option value="SA">السعودية</option>
+                      <option value="">{L('كل الدول','All countries')}</option><option value="EG">{L('مصر','Egypt')}</option><option value="SA">{L('السعودية','Saudi Arabia')}</option>
                     </select></div>
                 </div>
-                <button id="coupon_create_btn" onClick={handleCreateCoupon} className="w-full h-11 rounded-xl font-bold cursor-pointer" style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }}>إنشاء الكوبون</button>
+                <button id="coupon_create_btn" onClick={handleCreateCoupon} className="w-full h-11 rounded-xl font-bold cursor-pointer" style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }}>{L('إنشاء الكوبون','Create coupon')}</button>
               </div>
             </Card>
             {/* Coupon list */}
             <Card variant="z3" radius="xl" padding="p-0" className="overflow-hidden" id="coupon_list_box">
-              <div className="p-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}><h3 className="text-title-md font-bold text-white text-end">الكوبونات ({coupons.length})</h3></div>
+              <div className="p-5 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}><h3 className="text-title-md font-bold text-white text-end">{L('الكوبونات','Coupons')} ({coupons.length})</h3></div>
               {coupons.map(c => {
                 const expired = new Date(c.expires_at) < new Date('2026-06-20');
                 return (
                   <div key={c.id} id={`coupon_row_${c.id}`} className="p-4 border-b flex items-center justify-between gap-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                     <button onClick={() => toggleCoupon(c.id, !c.active)} className="px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer shrink-0" style={{ background: c.active ? 'rgba(74,222,128,0.15)' : 'rgba(255,255,255,0.06)', color: c.active ? '#4ade80' : 'var(--color-on-surface-variant)' }}>
-                      {c.active ? 'مفعّل' : 'معطّل'}
+                      {c.active ? L('مفعّل','Active') : L('معطّل','Disabled')}
                     </button>
                     <div className="text-end min-w-0">
                       <p className="font-bold text-white" dir="ltr" style={{ textAlign: 'end' }}>{c.code} · {c.discount_percent}%</p>
                       <p className="text-label-sm text-[var(--color-on-surface-variant)]">
-                        {c.used}/{c.max_uses || '∞'} استُخدم · {c.country || 'كل الدول'} · {expired ? 'منتهٍ' : `حتى ${c.expires_at}`}
+                        {c.used}/{c.max_uses || '∞'} {L('استُخدم','used')} · {c.country || L('كل الدول','All countries')} · {expired ? L('منتهٍ','Expired') : `${L('حتى','until')} ${c.expires_at}`}
                       </p>
                     </div>
                   </div>
                 );
               })}
-              {coupons.length === 0 && <p className="p-6 text-center text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>لا توجد كوبونات.</p>}
+              {coupons.length === 0 && <p className="p-6 text-center text-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{L('لا توجد كوبونات.','No coupons.')}</p>}
             </Card>
           </div>
         )}
@@ -328,7 +329,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             {/* Config form */}
             <Card variant="z3" radius="xl" padding="p-6" className="space-y-6" id="config_form_box">
               <div className="flex items-center justify-end gap-2.5 pb-4 border-b border-[rgba(255,255,255,0.06)]">
-                <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">تعديل المتغيرات</h3>
+                <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{L('تعديل المتغيرات','Edit settings')}</h3>
                 <Icon name="tune" size={20} className="text-[var(--color-primary-container)]" fill={1} />
               </div>
 
@@ -336,7 +337,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                 {/* Delivery fee */}
                 <div className="space-y-3">
                   <Input
-                    label={`رسوم التوصيل الافتراضية (${cur})`}
+                    label={`${L('رسوم التوصيل الافتراضية','Default delivery fee')} (${cur})`}
                     type="number"
                     step="0.1"
                     value={configFee}
@@ -348,9 +349,9 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                       variant="primary"
                       size="sm"
                       loading={payoutLoading}
-                      onClick={() => handleSaveConfig('MIN_DELIVERY_FEE', configFee, 'الحد الأدنى لرسوم التوصيل')}
+                      onClick={() => handleSaveConfig('MIN_DELIVERY_FEE', configFee, L('الحد الأدنى لرسوم التوصيل','Minimum delivery fee'))}
                     >
-                      تحديث الرسوم
+                      {L('تحديث الرسوم','Update fee')}
                     </Button>
                   </div>
                 </div>
@@ -360,7 +361,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                 {/* Welcome SMS */}
                 <div className="space-y-3">
                   <label className="text-label-sm text-[var(--color-on-surface-variant)] block text-end">
-                    رسالة الترحيب (SMS)
+                    {L('رسالة الترحيب (SMS)','Welcome message (SMS)')}
                   </label>
                   <textarea
                     rows={3}
@@ -375,9 +376,9 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                       variant="primary"
                       size="sm"
                       loading={payoutLoading}
-                      onClick={() => handleSaveConfig('WELCOME_SMS_MESSAGE', configMessage, 'نص رسالة التحقق')}
+                      onClick={() => handleSaveConfig('WELCOME_SMS_MESSAGE', configMessage, L('نص رسالة التحقق','Verification message text'))}
                     >
-                      حفظ الرسالة
+                      {L('حفظ الرسالة','Save message')}
                     </Button>
                   </div>
                 </div>
@@ -387,14 +388,14 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             {/* Info card */}
             <Card variant="z3" radius="xl" padding="p-6" className="space-y-4" id="config_db_status_card">
               <div className="flex items-center justify-end gap-2.5">
-                <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">دليل التكوين</h3>
+                <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{L('دليل التكوين','Configuration guide')}</h3>
                 <Icon name="help" size={20} className="text-[var(--color-secondary)]" fill={1} />
               </div>
               <div className="space-y-3">
                 {[
-                  'الضغط على تحديث يُنفّذ UPSERT على جدول app_config في Supabase.',
-                  'تقرأ اللوحات التجارية هذه المتغيرات عند الدخول.',
-                  'جميع التغييرات فورية وتطبق على جميع المستخدمين.',
+                  L('الضغط على تحديث يُنفّذ UPSERT على جدول app_config في Supabase.','Clicking Update performs an UPSERT on the app_config table in Supabase.'),
+                  L('تقرأ اللوحات التجارية هذه المتغيرات عند الدخول.','Business panels read these settings on login.'),
+                  L('جميع التغييرات فورية وتطبق على جميع المستخدمين.','All changes are instant and apply to all users.'),
                 ].map((text, i) => (
                   <div key={i} className="flex gap-3 items-start justify-end">
                     <p className="text-body-md text-[var(--color-on-surface-variant)] text-end leading-relaxed" style={{ direction: 'rtl' }}>{text}</p>
@@ -415,12 +416,12 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             {/* Ticket list — col 5 */}
             <div className="lg:col-span-5 space-y-3" id="tickets_list_col">
               <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-                البلاغات الواردة ({tickets.length})
+                {L('البلاغات الواردة','Incoming reports')} ({tickets.length})
               </h3>
 
               <Card variant="z3" radius="xl" padding="p-3" className="max-h-[60vh] overflow-y-auto space-y-2" id="tickets_scroller">
                 {tickets.length === 0 ? (
-                  <EmptyState icon="inbox" title="لا توجد بلاغات" description="لا توجد تذاكر دعم مفتوحة" />
+                  <EmptyState icon="inbox" title={L('لا توجد بلاغات','No reports')} description={L('لا توجد تذاكر دعم مفتوحة','No open support tickets')} />
                 ) : (
                   tickets.map((tkt) => {
                     const isSelected = selectedTicketId === tkt.id;
@@ -443,7 +444,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                             {tkt.priority}
                           </Badge>
                           <span className="text-label-md font-semibold text-[var(--color-on-surface)]">
-                            {tkt.customers?.full_name || 'عميل'}
+                            {tkt.customers?.full_name || L('عميل','Customer')}
                           </span>
                         </div>
                         <p className="text-label-md text-[var(--color-on-surface-variant)] line-clamp-2 text-end leading-relaxed" style={{ textTransform: 'none' }}>
@@ -466,13 +467,13 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
 
             {/* Conversation — col 7 */}
             <div className="lg:col-span-7 space-y-4" id="reply_ticket_box">
-              <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">المحادثة</h3>
+              <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{L('المحادثة','Conversation')}</h3>
 
               {!selectedTicketId ? (
                 <EmptyState
                   icon="forum"
-                  title="لم يتم تحديد تذكرة"
-                  description="اختر تذكرة من القائمة للرد"
+                  title={L('لم يتم تحديد تذكرة','No ticket selected')}
+                  description={L('اختر تذكرة من القائمة للرد','Select a ticket from the list to reply')}
                 />
               ) : (
                 <Card variant="z3" radius="xl" padding="p-5" className="space-y-4" id="ticket_messages_card">
@@ -485,11 +486,11 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                       onClick={() => handleCloseTicket(selectedTicketId)}
                       leftIcon={<Icon name="check_circle" size={14} fill={1} />}
                     >
-                      تحديد كـ محلول
+                      {L('تحديد كـ محلول','Mark as resolved')}
                     </Button>
                     <div className="text-end">
                       <p className="text-label-md font-semibold text-[var(--color-on-surface)]">
-                        البلاغ #{selectedTicketId.slice(-6).toUpperCase()}
+                        {L('البلاغ','Report')} #{selectedTicketId.slice(-6).toUpperCase()}
                       </p>
                     </div>
                   </div>
@@ -501,7 +502,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                     <div className="space-y-3 max-h-64 overflow-y-auto" id="ticket_messages_list">
                       {ticketMessages.length === 0 ? (
                         <p className="text-label-md text-[var(--color-on-surface-variant)] text-center py-6" style={{ textTransform: 'none' }}>
-                          لا توجد رسائل سابقة.
+                          {L('لا توجد رسائل سابقة.','No previous messages.')}
                         </p>
                       ) : (
                         ticketMessages.map((msg) => (
@@ -522,7 +523,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                             id={`tmsg_${msg.id}`}
                           >
                             <p className="text-label-sm text-[var(--color-on-surface-variant)]" style={{ textTransform: 'none' }}>
-                              {msg.sender_type === 'admin' ? 'الإدارة' : 'العميل'}
+                              {msg.sender_type === 'admin' ? L('الإدارة','Admin') : L('العميل','Customer')}
                             </p>
                             <p className="text-label-md text-[var(--color-on-surface)] leading-relaxed text-end" style={{ textTransform: 'none', direction: 'rtl' }}>
                               {msg.message_text}
@@ -543,13 +544,13 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
                       size="sm"
                       loading={payoutLoading}
                     >
-                      رد
+                      {L('رد', 'Reply')}
                     </Button>
                     <input
                       type="text"
                       required
                       maxLength={200}
-                      placeholder="اكتب ردك..."
+                      placeholder={L('اكتب ردك...','Type your reply…')}
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       className="flex-1 h-11 px-4 rounded-[var(--radius-row)] text-label-md input-silver"
