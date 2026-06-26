@@ -9,7 +9,11 @@ const input: React.CSSProperties = { width: '100%', height: 32, padding: '0 8px'
 // Per-country branding quick panel (Phase G). Each country gets its own splash
 // brand text, tagline, logo and accent — saved + published independently so the
 // change propagates to that country's real users.
+import { useAppConfig } from '../../contexts/AppConfigContext';
+
 export function CountryBranding() {
+  const { lang } = useAppConfig();
+  const L = (ar, en) => (lang === 'ar' ? ar : en);
   const [country, setCountry] = useState<CountryCode>('EG');
   const [set, setSet] = useState<ExperienceSet>(() => cloneExperience(DEFAULT_EXPERIENCE));
   const [msg, setMsg] = useState<string | null>(null);
@@ -28,7 +32,7 @@ export function CountryBranding() {
     await experienceService.saveDraft(country, 'splash', { ...splash, enabled: true });
     await experienceService.publish(country, 'splash');
     setBusy(false);
-    setMsg(`تم نشر هوية ${country} — مباشرة الآن`); setTimeout(() => setMsg(null), 2200);
+    setMsg(`${L('تم نشر هوية','Published branding for')} ${country} — ${L('مباشرة الآن','live now')}`); setTimeout(() => setMsg(null), 2200);
   };
 
   return (
@@ -51,26 +55,26 @@ export function CountryBranding() {
               : <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{splash.brandText}</span>}
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>اسم العلامة</label>
+            <label style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>{L('اسم العلامة','Brand name')}</label>
             <input style={input} value={splash.brandText} onChange={e => patch({ brandText: e.target.value })} />
-            <label style={{ fontSize: 11, color: 'var(--color-on-surface-variant)', marginTop: 6, display: 'block' }}>الشعار النصّي</label>
+            <label style={{ fontSize: 11, color: 'var(--color-on-surface-variant)', marginTop: 6, display: 'block' }}>{L('الشعار النصّي','Text logo')}</label>
             <input style={input} value={splash.tagline} onChange={e => patch({ tagline: e.target.value })} />
           </div>
         </div>
 
         <div>
-          <label style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>رابط الشعار (صورة)</label>
+          <label style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>{L('رابط الشعار (صورة)','Logo URL (image)')}</label>
           <input style={input} value={splash.media.url || ''} placeholder="https://…/logo.png" onChange={e => patch({ media: { kind: 'image', url: e.target.value } })} />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <label style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>لون الهوية</label>
+          <label style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>{L('لون الهوية','Brand color')}</label>
           <input type="color" value={splash.background.color} onChange={e => patch({ background: { ...splash.background, color: e.target.value } })} style={{ width: 44, height: 30, background: 'none', border: 'none', cursor: 'pointer' }} />
           <button onClick={publish} disabled={busy} style={{ marginInlineStart: 'auto', padding: '8px 18px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', background: ACCENT, border: 'none', color: 'var(--color-on-primary-fixed)' }}>
-            {busy ? 'جارٍ النشر…' : `نشر هوية ${country}`}
+            {busy ? L('جارٍ النشر…','Publishing…') : `${L('نشر هوية','Publish branding')} ${country}`}
           </button>
         </div>
-        <p style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>كل دولة لها شعار وألوان وتجربة بداية/ترحيب/دخول مستقلة. التحرير الكامل لكل الشاشات من تبويب «منشئ التجارب».</p>
+        <p style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>{L('كل دولة لها شعار وألوان وتجربة بداية/ترحيب/دخول مستقلة. التحرير الكامل لكل الشاشات من تبويب «منشئ التجارب».','Each country has its own logo, colors and splash/onboarding/login experience. Full per-screen editing is in the Experience Builder tab.')}</p>
       </div>
     </div>
   );

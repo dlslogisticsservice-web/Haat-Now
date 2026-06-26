@@ -31,14 +31,15 @@ function Toggle({ l, on, onChange }: { l: string; on: boolean; onChange: (v: boo
   );
 }
 
-const SCREENS: { k: ScreenType; label: string }[] = [
-  { k: 'splash', label: 'شاشة البداية' },
-  { k: 'onboarding', label: 'الترحيب' },
-  { k: 'login', label: 'تسجيل الدخول' },
+const SCREENS: { k: ScreenType; ar: string; en: string }[] = [
+  { k: 'splash', ar: 'شاشة البداية', en: 'Splash' },
+  { k: 'onboarding', ar: 'الترحيب', en: 'Onboarding' },
+  { k: 'login', ar: 'تسجيل الدخول', en: 'Login' },
 ];
 
 export function ExperienceBuilder() {
-  const { country: appCountry } = useAppConfig();
+  const { country: appCountry, lang } = useAppConfig();
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [country, setCountry] = useState<CountryCode>(appCountry.code as CountryCode);
   const [screen, setScreen] = useState<ScreenType>('splash');
   const [set, setSet] = useState<ExperienceSet>(() => cloneExperience(DEFAULT_EXPERIENCE));
@@ -60,14 +61,14 @@ export function ExperienceBuilder() {
   const patchOnb = (p: Partial<OnboardingExperience>) => patch({ ...set, onboarding: { ...set.onboarding, ...p } });
   const patchLogin = (p: Partial<LoginExperience>) => patch({ ...set, login: { ...set.login, ...p } });
 
-  const publish = async () => { setBusy(true); await experienceService.publish(country, screen); flash('تم النشر — التغييرات الآن مباشرة للمستخدمين'); await load(); };
-  const discard = async () => { setBusy(true); await experienceService.discardDraft(country, screen); flash('تم تجاهل المسودة'); await load(); };
-  const rollback = async (v: number) => { setBusy(true); await experienceService.rollback(country, screen, v); flash(`تم الرجوع للإصدار ${v}`); await load(); };
+  const publish = async () => { setBusy(true); await experienceService.publish(country, screen); flash(L('تم النشر — التغييرات الآن مباشرة للمستخدمين','Published — changes are now live for users')); await load(); };
+  const discard = async () => { setBusy(true); await experienceService.discardDraft(country, screen); flash(L('تم تجاهل المسودة','Draft discarded')); await load(); };
+  const rollback = async (v: number) => { setBusy(true); await experienceService.rollback(country, screen, v); flash(`${L('تم الرجوع للإصدار','Rolled back to version')} ${v}`); await load(); };
 
   // ── slide ops (onboarding) ──
   const onb = set.onboarding;
   const setSlides = (slides: OnboardingSlide[]) => patchOnb({ slides });
-  const addSlide = () => setSlides([...onb.slides, { id: `s-${Date.now()}`, media: { kind: 'icon', icon: 'star' }, badge: 'جديد', title: 'عنوان', description: 'الوصف' }]);
+  const addSlide = () => setSlides([...onb.slides, { id: `s-${Date.now()}`, media: { kind: 'icon', icon: 'star' }, badge: L('جديد','New'), title: L('عنوان','Title'), description: L('الوصف','Description') }]);
   const delSlide = (i: number) => setSlides(onb.slides.filter((_, x) => x !== i));
   const moveSlide = (i: number, dir: -1 | 1) => { const a = [...onb.slides]; const j = i + dir; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; setSlides(a); };
   const editSlide = (i: number, p: Partial<OnboardingSlide>) => setSlides(onb.slides.map((s, x) => x === i ? { ...s, ...p } : s));
@@ -77,19 +78,19 @@ export function ExperienceBuilder() {
       {/* Toolbar */}
       <div style={{ ...card, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={label}>الدولة:</label>
+          <label style={label}>{L('الدولة:','Country:')}</label>
           <select value={country} onChange={e => setCountry(e.target.value as CountryCode)} style={{ ...inputStyle, width: 'auto' }}>
             {EXPERIENCE_COUNTRIES.map(c => <option key={c.code} value={c.code} style={{ color: '#000' }}>{c.flag} {c.nameAr}</option>)}
           </select>
           <div style={{ display: 'flex', gap: 4, marginInlineStart: 8 }}>
             {SCREENS.map(s => (
-              <button key={s.k} onClick={() => setScreen(s.k)} style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none', background: screen === s.k ? ACCENT : 'rgba(255,255,255,0.04)', color: screen === s.k ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}>{s.label}</button>
+              <button key={s.k} onClick={() => setScreen(s.k)} style={{ padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none', background: screen === s.k ? ACCENT : 'rgba(255,255,255,0.04)', color: screen === s.k ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}>{L(s.ar, s.en)}</button>
             ))}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={discard} disabled={busy} style={{ padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>تجاهل</button>
-          <button onClick={publish} disabled={busy} style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: ACCENT, border: 'none', color: 'var(--color-on-primary-fixed)' }}>نشر</button>
+          <button onClick={discard} disabled={busy} style={{ padding: '7px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white' }}>{L('تجاهل','Discard')}</button>
+          <button onClick={publish} disabled={busy} style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: ACCENT, border: 'none', color: 'var(--color-on-primary-fixed)' }}>{L('نشر','Publish')}</button>
         </div>
       </div>
       {msg && <div style={{ ...card, color: ACCENT, fontSize: 12, fontWeight: 600 }}>{msg}</div>}
@@ -97,66 +98,66 @@ export function ExperienceBuilder() {
       {/* ── Splash editor ── */}
       {screen === 'splash' && (
         <div style={card}>
-          <Toggle l="تفعيل شاشة البداية المخصّصة" on={set.splash.enabled} onChange={v => patchSplash({ enabled: v })} />
-          <Txt l="اسم العلامة" value={set.splash.brandText} onChange={v => patchSplash({ brandText: v })} />
-          <Txt l="الشعار النصّي (Tagline)" value={set.splash.tagline} onChange={v => patchSplash({ tagline: v })} />
-          <Field l="الوسائط (شعار / Lottie / فيديو)"><MediaPicker value={set.splash.media} category="splash" onChange={m => patchSplash({ media: m })} /></Field>
-          <Field l="لون الخلفية"><input type="color" value={set.splash.background.color} onChange={e => patchSplash({ background: { ...set.splash.background, color: e.target.value } })} style={{ width: 48, height: 32, background: 'none', border: 'none' }} /></Field>
-          <Field l="فيديو الخلفية (اختياري)"><input style={inputStyle} value={set.splash.background.videoUrl || ''} placeholder="رابط mp4/webm" onChange={e => patchSplash({ background: { ...set.splash.background, videoUrl: e.target.value } })} /></Field>
-          <Field l="المدة (مللي ثانية)"><input type="number" style={inputStyle} value={set.splash.durationMs} onChange={e => patchSplash({ durationMs: Number(e.target.value) || 2750 })} /></Field>
-          <Field l="الحركة"><select value={set.splash.animation} onChange={e => patchSplash({ animation: e.target.value as SplashExperience['animation'] })} style={inputStyle}>{['fade', 'scale', 'slide', 'none'].map(a => <option key={a} value={a} style={{ color: '#000' }}>{a}</option>)}</select></Field>
-          <Txt l="ملاحظة سفلية" value={set.splash.footnote} onChange={v => patchSplash({ footnote: v })} />
+          <Toggle l={L('تفعيل شاشة البداية المخصّصة','Enable custom splash')} on={set.splash.enabled} onChange={v => patchSplash({ enabled: v })} />
+          <Txt l={L('اسم العلامة','Brand name')} value={set.splash.brandText} onChange={v => patchSplash({ brandText: v })} />
+          <Txt l={L('الشعار النصّي (Tagline)','Tagline')} value={set.splash.tagline} onChange={v => patchSplash({ tagline: v })} />
+          <Field l={L('الوسائط (شعار / Lottie / فيديو)','Media (logo / Lottie / video)')}><MediaPicker value={set.splash.media} category="splash" onChange={m => patchSplash({ media: m })} /></Field>
+          <Field l={L('لون الخلفية','Background color')}><input type="color" value={set.splash.background.color} onChange={e => patchSplash({ background: { ...set.splash.background, color: e.target.value } })} style={{ width: 48, height: 32, background: 'none', border: 'none' }} /></Field>
+          <Field l={L('فيديو الخلفية (اختياري)','Background video (optional)')}><input style={inputStyle} value={set.splash.background.videoUrl || ''} placeholder={L('رابط mp4/webm','mp4/webm URL')} onChange={e => patchSplash({ background: { ...set.splash.background, videoUrl: e.target.value } })} /></Field>
+          <Field l={L('المدة (مللي ثانية)','Duration (ms)')}><input type="number" style={inputStyle} value={set.splash.durationMs} onChange={e => patchSplash({ durationMs: Number(e.target.value) || 2750 })} /></Field>
+          <Field l={L('الحركة','Animation')}><select value={set.splash.animation} onChange={e => patchSplash({ animation: e.target.value as SplashExperience['animation'] })} style={inputStyle}>{['fade', 'scale', 'slide', 'none'].map(a => <option key={a} value={a} style={{ color: '#000' }}>{a}</option>)}</select></Field>
+          <Txt l={L('ملاحظة سفلية','Footnote')} value={set.splash.footnote} onChange={v => patchSplash({ footnote: v })} />
         </div>
       )}
 
       {/* ── Onboarding editor ── */}
       {screen === 'onboarding' && (
         <div style={card}>
-          <Toggle l="تفعيل شاشات الترحيب المخصّصة" on={onb.enabled} onChange={v => patchOnb({ enabled: v })} />
+          <Toggle l={L('تفعيل شاشات الترحيب المخصّصة','Enable custom onboarding')} on={onb.enabled} onChange={v => patchOnb({ enabled: v })} />
           <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <Txt l="زر التالي" value={onb.ctaNextLabel} onChange={v => patchOnb({ ctaNextLabel: v })} />
-            <Txt l="زر البدء" value={onb.ctaStartLabel} onChange={v => patchOnb({ ctaStartLabel: v })} />
-            <Txt l="تخطّي" value={onb.skipLabel} onChange={v => patchOnb({ skipLabel: v })} />
+            <Txt l={L('زر التالي','Next button')} value={onb.ctaNextLabel} onChange={v => patchOnb({ ctaNextLabel: v })} />
+            <Txt l={L('زر البدء','Start button')} value={onb.ctaStartLabel} onChange={v => patchOnb({ ctaStartLabel: v })} />
+            <Txt l={L('تخطّي','Skip')} value={onb.skipLabel} onChange={v => patchOnb({ skipLabel: v })} />
           </div>
           {onb.slides.map((s, i) => (
             <div key={s.id} style={{ ...card, marginBottom: 10, borderColor: 'rgba(163,249,91,0.18)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <strong style={{ fontSize: 12, color: ACCENT }}>شريحة {i + 1}</strong>
+                <strong style={{ fontSize: 12, color: ACCENT }}>{L('شريحة','Slide')} {i + 1}</strong>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button onClick={() => moveSlide(i, -1)} style={miniBtn}>↑</button>
                   <button onClick={() => moveSlide(i, 1)} style={miniBtn}>↓</button>
-                  <button onClick={() => delSlide(i)} style={{ ...miniBtn, color: 'var(--color-error)' }}>حذف</button>
+                  <button onClick={() => delSlide(i)} style={{ ...miniBtn, color: 'var(--color-error)' }}>{L('حذف','Delete')}</button>
                 </div>
               </div>
-              <Field l="الوسائط"><MediaPicker value={s.media} category="onboarding" onChange={m => editSlide(i, { media: m })} /></Field>
-              <Txt l="الشارة" value={s.badge} onChange={v => editSlide(i, { badge: v })} />
-              <Txt l="العنوان" value={s.title} onChange={v => editSlide(i, { title: v })} />
-              <Txt l="الوصف" value={s.description} onChange={v => editSlide(i, { description: v })} area />
+              <Field l={L('الوسائط','Media')}><MediaPicker value={s.media} category="onboarding" onChange={m => editSlide(i, { media: m })} /></Field>
+              <Txt l={L('الشارة','Badge')} value={s.badge} onChange={v => editSlide(i, { badge: v })} />
+              <Txt l={L('العنوان','Title')} value={s.title} onChange={v => editSlide(i, { title: v })} />
+              <Txt l={L('الوصف','Description')} value={s.description} onChange={v => editSlide(i, { description: v })} area />
             </div>
           ))}
-          <button onClick={addSlide} style={{ width: '100%', height: 38, borderRadius: 9, border: '1px dashed rgba(163,249,91,0.4)', background: 'rgba(163,249,91,0.06)', color: ACCENT, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>+ إضافة شريحة</button>
+          <button onClick={addSlide} style={{ width: '100%', height: 38, borderRadius: 9, border: '1px dashed rgba(163,249,91,0.4)', background: 'rgba(163,249,91,0.06)', color: ACCENT, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>+ {L('إضافة شريحة','Add slide')}</button>
         </div>
       )}
 
       {/* ── Login editor (auth form untouched; bg/branding only) ── */}
       {screen === 'login' && (
         <div style={card}>
-          <Toggle l="تفعيل خلفية مخصّصة لتسجيل الدخول" on={set.login.enabled} onChange={v => patchLogin({ enabled: v })} />
-          <p style={{ fontSize: 11, color: 'var(--color-on-surface-variant)', marginBottom: 10 }}>نموذج المصادقة لا يتغيّر إطلاقاً. هنا تتحكّم بخلفية الفيديو والهوية فقط.</p>
-          <Field l="التخطيط"><select value={set.login.layout} onChange={e => patchLogin({ layout: e.target.value as LoginExperience['layout'] })} style={inputStyle}>{['centered', 'hero', 'video'].map(a => <option key={a} value={a} style={{ color: '#000' }}>{a}</option>)}</select></Field>
-          <Field l="فيديو الخلفية (mp4/webm)"><input style={inputStyle} value={set.login.background.videoUrl || ''} placeholder="رابط الفيديو" onChange={e => patchLogin({ background: { ...set.login.background, videoUrl: e.target.value } })} /></Field>
-          <Field l="صورة Poster"><input style={inputStyle} value={set.login.background.posterUrl || ''} placeholder="رابط الصورة" onChange={e => patchLogin({ background: { ...set.login.background, posterUrl: e.target.value } })} /></Field>
+          <Toggle l={L('تفعيل خلفية مخصّصة لتسجيل الدخول','Enable custom login background')} on={set.login.enabled} onChange={v => patchLogin({ enabled: v })} />
+          <p style={{ fontSize: 11, color: 'var(--color-on-surface-variant)', marginBottom: 10 }}>{L('نموذج المصادقة لا يتغيّر إطلاقاً. هنا تتحكّم بخلفية الفيديو والهوية فقط.','The auth form itself never changes. Here you control only the video background and branding.')}</p>
+          <Field l={L('التخطيط','Layout')}><select value={set.login.layout} onChange={e => patchLogin({ layout: e.target.value as LoginExperience['layout'] })} style={inputStyle}>{['centered', 'hero', 'video'].map(a => <option key={a} value={a} style={{ color: '#000' }}>{a}</option>)}</select></Field>
+          <Field l={L('فيديو الخلفية (mp4/webm)','Background video (mp4/webm)')}><input style={inputStyle} value={set.login.background.videoUrl || ''} placeholder={L('رابط الفيديو','Video URL')} onChange={e => patchLogin({ background: { ...set.login.background, videoUrl: e.target.value } })} /></Field>
+          <Field l={L('صورة Poster','Poster image')}><input style={inputStyle} value={set.login.background.posterUrl || ''} placeholder={L('رابط الصورة','Image URL')} onChange={e => patchLogin({ background: { ...set.login.background, posterUrl: e.target.value } })} /></Field>
         </div>
       )}
 
       {/* ── Versions / rollback ── */}
       <div style={card}>
-        <strong style={{ fontSize: 13, color: 'white' }}>سجل الإصدارات — {SCREENS.find(s => s.k === screen)?.label}</strong>
-        {versions.length === 0 ? <p style={{ fontSize: 11, color: 'var(--color-on-surface-variant)', marginTop: 8 }}>لا توجد إصدارات سابقة بعد. كل عملية نشر تُنشئ نقطة رجوع.</p> : (
+        <strong style={{ fontSize: 13, color: 'white' }}>{L('سجل الإصدارات','Version history')} — {(() => { const sc = SCREENS.find(s => s.k === screen); return sc ? L(sc.ar, sc.en) : ''; })()}</strong>
+        {versions.length === 0 ? <p style={{ fontSize: 11, color: 'var(--color-on-surface-variant)', marginTop: 8 }}>{L('لا توجد إصدارات سابقة بعد. كل عملية نشر تُنشئ نقطة رجوع.','No previous versions yet. Each publish creates a rollback point.')}</p> : (
           <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {versions.map(v => (
               <div key={v.version_number} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.03)' }}>
-                <span style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>إصدار {v.version_number} · {new Date(v.published_at).toLocaleString('ar')}</span>
+                <span style={{ fontSize: 11, color: 'var(--color-on-surface-variant)' }}>{L('إصدار','Version')} {v.version_number} · {new Date(v.published_at).toLocaleString(L('ar','en'))}</span>
                 <button onClick={() => rollback(v.version_number)} style={{ ...miniBtn, color: ACCENT }}>رجوع</button>
               </div>
             ))}

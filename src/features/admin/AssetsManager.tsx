@@ -5,7 +5,11 @@ const ACCENT = 'var(--color-primary-fixed)';
 const card: React.CSSProperties = { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 14 };
 const CATS: AssetCategory[] = ['logo', 'splash', 'onboarding', 'login', 'lottie', 'video', 'image'];
 
+import { useAppConfig } from '../../contexts/AppConfigContext';
+
 export function AssetsManager() {
+  const { lang } = useAppConfig();
+  const L = (ar, en) => (lang === 'ar' ? ar : en);
   const [cat, setCat] = useState<AssetCategory>('logo');
   const [items, setItems] = useState<AssetItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -18,7 +22,7 @@ export function AssetsManager() {
   const upload = async (f: File) => {
     setBusy(true); setErr(null);
     try { await assetsService.upload(f, cat); await load(); }
-    catch (e) { setErr(e instanceof Error ? e.message : 'فشل الرفع'); }
+    catch (e) { setErr(e instanceof Error ? e.message : L('فشل الرفع','Upload failed')); }
     finally { setBusy(false); }
   };
   const remove = async (it: AssetItem) => { await assetsService.remove(it); await load(); };
@@ -33,16 +37,16 @@ export function AssetsManager() {
           ))}
         </div>
         <button onClick={() => fileRef.current?.click()} disabled={busy} style={{ padding: '8px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', background: ACCENT, border: 'none', color: 'var(--color-on-primary-fixed)' }}>
-          {busy ? 'جارٍ الرفع…' : `رفع إلى ${cat}`}
+          {busy ? L('جارٍ الرفع…','Uploading…') : `${L('رفع إلى','Upload to')} ${cat}`}
         </button>
         <input ref={fileRef} type="file" hidden accept={cat === 'lottie' ? 'application/json' : cat === 'video' ? 'video/mp4,video/webm' : 'image/*'} onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.currentTarget.value = ''; }} />
       </div>
 
       {err && <div style={{ ...card, color: 'var(--color-error)', fontSize: 12 }}>{err}</div>}
-      {assetsService.isSandbox && <div style={{ ...card, fontSize: 11, color: 'var(--color-on-surface-variant)' }}>وضع التجربة: تُحفظ الصور الصغيرة محلياً. للأصول الكبيرة (Lottie/فيديو) استخدم رابط CDN. عند التشغيل الحقيقي تُرفع إلى Supabase Storage وتُولَّد روابط CDN تلقائياً.</div>}
+      {assetsService.isSandbox && <div style={{ ...card, fontSize: 11, color: 'var(--color-on-surface-variant)' }}>{L('وضع التجربة: تُحفظ الصور الصغيرة محلياً. للأصول الكبيرة (Lottie/فيديو) استخدم رابط CDN. عند التشغيل الحقيقي تُرفع إلى Supabase Storage وتُولَّد روابط CDN تلقائياً.','Sandbox: small images are stored locally. For large assets (Lottie/video) use a CDN URL. In production they upload to Supabase Storage with auto-generated CDN links.')}</div>}
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 10 }}>
-        {items.length === 0 && <p style={{ fontSize: 12, color: 'var(--color-on-surface-variant)' }}>لا توجد أصول في «{cat}».</p>}
+        {items.length === 0 && <p style={{ fontSize: 12, color: 'var(--color-on-surface-variant)' }}>{L('لا توجد أصول في','No assets in')} «{cat}».</p>}
         {items.map(it => (
           <div key={it.id} style={{ ...card, padding: 8 }}>
             <div style={{ height: 72, borderRadius: 8, overflow: 'hidden', background: 'rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
@@ -52,8 +56,8 @@ export function AssetsManager() {
             </div>
             <p style={{ fontSize: 10, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.name}</p>
             <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-              <button onClick={() => copy(it.url)} style={miniBtn}>نسخ الرابط</button>
-              <button onClick={() => remove(it)} style={{ ...miniBtn, color: 'var(--color-error)' }}>حذف</button>
+              <button onClick={() => copy(it.url)} style={miniBtn}>{L('نسخ الرابط','Copy link')}</button>
+              <button onClick={() => remove(it)} style={{ ...miniBtn, color: 'var(--color-error)' }}>{L('حذف','Delete')}</button>
             </div>
           </div>
         ))}
