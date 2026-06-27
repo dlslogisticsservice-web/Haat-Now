@@ -28,6 +28,11 @@ import { SystemLogs } from './SystemLogs';
 import { GlobalSearch } from './GlobalSearch';
 import { CrudManager } from '../../components/admin/CrudManager';
 import { DriverWorkspace } from './workspaces/DriverWorkspace';
+import { VehicleWorkspace } from './workspaces/VehicleWorkspace';
+import { MerchantWorkspace } from './workspaces/MerchantWorkspace';
+import { OrderWorkspace } from './workspaces/OrderWorkspace';
+import { CustomerWorkspace } from './workspaces/CustomerWorkspace';
+import { BranchWorkspace } from './workspaces/BranchWorkspace';
 import { Layers, MapPin, UserRound, Truck, Store, Building2, ClipboardList, Users } from 'lucide-react';
 import { notificationService } from '../../services/notification.service';
 
@@ -75,6 +80,11 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [catTab,            setCatTab]            = useState<CatTab>('categories');
   const [mgmtTab,           setMgmtTab]           = useState<MgmtTab>('drivers');
   const [wsDriver,          setWsDriver]          = useState<any | null>(null);
+  const [wsVehicle,         setWsVehicle]         = useState<any | null>(null);
+  const [wsMerchant,        setWsMerchant]        = useState<any | null>(null);
+  const [wsOrder,           setWsOrder]           = useState<any | null>(null);
+  const [wsCustomer,        setWsCustomer]        = useState<any | null>(null);
+  const [wsBranch,          setWsBranch]          = useState<any | null>(null);
   const [searchOpen,        setSearchOpen]        = useState(false);
   const [sidebarOpen,       setSidebarOpen]       = useState(false);
   const [notifBadge,        setNotifBadge]        = useState(0);
@@ -346,8 +356,13 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             ]} />
         )}
         {wsDriver && <DriverWorkspace driver={wsDriver} lang={lang} onClose={() => setWsDriver(null)} />}
+        {wsVehicle && <VehicleWorkspace vehicle={wsVehicle} lang={lang} onClose={() => setWsVehicle(null)} />}
+        {wsMerchant && <MerchantWorkspace merchant={wsMerchant} lang={lang} onClose={() => setWsMerchant(null)} />}
+        {wsOrder && <OrderWorkspace order={wsOrder} lang={lang} onClose={() => setWsOrder(null)} />}
+        {wsCustomer && <CustomerWorkspace customer={wsCustomer} lang={lang} onClose={() => setWsCustomer(null)} />}
+        {wsBranch && <BranchWorkspace branch={wsBranch} lang={lang} onClose={() => setWsBranch(null)} />}
         {activeTab === 'mgmt' && mgmtTab === 'vehicles' && (
-          <CrudManager table="vehicles" Icon={Truck} lang={lang}
+          <CrudManager table="vehicles" Icon={Truck} lang={lang} onRowOpen={setWsVehicle}
             titleAr="إدارة المركبات" titleEn="Vehicles" subtitleAr="الأسطول · النوع · الصيانة · التأمين" subtitleEn="Fleet · type · maintenance · insurance"
             fields={[
               { key: 'plate', ar: 'اللوحة', en: 'Plate', required: true, placeholder: 'ABC-1234' },
@@ -359,7 +374,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             ]} />
         )}
         {activeTab === 'mgmt' && mgmtTab === 'merchants' && (
-          <CrudManager table="merchants" Icon={Store} lang={lang}
+          <CrudManager table="merchants" Icon={Store} lang={lang} onRowOpen={setWsMerchant}
             titleAr="إدارة التجّار" titleEn="Merchants" subtitleAr="المتاجر · التواصل" subtitleEn="Stores · contact"
             fields={[
               { key: 'business_name', ar: 'اسم النشاط', en: 'Business name', required: true },
@@ -368,7 +383,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             ]} />
         )}
         {activeTab === 'mgmt' && mgmtTab === 'branches' && (
-          <CrudManager table="merchant_branches" Icon={Building2} lang={lang}
+          <CrudManager table="merchant_branches" Icon={Building2} lang={lang} onRowOpen={setWsBranch}
             titleAr="إدارة الفروع" titleEn="Branches" subtitleAr="فروع المتاجر · الحالة" subtitleEn="Store branches · status"
             fields={[
               { key: 'name', ar: 'اسم الفرع', en: 'Branch name', required: true },
@@ -378,7 +393,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             ]} />
         )}
         {activeTab === 'mgmt' && mgmtTab === 'orders' && (
-          <CrudManager table="orders" Icon={ClipboardList} lang={lang} searchKeys={['status']}
+          <CrudManager table="orders" Icon={ClipboardList} lang={lang} searchKeys={['status']} onRowOpen={setWsOrder}
             titleAr="إدارة الطلبات" titleEn="Orders" subtitleAr="الطلبات · الحالة · المبلغ" subtitleEn="Orders · status · amount"
             fields={[
               { key: 'status', ar: 'الحالة', en: 'Status', type: 'select', options: [{ value: 'pending', ar: 'قيد الانتظار', en: 'Pending' }, { value: 'confirmed', ar: 'مؤكد', en: 'Confirmed' }, { value: 'preparing', ar: 'قيد التحضير', en: 'Preparing' }, { value: 'delivering', ar: 'قيد التوصيل', en: 'Delivering' }, { value: 'delivered', ar: 'تم التوصيل', en: 'Delivered' }, { value: 'cancelled', ar: 'ملغي', en: 'Cancelled' }] },
@@ -389,7 +404,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             ]} />
         )}
         {activeTab === 'mgmt' && mgmtTab === 'customers' && (
-          <CrudManager table="customers" Icon={Users} lang={lang}
+          <CrudManager table="customers" Icon={Users} lang={lang} onRowOpen={setWsCustomer}
             titleAr="إدارة العملاء" titleEn="Customers" subtitleAr="العملاء · التواصل" subtitleEn="Customers · contact"
             fields={[
               { key: 'full_name', ar: 'الاسم', en: 'Full name' },
