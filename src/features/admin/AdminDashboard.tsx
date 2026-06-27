@@ -27,7 +27,7 @@ import { NotificationCenter } from './NotificationCenter';
 import { SystemLogs } from './SystemLogs';
 import { GlobalSearch } from './GlobalSearch';
 import { CrudManager } from '../../components/admin/CrudManager';
-import { Layers, MapPin } from 'lucide-react';
+import { Layers, MapPin, UserRound, Truck, Store, Building2, ClipboardList, Users } from 'lucide-react';
 import { notificationService } from '../../services/notification.service';
 
 // ── Types (unchanged) ─────────────────────────────────────────
@@ -45,8 +45,9 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt';
 type CatTab = 'categories' | 'zones';
+type MgmtTab = 'drivers' | 'vehicles' | 'merchants' | 'branches' | 'orders' | 'customers';
 
 const PRIORITY_VARIANT: Record<string, 'error' | 'warning' | 'neutral' | 'secondary'> = {
   critical: 'error', high: 'error', medium: 'warning', low: 'neutral',
@@ -71,13 +72,15 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [activeTab,         setActiveTab]         = useState<AdminTab>('kpi');
   const [opsTab,            setOpsTab]            = useState<OpsTab>('command');
   const [catTab,            setCatTab]            = useState<CatTab>('categories');
+  const [mgmtTab,           setMgmtTab]           = useState<MgmtTab>('drivers');
   const [searchOpen,        setSearchOpen]        = useState(false);
   const [sidebarOpen,       setSidebarOpen]       = useState(false);
   const [notifBadge,        setNotifBadge]        = useState(0);
-  const activeNav: NavKey = activeTab === 'ops' ? (`ops:${opsTab}` as NavKey) : activeTab === 'catalog' ? (`catalog:${catTab}` as NavKey) : (activeTab as NavKey);
+  const activeNav: NavKey = activeTab === 'ops' ? (`ops:${opsTab}` as NavKey) : activeTab === 'catalog' ? (`catalog:${catTab}` as NavKey) : activeTab === 'mgmt' ? (`mgmt:${mgmtTab}` as NavKey) : (activeTab as NavKey);
   const handleNav = (k: NavKey) => {
     if (k.startsWith('ops:')) { setActiveTab('ops'); setOpsTab(k.slice(4) as OpsTab); }
     else if (k.startsWith('catalog:')) { setActiveTab('catalog'); setCatTab(k.slice(8) as CatTab); }
+    else if (k.startsWith('mgmt:')) { setActiveTab('mgmt'); setMgmtTab(k.slice(5) as MgmtTab); }
     else setActiveTab(k as AdminTab);
   };
   // Ctrl/Cmd+K opens global search; live unread notification badge.
@@ -327,6 +330,63 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
           <CrudManager table="zones" Icon={MapPin} lang={lang}
             titleAr="مناطق الكتالوج" titleEn="Zones" subtitleAr="إدارة مناطق التغطية" subtitleEn="Manage coverage zones"
             fields={[{ key: 'name', ar: 'الاسم', en: 'Name', required: true, placeholder: 'e.g. Downtown' }, { key: 'city_id', ar: 'معرّف المدينة', en: 'City ID', placeholder: 'optional UUID' }]} />
+        )}
+
+        {/* ── Business records CRUD (real Supabase tables, reusable engine) ── */}
+        {activeTab === 'mgmt' && mgmtTab === 'drivers' && (
+          <CrudManager table="drivers" Icon={UserRound} lang={lang}
+            titleAr="إدارة المندوبين" titleEn="Drivers" subtitleAr="السائقون · الحالة · المركبة" subtitleEn="Drivers · status · vehicle"
+            fields={[
+              { key: 'full_name', ar: 'الاسم', en: 'Full name' },
+              { key: 'phone_number', ar: 'الجوال', en: 'Phone', required: true, placeholder: '+201000000000' },
+              { key: 'vehicle_plate', ar: 'لوحة المركبة', en: 'Plate' },
+              { key: 'is_online', ar: 'متصل', en: 'Online', type: 'boolean' },
+            ]} />
+        )}
+        {activeTab === 'mgmt' && mgmtTab === 'vehicles' && (
+          <CrudManager table="vehicles" Icon={Truck} lang={lang}
+            titleAr="إدارة المركبات" titleEn="Vehicles" subtitleAr="الأسطول · النوع · الصيانة · التأمين" subtitleEn="Fleet · type · maintenance · insurance"
+            fields={[
+              { key: 'plate', ar: 'اللوحة', en: 'Plate', required: true, placeholder: 'ABC-1234' },
+              { key: 'vehicle_type', ar: 'النوع', en: 'Type', type: 'select', options: [{ value: 'motorcycle', ar: 'دراجة نارية', en: 'Motorcycle' }, { value: 'car', ar: 'سيارة', en: 'Car' }, { value: 'bicycle', ar: 'دراجة', en: 'Bicycle' }, { value: 'van', ar: 'شاحنة صغيرة', en: 'Van' }] },
+              { key: 'status', ar: 'الحالة', en: 'Status', type: 'select', options: [{ value: 'active', ar: 'نشطة', en: 'Active' }, { value: 'maintenance', ar: 'صيانة', en: 'Maintenance' }, { value: 'retired', ar: 'متوقفة', en: 'Retired' }] },
+              { key: 'insurance_expiry', ar: 'انتهاء التأمين', en: 'Insurance expiry', placeholder: 'YYYY-MM-DD' },
+              { key: 'license_expiry', ar: 'انتهاء الرخصة', en: 'License expiry', placeholder: 'YYYY-MM-DD' },
+            ]} />
+        )}
+        {activeTab === 'mgmt' && mgmtTab === 'merchants' && (
+          <CrudManager table="merchants" Icon={Store} lang={lang}
+            titleAr="إدارة التجّار" titleEn="Merchants" subtitleAr="المتاجر · التواصل" subtitleEn="Stores · contact"
+            fields={[
+              { key: 'business_name', ar: 'اسم النشاط', en: 'Business name', required: true },
+              { key: 'contact_email', ar: 'البريد', en: 'Email' },
+              { key: 'contact_phone', ar: 'الجوال', en: 'Phone' },
+            ]} />
+        )}
+        {activeTab === 'mgmt' && mgmtTab === 'branches' && (
+          <CrudManager table="merchant_branches" Icon={Building2} lang={lang}
+            titleAr="إدارة الفروع" titleEn="Branches" subtitleAr="فروع المتاجر · الحالة" subtitleEn="Store branches · status"
+            fields={[
+              { key: 'name', ar: 'اسم الفرع', en: 'Branch name', required: true },
+              { key: 'is_active', ar: 'نشط', en: 'Active', type: 'boolean' },
+            ]} />
+        )}
+        {activeTab === 'mgmt' && mgmtTab === 'orders' && (
+          <CrudManager table="orders" Icon={ClipboardList} lang={lang} searchKeys={['status']}
+            titleAr="إدارة الطلبات" titleEn="Orders" subtitleAr="الطلبات · الحالة · المبلغ" subtitleEn="Orders · status · amount"
+            fields={[
+              { key: 'status', ar: 'الحالة', en: 'Status', type: 'select', options: [{ value: 'pending', ar: 'قيد الانتظار', en: 'Pending' }, { value: 'confirmed', ar: 'مؤكد', en: 'Confirmed' }, { value: 'preparing', ar: 'قيد التحضير', en: 'Preparing' }, { value: 'delivering', ar: 'قيد التوصيل', en: 'Delivering' }, { value: 'delivered', ar: 'تم التوصيل', en: 'Delivered' }, { value: 'cancelled', ar: 'ملغي', en: 'Cancelled' }] },
+              { key: 'total_amount', ar: 'المبلغ', en: 'Amount', type: 'number' },
+            ]} />
+        )}
+        {activeTab === 'mgmt' && mgmtTab === 'customers' && (
+          <CrudManager table="customers" Icon={Users} lang={lang}
+            titleAr="إدارة العملاء" titleEn="Customers" subtitleAr="العملاء · التواصل" subtitleEn="Customers · contact"
+            fields={[
+              { key: 'full_name', ar: 'الاسم', en: 'Full name' },
+              { key: 'phone_number', ar: 'الجوال', en: 'Phone', required: true, placeholder: '+201000000000' },
+              { key: 'email', ar: 'البريد', en: 'Email' },
+            ]} />
         )}
         {activeTab === 'notifications' && <NotificationCenter adminId={adminId} lang={lang} onUnread={setNotifBadge} />}
         {activeTab === 'logs' && isSuper && <SystemLogs lang={lang} />}

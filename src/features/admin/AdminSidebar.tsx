@@ -3,11 +3,13 @@ import {
   LayoutDashboard, Map, Route, MapPin, UserRound, Truck, Wallet, Banknote, TicketPercent,
   Headset, ShieldCheck, LifeBuoy, Target, Megaphone, Palette, Settings2, ChevronDown, LogOut,
   Languages, RefreshCw, LucideIcon, Layers, Bell, ScrollText, Search,
+  Store, Building2, ClipboardList, Users,
 } from 'lucide-react';
 
 export type NavKey =
   | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs'
   | 'catalog:categories' | 'catalog:zones'
+  | 'mgmt:drivers' | 'mgmt:vehicles' | 'mgmt:merchants' | 'mgmt:branches' | 'mgmt:orders' | 'mgmt:customers'
   | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles'
   | 'ops:finance' | 'ops:payouts' | 'ops:care' | 'ops:kyc' | 'ops:growthb';
 
@@ -29,6 +31,14 @@ const GROUPS: Group[] = [
   { ar: 'الكتالوج', en: 'Catalog', items: [
     { key: 'catalog:categories', ar: 'الفئات', en: 'Categories', Icon: Layers },
     { key: 'catalog:zones', ar: 'مناطق الكتالوج', en: 'Zones', Icon: MapPin },
+  ] },
+  { ar: 'السجلّات', en: 'Records', items: [
+    { key: 'mgmt:drivers', ar: 'إدارة المندوبين', en: 'Drivers', Icon: UserRound },
+    { key: 'mgmt:vehicles', ar: 'إدارة المركبات', en: 'Vehicles', Icon: Truck },
+    { key: 'mgmt:merchants', ar: 'إدارة التجّار', en: 'Merchants', Icon: Store },
+    { key: 'mgmt:branches', ar: 'إدارة الفروع', en: 'Branches', Icon: Building2 },
+    { key: 'mgmt:orders', ar: 'إدارة الطلبات', en: 'Orders', Icon: ClipboardList },
+    { key: 'mgmt:customers', ar: 'إدارة العملاء', en: 'Customers', Icon: Users },
   ] },
   { ar: 'المالية', en: 'Finance', items: [
     { key: 'ops:finance', ar: 'المركز المالي', en: 'Finance Center', Icon: Wallet },

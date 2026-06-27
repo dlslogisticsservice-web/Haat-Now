@@ -6,12 +6,14 @@ import { toast, confirmDialog } from '../ui/feedback';
 import { SkeletonList } from '../ui/Skeleton';
 import { adminCrud, type CrudRow } from '../../services/admin-crud.service';
 
+export interface CrudOption { value: string; ar: string; en: string }
 export interface CrudField {
   key: string;
   ar: string; en: string;
-  type?: 'text' | 'number';
+  type?: 'text' | 'number' | 'select' | 'boolean';
   required?: boolean;
   placeholder?: string;
+  options?: CrudOption[]; // for type 'select'
 }
 
 export interface CrudManagerProps {
@@ -37,6 +39,11 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const svc = useMemo(() => adminCrud(table), [table]);
   const sKeys = searchKeys && searchKeys.length ? searchKeys : fields.filter(f => (f.type || 'text') === 'text').map(f => f.key);
+  const display = (f: CrudField, v: any): string => {
+    if (f.type === 'boolean') return v === true || v === 'true' ? L('نعم', 'Yes') : L('لا', 'No');
+    if (f.type === 'select') { const o = f.options?.find(o => o.value === String(v)); return o ? L(o.ar, o.en) : String(v ?? '—'); }
+    return String(v ?? '—');
+  };
 
   const [rows, setRows] = useState<CrudRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +95,7 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
     const payload: Record<string, any> = {};
     fields.forEach(f => {
       let v = form[f.key];
+      if (f.type === 'boolean') { payload[f.key] = v === true || v === 'true'; return; }
       if (v === '' || v === undefined) return;
       if (f.type === 'number') v = Number(v);
       payload[f.key] = v;
@@ -186,7 +194,7 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
             {pageRows.map(row => (
               <div key={row.id} id={`crud_row_${row.id}`} className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
                 <button onClick={() => toggleSel(row.id!)} className="cursor-pointer shrink-0">{selected.has(row.id!) ? <CheckSquare size={16} color="var(--color-primary-fixed)" /> : <Square size={16} color="var(--color-on-surface-variant)" />}</button>
-                {fields.map(f => <span key={f.key} className="flex-1 min-w-0 truncate text-sm" style={{ color: 'var(--color-on-surface)' }}>{String(row[f.key] ?? '—')}</span>)}
+                {fields.map(f => <span key={f.key} className="flex-1 min-w-0 truncate text-sm" style={{ color: 'var(--color-on-surface)' }}>{display(f, row[f.key])}</span>)}
                 <span className="w-16 flex items-center justify-end gap-1 shrink-0">
                   <button onClick={() => openEdit(row)} title={L('تعديل', 'Edit')} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-[var(--color-surface-container-high)]"><Pencil size={14} color="var(--color-on-surface-variant)" /></button>
                   <button onClick={() => remove(row)} title={L('حذف', 'Delete')} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-[var(--color-surface-container-high)]"><Trash2 size={14} color="#f87171" /></button>
@@ -218,8 +226,20 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
           {fields.map(f => (
             <div key={f.key}>
               <label className="text-xs font-bold block mb-1.5" style={{ color: 'var(--color-on-surface-variant)' }}>{L(f.ar, f.en)}{f.required && <span style={{ color: '#f87171' }}> *</span>}</label>
-              <input type={f.type === 'number' ? 'number' : 'text'} value={form[f.key] ?? ''} onChange={e => setForm({ ...form, [f.key]: e.target.value })}
-                placeholder={f.placeholder || ''} className="w-full h-11 rounded-xl px-3 text-sm" style={input} id={`crud_${table}_field_${f.key}`} />
+              {f.type === 'select' ? (
+                <select value={form[f.key] ?? ''} onChange={e => setForm({ ...form, [f.key]: e.target.value })} className="w-full h-11 rounded-xl px-3 text-sm font-semibold" style={input} id={`crud_${table}_field_${f.key}`}>
+                  <option value="">{L('— اختر —', '— Select —')}</option>
+                  {f.options?.map(o => <option key={o.value} value={o.value}>{L(o.ar, o.en)}</option>)}
+                </select>
+              ) : f.type === 'boolean' ? (
+                <select value={String(form[f.key] ?? 'false')} onChange={e => setForm({ ...form, [f.key]: e.target.value })} className="w-full h-11 rounded-xl px-3 text-sm font-semibold" style={input} id={`crud_${table}_field_${f.key}`}>
+                  <option value="true">{L('نعم', 'Yes')}</option>
+                  <option value="false">{L('لا', 'No')}</option>
+                </select>
+              ) : (
+                <input type={f.type === 'number' ? 'number' : 'text'} value={form[f.key] ?? ''} onChange={e => setForm({ ...form, [f.key]: e.target.value })}
+                  placeholder={f.placeholder || ''} className="w-full h-11 rounded-xl px-3 text-sm" style={input} id={`crud_${table}_field_${f.key}`} />
+              )}
             </div>
           ))}
         </div>
