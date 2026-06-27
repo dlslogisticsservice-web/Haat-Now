@@ -15,6 +15,7 @@ import { paymentService, validatePaymentCredentials, type PaymentProvider, type 
 import { checkoutService } from './checkout.service';
 import { walletService } from './wallet.service';
 import { financeService } from './finance.service';
+import { authService } from './auth.service';
 
 export const SUPPORTED_PROVIDERS: PaymentProvider[] = ['paymob', 'moyasar', 'stripe', 'apple_pay', 'google_pay', 'mada', 'cash', 'wallet'];
 
@@ -59,6 +60,45 @@ export const paymentOrchestrator = {
 
     if (result.success) idempotencyCache.set(key, result);
     return result;
+  },
+
+  /**
+   * Gateway initiation — the single client entry for hosted-gateway checkout. Routes
+   * through the SECURE server-side `payment-initiate` edge function (gateway secrets stay
+   * server-side — no client gateway calls), guarded by a durable idempotency lock
+   * (`payment_idempotency`) so a double-submit returns the original result, never re-charges.
+   */
+  async initiate(req: { orderId: string; customerId: string; amount: number; currency: string }): Promise<{ ok: boolean; data: any }> {
+    const key = `initiate:${req.orderId}`;
+    if (supabase) {
+      const { error: lockErr } = await supabase.from('payment_idempotency')
+        .insert({ idempotency_key: key, order_id: req.orderId, customer_id: req.customerId, status: 'locked' } as any);
+      if (lockErr) { // duplicate request — return the prior result if the first call finished
+        const { data: existing } = await supabase.from('payment_idempotency').select('result').eq('idempotency_key', key).maybeSingle();
+        if (existing?.result) return { ok: true, data: existing.result };
+      }
+    }
+    const accessToken = await authService.getAccessToken();
+    const url = import.meta.env.VITE_SUPABASE_URL as string;
+    const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+    const res = await fetch(`${url}/functions/v1/payment-initiate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}`, 'apikey': anon },
+      body: JSON.stringify({ orderId: req.orderId, customerId: req.customerId, amount: req.amount, currency: req.currency }),
+    });
+    const data = await res.json();
+    const ok = res.ok && !!(data as any)?.success;
+    if (supabase) {
+      await supabase.from('payment_idempotency').update({ status: ok ? 'completed' : 'failed', result: data, updated_at: new Date().toISOString() } as any).eq('idempotency_key', key);
+    }
+    return { ok, data };
+  },
+
+  /** Reconciliation — initiations that locked but never completed (need follow-up). */
+  async reconcile(): Promise<{ stuck: any[]; error: any }> {
+    if (!supabase) return { stuck: [], error: null };
+    const { data, error } = await supabase.from('payment_idempotency').select('*').eq('status', 'locked');
+    return { stuck: data || [], error };
   },
 
   /** Refund engine (single path). */

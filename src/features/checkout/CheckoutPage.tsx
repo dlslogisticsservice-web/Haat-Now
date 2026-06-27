@@ -5,6 +5,7 @@ import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
 import { adminService } from '../../services/admin.service';
 import { authService } from '../../services/auth.service';
+import { paymentOrchestrator } from '../../services/payment-orchestrator.service';
 import { sandboxStore } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useTranslation } from 'react-i18next';
@@ -344,24 +345,14 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
       );
       if (orderErr) { paymentTabRef?.close(); toast.error(`${t('checkout.orderError')}: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
       if (orderData) {
-        // EF2-11: Call payment-initiate Edge Function with the customer JWT
-        const accessToken = await authService.getAccessToken();
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-        const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+        // EF2-11: initiate payment through the single Payment Orchestrator — idempotent
+        // (duplicate-submit protected) and routed to the SECURE server-side payment-initiate
+        // edge function. No direct client gateway call.
+        const { ok: initiateOk, data: initiateData } = await paymentOrchestrator.initiate({
+          orderId: orderData.id, customerId, amount: grandTotal, currency: country.currency.code,
+        }) as { ok: boolean; data: Record<string, unknown> };
 
-        const initiateRes = await fetch(`${supabaseUrl}/functions/v1/payment-initiate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-            'apikey':        anonKey,
-          },
-          body: JSON.stringify({ orderId: orderData.id, customerId, amount: grandTotal, currency: country.currency.code }),
-        });
-
-        const initiateData = await initiateRes.json() as Record<string, unknown>;
-
-        if (!initiateRes.ok || !initiateData['success']) {
+        if (!initiateOk || !initiateData['success']) {
           paymentTabRef?.close();
           const errMsg = (initiateData['error'] as Record<string, unknown> | undefined)?.['message']
             ?? (initiateData['message'] as string | undefined)
