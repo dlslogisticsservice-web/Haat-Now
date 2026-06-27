@@ -56,9 +56,19 @@ Apple Guideline 5.1.1(v) + Google Play data-deletion are **hard store-submission
   exists; pure frontend + a flag). Then **Variant Manager** (merchant; `product_variants` table
   exists, needs a write service — no migration).
 
+## Enterprise hardening (this sprint) — see `ENTERPRISE_HARDENING_REPORT.md`
+- ✅ Security headers + scoped **CSP** (Supabase/Paymob/Maps/Fonts/Unsplash) in `vercel.json`; HSTS,
+  X-Frame-Options DENY, nosniff, Referrer/Permissions-Policy, COOP.
+- ✅ DB **performance indexes** (`20260627000002`, column-guarded) on orders/notifications/reviews/etc.
+- ✅ **Secrets audit** clean; ✅ repo cleanup (audits→`docs/audits`, reports→`docs/archive`).
+- ✅ Verified already-present: code splitting/lazy, env validation, audit logs, Supavisor pooling, CDN.
+- 🟡 Operator/infra: Redis/queue/DLQ/circuit-breaker/tracing = provision a managed tier (not faked);
+  rate limiting = edge config; Firebase/push = credentials.
+
 ## Production readiness (honest)
-- **Web / PWA: ~82%** (functional, bilingual, compliant data-rights, CI green).
-- **Mobile store submission: ~35%** (deletion + privacy now done; native assets/push/signing remain).
+- **Web / PWA: ~86%** (hardened: CSP + secure headers + query indexes; CI green).
+- **App Store (iOS): ~70%** · **Google Play: ~72%** (native projects + icons + manifests done;
+  Firebase + signed builds + hosted link files remain).
 - **Multi-tenant SaaS: ~20%** (registry foundation only).
-- **Overall: ~60%** toward a true production launch — gated mainly on mobile assets + applying
-  migrations + legal text, none of which are code-architecture problems.
+- **Overall: ~68%** — gated on credential injection + applying migrations + signed native builds,
+  none of which are code-architecture problems.
