@@ -3,6 +3,7 @@ import { toast } from '../../components/ui/feedback';
 import { APIProvider, Map, Marker, useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
 import { commandService, LiveDriver, LiveOrder, LiveMerchant, OpsSummary, ZoneAnalytics } from '../../services/ops/command.service';
 import { dispatchService } from '../../services/ops/dispatch.service';
+import { OpsSlaMonitor } from './OpsSlaMonitor';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -159,6 +160,8 @@ export const OperationsCommandCenter: React.FC = () => {
           { key: 'eta', header: 'ETA', sortable: true, sortValue: z => z.avg_eta, csv: z => z.avg_eta, render: z => `${z.avg_eta} ${L('د', 'min')}` },
         ] as Column<ZoneAnalytics>[]}
       />
+
+      <OpsSlaMonitor />
     </div>
   );
 };
