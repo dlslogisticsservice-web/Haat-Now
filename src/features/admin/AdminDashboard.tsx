@@ -27,6 +27,7 @@ import { NotificationCenter } from './NotificationCenter';
 import { SystemLogs } from './SystemLogs';
 import { GlobalSearch } from './GlobalSearch';
 import { CrudManager } from '../../components/admin/CrudManager';
+import { DriverWorkspace } from './workspaces/DriverWorkspace';
 import { Layers, MapPin, UserRound, Truck, Store, Building2, ClipboardList, Users } from 'lucide-react';
 import { notificationService } from '../../services/notification.service';
 
@@ -73,6 +74,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [opsTab,            setOpsTab]            = useState<OpsTab>('command');
   const [catTab,            setCatTab]            = useState<CatTab>('categories');
   const [mgmtTab,           setMgmtTab]           = useState<MgmtTab>('drivers');
+  const [wsDriver,          setWsDriver]          = useState<any | null>(null);
   const [searchOpen,        setSearchOpen]        = useState(false);
   const [sidebarOpen,       setSidebarOpen]       = useState(false);
   const [notifBadge,        setNotifBadge]        = useState(0);
@@ -334,7 +336,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
 
         {/* ── Business records CRUD (real Supabase tables, reusable engine) ── */}
         {activeTab === 'mgmt' && mgmtTab === 'drivers' && (
-          <CrudManager table="drivers" Icon={UserRound} lang={lang}
+          <CrudManager table="drivers" Icon={UserRound} lang={lang} onRowOpen={setWsDriver}
             titleAr="إدارة المندوبين" titleEn="Drivers" subtitleAr="السائقون · الحالة · المركبة" subtitleEn="Drivers · status · vehicle"
             fields={[
               { key: 'full_name', ar: 'الاسم', en: 'Full name' },
@@ -343,6 +345,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
               { key: 'is_online', ar: 'متصل', en: 'Online', type: 'boolean' },
             ]} />
         )}
+        {wsDriver && <DriverWorkspace driver={wsDriver} lang={lang} onClose={() => setWsDriver(null)} />}
         {activeTab === 'mgmt' && mgmtTab === 'vehicles' && (
           <CrudManager table="vehicles" Icon={Truck} lang={lang}
             titleAr="إدارة المركبات" titleEn="Vehicles" subtitleAr="الأسطول · النوع · الصيانة · التأمين" subtitleEn="Fleet · type · maintenance · insurance"

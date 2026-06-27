@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Plus, Search, Pencil, Trash2, Download, ArrowUpDown, RefreshCw, CheckSquare, Square, AlertTriangle, type LucideIcon } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Download, ArrowUpDown, RefreshCw, CheckSquare, Square, AlertTriangle, Maximize2, type LucideIcon } from 'lucide-react';
 import { WorkspaceHeader, ActionButton, EmptyStateBox, MetricCard } from './EnterpriseUI';
 import { Drawer } from '../ui/Modal';
 import { toast, confirmDialog } from '../ui/feedback';
@@ -27,6 +27,7 @@ export interface CrudManagerProps {
   searchKeys?: string[];    // keys to match against the search box (defaults to all text fields)
   lang: 'ar' | 'en';
   pageSize?: number;
+  onRowOpen?: (row: CrudRow) => void; // optional: open an entity workspace for a row
 }
 
 const card: React.CSSProperties = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)' };
@@ -37,7 +38,7 @@ const input: React.CSSProperties = { background: 'var(--color-surface-container-
  * Pagination/Export(CSV)/Bulk-delete over any real Supabase table (sandbox-safe).
  * Reuses the Notification Center Drawer pattern. Bilingual · dark · responsive.
  */
-export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitleEn, fields, searchKeys, lang, pageSize = 10 }: CrudManagerProps) {
+export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitleEn, fields, searchKeys, lang, pageSize = 10, onRowOpen }: CrudManagerProps) {
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const svc = useMemo(() => adminCrud(table), [table]);
   const sKeys = searchKeys && searchKeys.length ? searchKeys : fields.filter(f => (f.type || 'text') === 'text').map(f => f.key);
@@ -209,13 +210,14 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
             <div className="flex items-center gap-3 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide" style={{ borderBottom: '1px solid var(--color-outline-variant)', color: 'var(--color-on-surface-variant)' }}>
               <button onClick={toggleAll} className="cursor-pointer">{allOnPage ? <CheckSquare size={16} color="var(--color-primary-fixed)" /> : <Square size={16} />}</button>
               {fields.map(f => <span key={f.key} className="flex-1 min-w-0">{L(f.ar, f.en)}</span>)}
-              <span className="w-16 text-end">{L('إجراءات', 'Actions')}</span>
+              <span className="w-24 text-end">{L('إجراءات', 'Actions')}</span>
             </div>
             {pageRows.map(row => (
               <div key={row.id} id={`crud_row_${row.id}`} className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
                 <button onClick={() => toggleSel(row.id!)} className="cursor-pointer shrink-0">{selected.has(row.id!) ? <CheckSquare size={16} color="var(--color-primary-fixed)" /> : <Square size={16} color="var(--color-on-surface-variant)" />}</button>
                 {fields.map(f => <span key={f.key} className="flex-1 min-w-0 truncate text-sm" style={{ color: 'var(--color-on-surface)' }}>{display(f, row[f.key])}</span>)}
-                <span className="w-16 flex items-center justify-end gap-1 shrink-0">
+                <span className="w-24 flex items-center justify-end gap-1 shrink-0">
+                  {onRowOpen && <button onClick={() => onRowOpen(row)} title={L('فتح', 'Open')} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-[var(--color-surface-container-high)]"><Maximize2 size={14} color="var(--color-primary-fixed)" /></button>}
                   <button onClick={() => openEdit(row)} title={L('تعديل', 'Edit')} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-[var(--color-surface-container-high)]"><Pencil size={14} color="var(--color-on-surface-variant)" /></button>
                   <button onClick={() => remove(row)} title={L('حذف', 'Delete')} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-[var(--color-surface-container-high)]"><Trash2 size={14} color="#f87171" /></button>
                 </span>
