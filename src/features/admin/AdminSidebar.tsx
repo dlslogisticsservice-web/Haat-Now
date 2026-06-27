@@ -7,6 +7,7 @@ import {
 
 export type NavKey =
   | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs'
+  | 'catalog:categories' | 'catalog:zones'
   | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles'
   | 'ops:finance' | 'ops:payouts' | 'ops:care' | 'ops:kyc' | 'ops:growthb';
 
@@ -25,6 +26,10 @@ const GROUPS: Group[] = [
     { key: 'ops:vehicles', ar: 'المركبات', en: 'Vehicles', Icon: Truck },
   ] },
   { ar: 'التجارة', en: 'Commerce', items: [{ key: 'coupons', ar: 'الكوبونات', en: 'Coupons', Icon: TicketPercent }] },
+  { ar: 'الكتالوج', en: 'Catalog', items: [
+    { key: 'catalog:categories', ar: 'الفئات', en: 'Categories', Icon: Layers },
+    { key: 'catalog:zones', ar: 'مناطق الكتالوج', en: 'Zones', Icon: MapPin },
+  ] },
   { ar: 'المالية', en: 'Finance', items: [
     { key: 'ops:finance', ar: 'المركز المالي', en: 'Finance Center', Icon: Wallet },
     { key: 'ops:payouts', ar: 'المدفوعات', en: 'Payouts', Icon: Banknote },

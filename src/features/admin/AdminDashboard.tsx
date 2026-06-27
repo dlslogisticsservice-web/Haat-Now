@@ -26,6 +26,8 @@ import { AdminDashboardHome } from './AdminDashboardHome';
 import { NotificationCenter } from './NotificationCenter';
 import { SystemLogs } from './SystemLogs';
 import { GlobalSearch } from './GlobalSearch';
+import { CrudManager } from '../../components/admin/CrudManager';
+import { Layers, MapPin } from 'lucide-react';
 import { notificationService } from '../../services/notification.service';
 
 // ── Types (unchanged) ─────────────────────────────────────────
@@ -43,7 +45,8 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog';
+type CatTab = 'categories' | 'zones';
 
 const PRIORITY_VARIANT: Record<string, 'error' | 'warning' | 'neutral' | 'secondary'> = {
   critical: 'error', high: 'error', medium: 'warning', low: 'neutral',
@@ -67,12 +70,14 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [payoutLoading,     setPayoutLoading]     = useState(false);
   const [activeTab,         setActiveTab]         = useState<AdminTab>('kpi');
   const [opsTab,            setOpsTab]            = useState<OpsTab>('command');
+  const [catTab,            setCatTab]            = useState<CatTab>('categories');
   const [searchOpen,        setSearchOpen]        = useState(false);
   const [sidebarOpen,       setSidebarOpen]       = useState(false);
   const [notifBadge,        setNotifBadge]        = useState(0);
-  const activeNav: NavKey = activeTab === 'ops' ? (`ops:${opsTab}` as NavKey) : (activeTab as NavKey);
+  const activeNav: NavKey = activeTab === 'ops' ? (`ops:${opsTab}` as NavKey) : activeTab === 'catalog' ? (`catalog:${catTab}` as NavKey) : (activeTab as NavKey);
   const handleNav = (k: NavKey) => {
     if (k.startsWith('ops:')) { setActiveTab('ops'); setOpsTab(k.slice(4) as OpsTab); }
+    else if (k.startsWith('catalog:')) { setActiveTab('catalog'); setCatTab(k.slice(8) as CatTab); }
     else setActiveTab(k as AdminTab);
   };
   // Ctrl/Cmd+K opens global search; live unread notification badge.
@@ -313,6 +318,16 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
 
         {/* TAB: DESIGN CENTER (super admin only)             */}
         {activeTab === 'ops' && <OperationsCenter tab={opsTab} onTab={setOpsTab} hideTabs />}
+        {activeTab === 'catalog' && catTab === 'categories' && (
+          <CrudManager table="categories" Icon={Layers} lang={lang}
+            titleAr="الفئات" titleEn="Categories" subtitleAr="إدارة فئات المنتجات" subtitleEn="Manage product categories"
+            fields={[{ key: 'name', ar: 'الاسم', en: 'Name', required: true, placeholder: 'e.g. Beverages' }]} />
+        )}
+        {activeTab === 'catalog' && catTab === 'zones' && (
+          <CrudManager table="zones" Icon={MapPin} lang={lang}
+            titleAr="مناطق الكتالوج" titleEn="Zones" subtitleAr="إدارة مناطق التغطية" subtitleEn="Manage coverage zones"
+            fields={[{ key: 'name', ar: 'الاسم', en: 'Name', required: true, placeholder: 'e.g. Downtown' }, { key: 'city_id', ar: 'معرّف المدينة', en: 'City ID', placeholder: 'optional UUID' }]} />
+        )}
         {activeTab === 'notifications' && <NotificationCenter adminId={adminId} lang={lang} onUnread={setNotifBadge} />}
         {activeTab === 'logs' && isSuper && <SystemLogs lang={lang} />}
 
