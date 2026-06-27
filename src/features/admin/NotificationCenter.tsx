@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Bell, CheckCheck, Trash2, AlertTriangle, Info, AlertCircle, Wallet, Truck, Headset, Megaphone, ShieldCheck, Filter } from 'lucide-react';
+import { Bell, CheckCheck, Trash2, AlertTriangle, Info, AlertCircle, Wallet, Truck, Headset, Megaphone, ShieldCheck, Filter, Send, Users, Store, Globe } from 'lucide-react';
 import { notificationService } from '../../services/notification.service';
-import { WorkspaceHeader } from '../../components/admin/EnterpriseUI';
+import { WorkspaceHeader, ActionButton } from '../../components/admin/EnterpriseUI';
 import { EmptyState } from '../../components/ui/Primitives';
 import { SkeletonList } from '../../components/ui/Skeleton';
+import { Drawer } from '../../components/ui/Modal';
+import { toast } from '../../components/ui/feedback';
 import type { Notification } from '../../services/types';
+
+type Audience = 'all' | 'customers' | 'drivers' | 'merchants';
 
 const card = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)' };
 
@@ -26,6 +30,22 @@ export const NotificationCenter: React.FC<{ adminId: string; lang: 'ar' | 'en'; 
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  // ── Send Notification composer ──
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [audience, setAudience] = useState<Audience>('all');
+  const [ntype, setNtype] = useState('announcement');
+
+  const send = async () => {
+    if (!msg.trim()) { toast.error(L('اكتب نص الإشعار', 'Enter a message')); return; }
+    setSending(true);
+    const { count, error } = await notificationService.broadcast(audience, msg.trim(), ntype);
+    setSending(false);
+    if (error) { toast.error(L('تعذّر إرسال الإشعار', 'Could not send the notification')); return; }
+    toast.success(count > 0 ? L(`تم الإرسال إلى ${count} مستخدم`, `Sent to ${count} recipients`) : L('تم إرسال الإشعار', 'Notification sent'));
+    setComposerOpen(false); setMsg('');
+  };
 
   const load = useCallback(async () => {
     const { data } = await notificationService.getUserNotifications(adminId);
@@ -49,7 +69,8 @@ export const NotificationCenter: React.FC<{ adminId: string; lang: 'ar' | 'en'; 
 
   return (
     <div id="notification_center" dir={lang === 'ar' ? 'rtl' : 'ltr'} className="space-y-4">
-      <WorkspaceHeader Icon={Bell} title={L('مركز الإشعارات', 'Notification Center')} subtitle={L('إشعارات لحظية · الأولوية · التصنيف · القراءة', 'Realtime · Priority · Category · Read state')} />
+      <WorkspaceHeader Icon={Bell} title={L('مركز الإشعارات', 'Notification Center')} subtitle={L('إشعارات لحظية · الأولوية · التصنيف · القراءة', 'Realtime · Priority · Category · Read state')}
+        actions={<ActionButton Icon={Send} onClick={() => setComposerOpen(true)}>{L('إرسال إشعار', 'Send Notification')}</ActionButton>} />
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex gap-2">
           {(['all', 'unread'] as const).map(f => (
@@ -65,7 +86,12 @@ export const NotificationCenter: React.FC<{ adminId: string; lang: 'ar' | 'en'; 
       </div>
 
       {loading ? <SkeletonList rows={6} />
-        : shown.length === 0 ? <EmptyState title={L('لا توجد إشعارات', 'No notifications')} />
+        : shown.length === 0 ? (
+          <EmptyState icon="inbox"
+            title={filter === 'unread' ? L('لا إشعارات غير مقروءة', 'No unread notifications') : L('لا توجد إشعارات بعد', 'No notifications yet')}
+            description={L('عند إرسال إشعار أو وقوع حدث تشغيلي سيظهر هنا. ابدأ بإرسال إعلان إلى المستخدمين.', 'When you broadcast a message or an operational event occurs, it appears here. Start by sending an announcement to your users.')}
+            action={<ActionButton Icon={Send} onClick={() => setComposerOpen(true)}>{L('إرسال إشعار', 'Send Notification')}</ActionButton>} />
+        )
         : (
           <div className="space-y-2">
             {shown.map(n => {
@@ -89,6 +115,54 @@ export const NotificationCenter: React.FC<{ adminId: string; lang: 'ar' | 'en'; 
             })}
           </div>
         )}
+
+      {/* ── Send Notification composer (real broadcast) ── */}
+      <Drawer open={composerOpen} onClose={() => setComposerOpen(false)} title={L('إرسال إشعار', 'Send Notification')}
+        footer={
+          <div className="flex gap-2">
+            <button onClick={() => setComposerOpen(false)} className="flex-1 h-11 rounded-xl text-sm font-bold cursor-pointer" style={card}>{L('إلغاء', 'Cancel')}</button>
+            <button onClick={send} disabled={sending || !msg.trim()} className="flex-1 h-11 rounded-xl text-sm font-bold cursor-pointer flex items-center justify-center gap-2 disabled:opacity-40"
+              style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }}>
+              <Send size={15} />{sending ? L('جارٍ الإرسال…', 'Sending…') : L('إرسال', 'Send')}
+            </button>
+          </div>
+        }>
+        <div className="px-4 pb-4 space-y-4" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+          {/* Audience */}
+          <div>
+            <label className="text-xs font-bold block mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>{L('الجمهور المستهدف', 'Audience')}</label>
+            <div className="grid grid-cols-2 gap-2">
+              {([['all', Globe, L('الجميع', 'Everyone')], ['customers', Users, L('العملاء', 'Customers')], ['drivers', Truck, L('السائقون', 'Drivers')], ['merchants', Store, L('التجّار', 'Merchants')]] as const).map(([val, Ic, lbl]) => (
+                <button key={val} onClick={() => setAudience(val)} className="h-11 rounded-xl text-sm font-bold cursor-pointer flex items-center justify-center gap-2"
+                  style={audience === val ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' } : card}>
+                  <Ic size={15} />{lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Category */}
+          <div>
+            <label className="text-xs font-bold block mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>{L('التصنيف', 'Category')}</label>
+            <select value={ntype} onChange={e => setNtype(e.target.value)} className="w-full h-11 rounded-xl px-3 text-sm font-semibold" style={{ ...card, color: 'var(--color-on-surface)' }}>
+              <option value="announcement">{L('إعلان', 'Announcement')}</option>
+              <option value="promo">{L('عرض ترويجي', 'Promotion')}</option>
+              <option value="system">{L('النظام', 'System')}</option>
+              <option value="warning">{L('تنبيه', 'Warning')}</option>
+            </select>
+          </div>
+          {/* Message */}
+          <div>
+            <label className="text-xs font-bold block mb-2" style={{ color: 'var(--color-on-surface-variant)' }}>{L('نص الإشعار', 'Message')}</label>
+            <textarea value={msg} onChange={e => setMsg(e.target.value)} rows={4} maxLength={500}
+              placeholder={L('اكتب رسالتك للمستخدمين…', 'Write your message to users…')}
+              className="w-full rounded-xl p-3 text-sm resize-none" style={{ ...card, color: 'var(--color-on-surface)' }} />
+            <p className="text-[11px] mt-1 text-right" style={{ color: 'var(--color-on-surface-variant)' }}>{msg.length}/500</p>
+          </div>
+          <p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>
+            {L('سيتم إرسال إشعار داخل التطبيق لكل مستخدم في الجمهور المحدد.', 'An in-app notification will be delivered to every user in the selected audience.')}
+          </p>
+        </div>
+      </Drawer>
     </div>
   );
 };

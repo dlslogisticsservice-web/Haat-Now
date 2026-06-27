@@ -30,6 +30,17 @@ export const notificationService = {
     return { data, error };
   },
 
+  // Admin broadcast: send a notification to an audience (all/customers/drivers/merchants).
+  // Production -> SECURITY DEFINER RPC broadcast_notification (admin-guarded, one row/user).
+  // Sandbox (no backend) -> simulated success so the composer works end-to-end in demo.
+  async broadcast(audience: 'all' | 'customers' | 'drivers' | 'merchants', message: string, type = 'announcement'): Promise<{ count: number; error: any }> {
+    if (import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase) {
+      return { count: 0, error: null };
+    }
+    const { data, error } = await supabase.rpc('broadcast_notification', { p_audience: audience, p_type: type, p_message: message });
+    return { count: typeof data === 'number' ? data : 0, error };
+  },
+
   // Register device push notification token
   async registerPushToken(tokenPayload: Omit<PushToken, 'id'>): Promise<{ error: any }> {
     // Upsert the token to prevent duplicate mapping
