@@ -33,6 +33,7 @@ import { MerchantWorkspace } from './workspaces/MerchantWorkspace';
 import { OrderWorkspace } from './workspaces/OrderWorkspace';
 import { CustomerWorkspace } from './workspaces/CustomerWorkspace';
 import { BranchWorkspace } from './workspaces/BranchWorkspace';
+import { TenantWorkspace } from './workspaces/TenantWorkspace';
 import { Layers, MapPin, UserRound, Truck, Store, Building2, ClipboardList, Users } from 'lucide-react';
 import { notificationService } from '../../services/notification.service';
 
@@ -51,7 +52,7 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants';
 type CatTab = 'categories' | 'zones';
 type MgmtTab = 'drivers' | 'vehicles' | 'merchants' | 'branches' | 'orders' | 'customers';
 
@@ -85,6 +86,8 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [wsOrder,           setWsOrder]           = useState<any | null>(null);
   const [wsCustomer,        setWsCustomer]        = useState<any | null>(null);
   const [wsBranch,          setWsBranch]          = useState<any | null>(null);
+  const [wsTenant,          setWsTenant]          = useState<any | null>(null);
+  const [tenantReload,      setTenantReload]      = useState(0);
   const [searchOpen,        setSearchOpen]        = useState(false);
   const [sidebarOpen,       setSidebarOpen]       = useState(false);
   const [notifBadge,        setNotifBadge]        = useState(0);
@@ -361,6 +364,22 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         {wsOrder && <OrderWorkspace order={wsOrder} lang={lang} onClose={() => setWsOrder(null)} />}
         {wsCustomer && <CustomerWorkspace customer={wsCustomer} lang={lang} onClose={() => setWsCustomer(null)} />}
         {wsBranch && <BranchWorkspace branch={wsBranch} lang={lang} onClose={() => setWsBranch(null)} />}
+
+        {/* ── White Label — tenant provisioning + lifecycle (real multi-tenant control) ── */}
+        {activeTab === 'tenants' && (
+          <CrudManager key={tenantReload} table="tenants" Icon={Building2} lang={lang} onRowOpen={setWsTenant}
+            titleAr="العلامة البيضاء" titleEn="White Label" subtitleAr="إدارة المستأجرين · الهوية · الاشتراك" subtitleEn="Tenants · branding · subscription"
+            fields={[
+              { key: 'brand_name', ar: 'اسم العلامة', en: 'Brand name', required: true },
+              { key: 'subdomain', ar: 'النطاق الفرعي', en: 'Subdomain', placeholder: 'brand' },
+              { key: 'status', ar: 'الحالة', en: 'Status', type: 'select', options: [{ value: 'draft', ar: 'مسودة', en: 'Draft' }, { value: 'active', ar: 'نشط', en: 'Active' }, { value: 'suspended', ar: 'معلّق', en: 'Suspended' }, { value: 'archived', ar: 'مؤرشف', en: 'Archived' }] },
+              { key: 'plan', ar: 'الخطة', en: 'Plan', type: 'select', options: [{ value: 'free', ar: 'مجاني', en: 'Free' }, { value: 'starter', ar: 'مبتدئ', en: 'Starter' }, { value: 'business', ar: 'أعمال', en: 'Business' }, { value: 'enterprise', ar: 'مؤسسي', en: 'Enterprise' }] },
+              { key: 'vertical', ar: 'القطاع', en: 'Vertical', type: 'select', options: [{ value: 'food', ar: 'طعام', en: 'Food' }, { value: 'market', ar: 'بقالة', en: 'Market' }, { value: 'pharmacy', ar: 'صيدلية', en: 'Pharmacy' }, { value: 'flowers', ar: 'ورود', en: 'Flowers' }, { value: 'express', ar: 'سريع', en: 'Express' }, { value: 'logistics', ar: 'لوجستيات', en: 'Logistics' }] },
+              { key: 'country_code', ar: 'الدولة', en: 'Country', placeholder: 'SA' },
+              { key: 'primary_color', ar: 'اللون الأساسي', en: 'Primary color', placeholder: '#A3F95B' },
+            ]} />
+        )}
+        {wsTenant && <TenantWorkspace tenant={wsTenant} lang={lang} onClose={() => setWsTenant(null)} onChanged={() => setTenantReload(n => n + 1)} />}
         {activeTab === 'mgmt' && mgmtTab === 'vehicles' && (
           <CrudManager table="vehicles" Icon={Truck} lang={lang} onRowOpen={setWsVehicle}
             titleAr="إدارة المركبات" titleEn="Vehicles" subtitleAr="الأسطول · النوع · الصيانة · التأمين" subtitleEn="Fleet · type · maintenance · insurance"

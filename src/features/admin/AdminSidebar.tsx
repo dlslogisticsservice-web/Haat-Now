@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 export type NavKey =
-  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs'
+  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants'
   | 'catalog:categories' | 'catalog:zones'
   | 'mgmt:drivers' | 'mgmt:vehicles' | 'mgmt:merchants' | 'mgmt:branches' | 'mgmt:orders' | 'mgmt:customers'
   | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles'
@@ -56,7 +56,10 @@ const GROUPS: Group[] = [
     { key: 'ops:kyc', ar: 'التحقق والامتثال', en: 'Compliance', Icon: ShieldCheck },
     { key: 'logs', ar: 'سجلّات النظام', en: 'System Logs', Icon: ScrollText, super: true },
   ] },
-  { ar: 'المنصّة', en: 'Platform', items: [{ key: 'design', ar: 'مركز التصميم', en: 'Design', Icon: Palette, super: true }] },
+  { ar: 'المنصّة', en: 'Platform', items: [
+    { key: 'design', ar: 'مركز التصميم', en: 'Design', Icon: Palette, super: true },
+    { key: 'tenants', ar: 'العلامة البيضاء', en: 'White Label', Icon: Building2, super: true },
+  ] },
   { ar: 'النظام', en: 'System', items: [
     { key: 'notifications', ar: 'الإشعارات', en: 'Notifications', Icon: Bell },
     { key: 'config', ar: 'الإعدادات', en: 'Settings', Icon: Settings2 },
