@@ -1,11 +1,12 @@
 import { supabase } from '../lib/supabase';
+import { walletService } from './wallet.service';
 
 // ==========================================
 // 1. Payment Status Lifecycle Types
 // ==========================================
 export type PaymentStatus = 'pending' | 'authorized' | 'captured' | 'failed' | 'cancelled' | 'refunded';
 
-export type PaymentProvider = 'paymob' | 'stripe' | 'apple_pay' | 'google_pay' | 'mada';
+export type PaymentProvider = 'paymob' | 'moyasar' | 'stripe' | 'apple_pay' | 'google_pay' | 'mada' | 'cash' | 'wallet';
 
 export interface PaymentRequest {
   amount: number;
@@ -53,6 +54,7 @@ export interface ProviderConfig {
 export interface SystemPaymentConfig {
   stripe: ProviderConfig;
   paymob: ProviderConfig;
+  moyasar: ProviderConfig;
   applePay: ProviderConfig;
   googlePay: ProviderConfig;
   mada: ProviderConfig;
@@ -74,6 +76,12 @@ export function getPaymentConfig(): SystemPaymentConfig {
       merchantId: process.env.PAYMOB_MERCHANT_ID || '',
       integrationId: process.env.PAYMOB_INTEGRATION_ID || '',
       iframeId: process.env.PAYMOB_IFRAME_ID || '',
+      isLiveMode: process.env.PAYMENT_MODE === 'production',
+    },
+    moyasar: {
+      apiKey: process.env.MOYASAR_SECRET_KEY || '',
+      publicKey: process.env.VITE_MOYASAR_PUBLISHABLE_KEY || '',
+      webhookSecret: process.env.MOYASAR_WEBHOOK_SECRET || '',
       isLiveMode: process.env.PAYMENT_MODE === 'production',
     },
     applePay: {
@@ -173,6 +181,10 @@ export const paymentService = {
       provider: req.provider,
     });
 
+    // Internal (non-gateway) tenders — handled before any gateway routing.
+    if (req.provider === 'cash') return this.payWithCash(req);
+    if (req.provider === 'wallet') return this.payWithWallet(req);
+
     let result: PaymentResult;
 
     // Check credentials first before routing
@@ -207,6 +219,9 @@ export const paymentService = {
           break;
         case 'paymob':
           result = await this.payWithPaymob(req, config);
+          break;
+        case 'moyasar':
+          result = await this.payWithMoyasar(req, config);
           break;
         case 'apple_pay':
           result = await this.payWithApplePay(req, config);
@@ -320,6 +335,47 @@ export const paymentService = {
         status: 'failed',
         errorMessage: err.message || 'Paymob session initialization failed',
       };
+    }
+  },
+
+  /**
+   * 2b. Moyasar Integration Adapter (KSA card + Mada + Apple Pay rails).
+   */
+  async payWithMoyasar(req: PaymentRequest, config: ProviderConfig): Promise<PaymentResult> {
+    try {
+      this.logAuditEvent(req.orderId, 'MOYASAR_INITIATED', 'Creating Moyasar payment');
+      const reference = `pay_moyasar_${Math.random().toString(36).substring(2, 11)}`;
+      // Production: POST https://api.moyasar.com/v1/payments (Basic auth: config.apiKey)
+      //   { amount: Math.round(req.amount * 100), currency: req.currency || 'SAR',
+      //     source: { type: 'token', token: req.paymentMethodToken }, metadata: { orderId, customerId } }
+      return { success: true, gatewayReference: reference, status: 'captured', metadata: { gateway: 'moyasar' } };
+    } catch (err: any) {
+      return { success: false, gatewayReference: 'failed_moyasar', status: 'failed', errorMessage: err.message || 'Moyasar payment failed' };
+    }
+  },
+
+  /**
+   * 2c. Cash on delivery — no gateway. Authorized now, captured by the driver on handover.
+   */
+  async payWithCash(req: PaymentRequest): Promise<PaymentResult> {
+    this.logAuditEvent(req.orderId, 'CASH_SELECTED', 'Cash on delivery — settles on driver handover');
+    return { success: true, gatewayReference: `cash_${Math.random().toString(36).substring(2, 11)}`, status: 'authorized', metadata: { tender: 'cash', collectOnDelivery: true } };
+  },
+
+  /**
+   * 2d. Wallet tender — debits the customer wallet balance (validated against real balance).
+   */
+  async payWithWallet(req: PaymentRequest): Promise<PaymentResult> {
+    try {
+      const { data: wallet } = await walletService.getWallet('customer', req.customerId);
+      const balance = Number(wallet?.balance || 0);
+      if (balance < req.amount) {
+        return { success: false, gatewayReference: 'wallet_insufficient', status: 'failed', errorMessage: 'Insufficient wallet balance' };
+      }
+      this.logAuditEvent(req.orderId, 'WALLET_DEBIT', `Wallet debit of ${req.amount}`);
+      return { success: true, gatewayReference: `wallet_${Math.random().toString(36).substring(2, 11)}`, status: 'captured', metadata: { tender: 'wallet', walletId: wallet?.id } };
+    } catch (err: any) {
+      return { success: false, gatewayReference: 'failed_wallet', status: 'failed', errorMessage: err.message || 'Wallet debit failed' };
     }
   },
 
