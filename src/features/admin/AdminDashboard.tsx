@@ -352,6 +352,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
               { key: 'status', ar: 'الحالة', en: 'Status', type: 'select', options: [{ value: 'active', ar: 'نشطة', en: 'Active' }, { value: 'maintenance', ar: 'صيانة', en: 'Maintenance' }, { value: 'retired', ar: 'متوقفة', en: 'Retired' }] },
               { key: 'insurance_expiry', ar: 'انتهاء التأمين', en: 'Insurance expiry', placeholder: 'YYYY-MM-DD' },
               { key: 'license_expiry', ar: 'انتهاء الرخصة', en: 'License expiry', placeholder: 'YYYY-MM-DD' },
+              { key: 'driver_id', ar: 'المندوب المعيّن', en: 'Assigned driver', type: 'relation', relation: { table: 'drivers', labelKey: 'full_name' } },
             ]} />
         )}
         {activeTab === 'mgmt' && mgmtTab === 'merchants' && (
@@ -368,6 +369,8 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             titleAr="إدارة الفروع" titleEn="Branches" subtitleAr="فروع المتاجر · الحالة" subtitleEn="Store branches · status"
             fields={[
               { key: 'name', ar: 'اسم الفرع', en: 'Branch name', required: true },
+              { key: 'merchant_id', ar: 'التاجر', en: 'Merchant', type: 'relation', relation: { table: 'merchants', labelKey: 'business_name' } },
+              { key: 'zone_id', ar: 'المنطقة', en: 'Zone', type: 'relation', relation: { table: 'zones', labelKey: 'name' } },
               { key: 'is_active', ar: 'نشط', en: 'Active', type: 'boolean' },
             ]} />
         )}
@@ -377,6 +380,9 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             fields={[
               { key: 'status', ar: 'الحالة', en: 'Status', type: 'select', options: [{ value: 'pending', ar: 'قيد الانتظار', en: 'Pending' }, { value: 'confirmed', ar: 'مؤكد', en: 'Confirmed' }, { value: 'preparing', ar: 'قيد التحضير', en: 'Preparing' }, { value: 'delivering', ar: 'قيد التوصيل', en: 'Delivering' }, { value: 'delivered', ar: 'تم التوصيل', en: 'Delivered' }, { value: 'cancelled', ar: 'ملغي', en: 'Cancelled' }] },
               { key: 'total_amount', ar: 'المبلغ', en: 'Amount', type: 'number' },
+              { key: 'driver_id', ar: 'المندوب', en: 'Driver', type: 'relation', relation: { table: 'drivers', labelKey: 'full_name' } },
+              { key: 'customer_id', ar: 'العميل', en: 'Customer', type: 'relation', relation: { table: 'customers', labelKey: 'full_name' } },
+              { key: 'branch_id', ar: 'الفرع', en: 'Branch', type: 'relation', relation: { table: 'merchant_branches', labelKey: 'name' } },
             ]} />
         )}
         {activeTab === 'mgmt' && mgmtTab === 'customers' && (

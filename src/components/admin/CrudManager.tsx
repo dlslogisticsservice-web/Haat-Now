@@ -7,13 +7,15 @@ import { SkeletonList } from '../ui/Skeleton';
 import { adminCrud, type CrudRow } from '../../services/admin-crud.service';
 
 export interface CrudOption { value: string; ar: string; en: string }
+export interface CrudRelation { table: string; labelKey: string } // FK source table + display column
 export interface CrudField {
   key: string;
   ar: string; en: string;
-  type?: 'text' | 'number' | 'select' | 'boolean';
+  type?: 'text' | 'number' | 'select' | 'boolean' | 'relation';
   required?: boolean;
   placeholder?: string;
-  options?: CrudOption[]; // for type 'select'
+  options?: CrudOption[];     // for type 'select'
+  relation?: CrudRelation;    // for type 'relation' — reusable relation picker (persists the FK id)
 }
 
 export interface CrudManagerProps {
@@ -39,9 +41,11 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const svc = useMemo(() => adminCrud(table), [table]);
   const sKeys = searchKeys && searchKeys.length ? searchKeys : fields.filter(f => (f.type || 'text') === 'text').map(f => f.key);
+  const [relOpts, setRelOpts] = useState<Record<string, { value: string; label: string }[]>>({});
   const display = (f: CrudField, v: any): string => {
     if (f.type === 'boolean') return v === true || v === 'true' ? L('نعم', 'Yes') : L('لا', 'No');
     if (f.type === 'select') { const o = f.options?.find(o => o.value === String(v)); return o ? L(o.ar, o.en) : String(v ?? '—'); }
+    if (f.type === 'relation') { const o = relOpts[f.key]?.find(o => o.value === String(v)); return o ? o.label : (v ? String(v) : '—'); }
     return String(v ?? '—');
   };
 
@@ -67,6 +71,21 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
   }, [svc]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
+
+  // Load reusable relation-picker options (FK source tables) — real reads, sandbox-safe.
+  useEffect(() => {
+    const relFields = fields.filter(f => f.type === 'relation' && f.relation);
+    if (!relFields.length) return;
+    let alive = true;
+    (async () => {
+      const entries = await Promise.all(relFields.map(async f => {
+        const { data } = await adminCrud(f.relation!.table).list();
+        return [f.key, data.map(r => ({ value: String(r.id), label: String(r[f.relation!.labelKey] ?? r.id) }))] as const;
+      }));
+      if (alive) setRelOpts(Object.fromEntries(entries));
+    })();
+    return () => { alive = false; };
+  }, [fields]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -96,6 +115,7 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
     fields.forEach(f => {
       let v = form[f.key];
       if (f.type === 'boolean') { payload[f.key] = v === true || v === 'true'; return; }
+      if (f.type === 'relation') { payload[f.key] = v ? v : null; return; } // null clears the assignment
       if (v === '' || v === undefined) return;
       if (f.type === 'number') v = Number(v);
       payload[f.key] = v;
@@ -230,6 +250,11 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
                 <select value={form[f.key] ?? ''} onChange={e => setForm({ ...form, [f.key]: e.target.value })} className="w-full h-11 rounded-xl px-3 text-sm font-semibold" style={input} id={`crud_${table}_field_${f.key}`}>
                   <option value="">{L('— اختر —', '— Select —')}</option>
                   {f.options?.map(o => <option key={o.value} value={o.value}>{L(o.ar, o.en)}</option>)}
+                </select>
+              ) : f.type === 'relation' ? (
+                <select value={form[f.key] ?? ''} onChange={e => setForm({ ...form, [f.key]: e.target.value })} className="w-full h-11 rounded-xl px-3 text-sm font-semibold" style={input} id={`crud_${table}_field_${f.key}`}>
+                  <option value="">{L('— بدون —', '— None —')}</option>
+                  {(relOpts[f.key] || []).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               ) : f.type === 'boolean' ? (
                 <select value={String(form[f.key] ?? 'false')} onChange={e => setForm({ ...form, [f.key]: e.target.value })} className="w-full h-11 rounded-xl px-3 text-sm font-semibold" style={input} id={`crud_${table}_field_${f.key}`}>
