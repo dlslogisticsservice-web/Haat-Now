@@ -8,6 +8,7 @@ import { DesignProvider } from './design/DesignContext';
 import { ExperienceProvider } from './experience/ExperienceContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MISSING_SUPABASE_VARS } from './lib/supabase';
+import { APP_VERSION } from './config/version';
 
 function MissingConfigScreen({ vars }: { vars: string[] }) {
   return (
@@ -23,6 +24,9 @@ function MissingConfigScreen({ vars }: { vars: string[] }) {
     </div>
   );
 }
+
+// Record the running application version (verifiable post-deploy via localStorage).
+try { localStorage.setItem('haat_app_version', APP_VERSION); } catch { /* private mode */ }
 
 // PWA service worker — production builds only (kept out of dev/E2E to avoid stale caching).
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {

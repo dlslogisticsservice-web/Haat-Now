@@ -22,4 +22,15 @@ if (!fs.existsSync(dist)) { console.error('dist/ not found — run vite build fi
 fs.writeFileSync(path.join(dist, 'version.json'), JSON.stringify(out, null, 2) + '\n');
 // health.json doubles as a liveness probe (static 200 + JSON).
 fs.writeFileSync(path.join(dist, 'health.json'), JSON.stringify({ status: 'ok', sha: out.short, at: out.builtAt }) + '\n');
+
+// Version the service-worker cache name by build SHA so each deploy installs a NEW
+// service worker and its `activate` handler purges the previous shell cache → no
+// stale PWA cache. The cache name becomes a verifiable SW/PWA version identifier.
+const swPath = path.join(dist, 'sw.js');
+if (fs.existsSync(swPath)) {
+  let sw = fs.readFileSync(swPath, 'utf8');
+  sw = sw.replace(/haat-shell-v[\w.]+/g, `haat-shell-${out.short}`);
+  fs.writeFileSync(swPath, sw);
+  console.log('stamped dist/sw.js cache -> haat-shell-' + out.short);
+}
 console.log('wrote dist/version.json + health.json @', out.short);
