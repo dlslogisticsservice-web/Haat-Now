@@ -4,6 +4,7 @@ import { APIProvider, Map, Marker, useMap, useMapsLibrary } from '@vis.gl/react-
 import { commandService, LiveDriver, LiveOrder, LiveMerchant, OpsSummary, ZoneAnalytics } from '../../services/ops/command.service';
 import { dispatchService } from '../../services/ops/dispatch.service';
 import { OpsSlaMonitor } from './OpsSlaMonitor';
+import { OpsExecutionConsole } from './OpsExecutionConsole';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -162,6 +163,7 @@ export const OperationsCommandCenter: React.FC = () => {
       />
 
       <OpsSlaMonitor />
+      <OpsExecutionConsole />
     </div>
   );
 };
