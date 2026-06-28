@@ -286,8 +286,8 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         {/* Supporting metrics row — secondary inside primary card */}
         <div className="grid grid-cols-3 gap-6 w-full max-w-sm border-t border-[rgba(255,255,255,0.06)] pt-5">
           <div className="text-center">
-            <p className="text-headline-sm font-bold" style={{ color: 'var(--color-lime-vb, #9ed442)' }}>{totalEarned.toFixed(0)}</p>
-            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{D('اليوم','Today')}</p>
+            <p className="text-headline-sm font-bold" style={{ color: 'var(--color-lime-vb, #9ed442)' }}>{money(totalEarned)}</p>
+            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{D('أرباح اليوم','Today')}</p>
           </div>
           <div className="text-center">
             <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{activeJobs.length}</p>
@@ -300,8 +300,8 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         </div>
       </Card>
 
-      {/* TERTIARY — Compact stat chips */}
-      <div className="grid grid-cols-4 gap-3">
+      {/* TERTIARY — Compact stat chips (2-up on phones, 4-up on larger) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard label={D('نشطة','Active')}     value={activeJobs.length}               icon={<Icon name="inventory_2" size={16} fill={1} />} accentColor="var(--color-primary-container)" />
         <StatCard label={D('متاحة','Available')}    value={availableFeed.length}             icon={<Icon name="storefront"  size={16} fill={1} />} accentColor="var(--color-secondary)" />
         <StatCard label={D('مكتملة','Completed')}   value={completedCount}                   icon={<Icon name="task_alt"    size={16} fill={1} />} accentColor="var(--color-tertiary-container)" />
@@ -334,51 +334,63 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                 className="space-y-4"
                 id={`active_job_card_${job.id}`}
               >
-                {/* Header */}
-                <div className="flex items-start justify-between pb-3 border-b border-[rgba(255,255,255,0.06)]">
-                  <span
-                    className="text-label-sm font-semibold"
-                    style={{ color: 'var(--color-primary-container)', textTransform: 'none', letterSpacing: 0 }}
-                  >
+                {/* Header: order id + COD amount + status */}
+                <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.06)]">
+                  <span className="px-2.5 py-1 rounded-full text-label-sm font-bold" style={{ background: 'rgba(158,212,66,0.14)', color: 'var(--color-lime-vb,#9ed442)', textTransform: 'none', letterSpacing: 0 }}>
+                    {D('الدفع نقدًا','COD')} · {money(job.total_amount)}
+                  </span>
+                  <span className="text-label-sm font-semibold" style={{ color: 'var(--color-primary-container)', textTransform: 'none', letterSpacing: 0 }}>
                     #{job.id.slice(-6).toUpperCase()}
                   </span>
-                  <div className="text-end">
-                    <p className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-                      {job.merchant_branches?.name || D('المطعم','Restaurant')}
-                    </p>
-                    <p className="text-label-sm text-[var(--color-on-surface-variant)]">
-                      {D('عميل','Customer')}: {job.customers?.full_name || D('تجريبي','Demo')}
-                      {job.customers?.phone_number ? ` · ${job.customers.phone_number}` : ''}
-                    </p>
+                </div>
+
+                {/* Pickup → Delivery timeline */}
+                <div className="space-y-0">
+                  <div className="flex items-start gap-3 justify-end">
+                    <div className="text-end flex-1 min-w-0">
+                      <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{D('الاستلام من','Pick up from')}</p>
+                      <p className="font-semibold truncate text-[var(--color-on-surface)]">{job.merchant_branches?.name || D('المطعم','Restaurant')}</p>
+                    </div>
+                    <div className="flex flex-col items-center pt-1.5 shrink-0">
+                      <Icon name="storefront" size={15} className="text-[var(--color-primary-container)]" fill={1} />
+                      <span className="w-px h-7 my-1" style={{ background: 'rgba(255,255,255,0.14)' }} />
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 justify-end">
+                    <div className="text-end flex-1 min-w-0">
+                      <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{D('التسليم إلى','Deliver to')}</p>
+                      <p className="font-semibold truncate text-[var(--color-on-surface)]">{job.customers?.full_name || D('العميل','Customer')}</p>
+                    </div>
+                    <div className="flex flex-col items-center shrink-0">
+                      <Icon name="location_on" size={16} style={{ color: '#9ed442' }} fill={1} />
+                    </div>
                   </div>
                 </div>
 
-                {/* Destination */}
-                <div className="flex items-start gap-2 justify-end">
-                  <p className="text-label-md text-[var(--color-on-surface-variant)] text-end" style={{ textTransform: 'none' }}>
-                    {D("الرياض، حي الياسمين — عنوان التسليم المسجل", "Riyadh, Al Yasmin — registered delivery address")}
-                  </p>
-                  <Icon name="location_on" size={18} className="text-[var(--color-primary-container)] shrink-0" fill={1} />
-                </div>
-
-                {/* Status badge */}
-                <div className="flex items-center justify-end">
+                {/* Status + quick actions (navigate / call / chat — real deep links) */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex gap-2">
+                    <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.customers?.full_name || job.merchant_branches?.name || 'destination')}`, '_blank')} title={D('الملاحة','Navigate')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: 'rgba(158,212,66,0.14)', color: 'var(--color-lime-vb,#9ed442)' }}><Icon name="navigation" size={16} fill={1} /></button>
+                    <button onClick={() => { const ph = job.customers?.phone_number; if (ph) window.location.href = `tel:${ph}`; else toast.info(D('رقم العميل غير متاح في الوضع التجريبي','Customer phone unavailable in demo')); }} title={D('اتصال','Call')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)' }}><Icon name="call" size={16} fill={1} /></button>
+                    <button onClick={() => { const ph = job.customers?.phone_number; if (ph) window.open(`https://wa.me/${ph.replace(/[^0-9]/g, '')}`, '_blank'); else toast.info(D('الدردشة غير متاحة في الوضع التجريبي','Chat unavailable in demo')); }} title={D('محادثة','Chat')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)' }}><Icon name="chat" size={16} fill={1} /></button>
+                  </div>
                   <Badge variant="primary" dot>
                     {job.status === 'preparing' ? D('جاهز للاستلام','Ready for pickup') : D('في الطريق','On the way')}
                   </Badge>
                 </div>
 
-                {/* Actions */}
-                <div className="flex flex-wrap gap-2 justify-end pt-1 border-t border-[rgba(255,255,255,0.06)]" id="active_job_actions">
-                    <Button
+                {/* Primary action — full width, proof of delivery on completion */}
+                <div className="pt-3 border-t border-[rgba(255,255,255,0.06)]" id="active_job_actions">
+                  <Button
                     variant="primary"
-                    size="sm"
+                    size="md"
                     loading={actionLoading}
                     onClick={() => handleAdvanceActiveJob(job)}
-                    leftIcon={<Icon name={job.status === 'preparing' ? 'inventory_2' : 'task_alt'} size={16} fill={1} />}
+                    leftIcon={<Icon name={job.status === 'preparing' ? 'inventory_2' : 'task_alt'} size={18} fill={1} />}
                     id="advance_job_trigger"
+                    className="w-full justify-center"
                   >
-                    {job.status === 'preparing' ? D('استلام الشحنة','Pick up') : D('تأكيد التسليم','Confirm delivery')}
+                    {job.status === 'preparing' ? D('تأكيد الاستلام من المتجر','Confirm pickup') : D('تأكيد التسليم للعميل','Confirm delivery')}
                   </Button>
                 </div>
               </Card>
