@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Plus, Search, Pencil, Trash2, Download, ArrowUpDown, RefreshCw, CheckSquare, Square, AlertTriangle, Maximize2, type LucideIcon } from 'lucide-react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { Plus, Search, Pencil, Trash2, Download, Upload, Copy, ArrowUpDown, RefreshCw, CheckSquare, Square, AlertTriangle, Maximize2, type LucideIcon } from 'lucide-react';
 import { WorkspaceHeader, ActionButton, EmptyStateBox, MetricCard } from './EnterpriseUI';
 import { Drawer } from '../ui/Modal';
 import { toast, confirmDialog } from '../ui/feedback';
@@ -156,6 +156,36 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
     toast.success(L('تم تصدير CSV', 'CSV exported'));
   };
 
+  // Duplicate a row — clone its field values (new id) with a "(copy)" suffix on the first text field.
+  const duplicate = async (row: CrudRow) => {
+    const firstText = fields.find(f => (f.type || 'text') === 'text');
+    const payload: Record<string, any> = {};
+    fields.forEach(f => { const v = row[f.key]; if (v !== undefined && v !== null && v !== '') payload[f.key] = v; });
+    if (firstText && payload[firstText.key]) payload[firstText.key] = `${payload[firstText.key]} (${L('نسخة', 'copy')})`;
+    const { error } = await svc.create(payload);
+    if (error) { toast.error(L('تعذّر النسخ', 'Could not duplicate')); return; }
+    toast.success(L('تم إنشاء نسخة', 'Duplicated')); load();
+  };
+
+  // Import CSV — header row = field keys; creates a row per data line.
+  const fileRef = useRef<HTMLInputElement>(null);
+  const importCsv = async (file: File) => {
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { toast.error(L('ملف فارغ', 'Empty file')); return; }
+      const header = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+      let n = 0;
+      for (let i = 1; i < lines.length; i++) {
+        const cells = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+        const rec: Record<string, any> = {};
+        fields.forEach(f => { const idx = header.indexOf(f.key); if (idx >= 0 && cells[idx] !== undefined && cells[idx] !== '') rec[f.key] = f.type === 'number' ? Number(cells[idx]) : cells[idx]; });
+        if (Object.keys(rec).length) { const { error } = await svc.create(rec); if (!error) n++; }
+      }
+      toast.success(L(`تم استيراد ${n} صف`, `Imported ${n} rows`)); load();
+    } catch { toast.error(L('فشل الاستيراد', 'Import failed')); }
+  };
+
   const toggleSel = (id: string) => setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allOnPage = pageRows.length > 0 && pageRows.every(r => selected.has(r.id!));
   const toggleAll = () => setSelected(s => { const n = new Set(s); allOnPage ? pageRows.forEach(r => n.delete(r.id!)) : pageRows.forEach(r => n.add(r.id!)); return n; });
@@ -184,6 +214,8 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
         </select>
         <button onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')} title={L('عكس الترتيب', 'Toggle order')} className="h-10 w-10 rounded-xl flex items-center justify-center cursor-pointer" style={card}><ArrowUpDown size={15} color="var(--color-on-surface)" /></button>
         <button onClick={exportCsv} title={L('تصدير', 'Export')} className="h-10 px-3 rounded-xl flex items-center gap-1.5 text-sm font-bold cursor-pointer" style={card}><Download size={15} color="var(--color-on-surface)" />{L('تصدير', 'Export')}</button>
+        <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) importCsv(f); e.target.value = ''; }} />
+        <button onClick={() => fileRef.current?.click()} title={L('استيراد CSV', 'Import CSV')} className="h-10 px-3 rounded-xl flex items-center gap-1.5 text-sm font-bold cursor-pointer" style={card} id={`crud_${table}_import`}><Upload size={15} color="var(--color-on-surface)" />{L('استيراد', 'Import')}</button>
         <button onClick={load} title={L('تحديث', 'Refresh')} className="h-10 w-10 rounded-xl flex items-center justify-center cursor-pointer" style={card}><RefreshCw size={15} color="var(--color-on-surface)" /></button>
         {selected.size > 0 && (
           <button onClick={bulkDelete} className="h-10 px-3 rounded-xl flex items-center gap-1.5 text-sm font-bold cursor-pointer" style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>
@@ -210,15 +242,16 @@ export function CrudManager({ table, Icon, titleAr, titleEn, subtitleAr, subtitl
             <div className="flex items-center gap-3 px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide" style={{ borderBottom: '1px solid var(--color-outline-variant)', color: 'var(--color-on-surface-variant)' }}>
               <button onClick={toggleAll} className="cursor-pointer">{allOnPage ? <CheckSquare size={16} color="var(--color-primary-fixed)" /> : <Square size={16} />}</button>
               {fields.map(f => <span key={f.key} className="flex-1 min-w-0">{L(f.ar, f.en)}</span>)}
-              <span className="w-24 text-end">{L('إجراءات', 'Actions')}</span>
+              <span className="w-32 text-end">{L('إجراءات', 'Actions')}</span>
             </div>
             {pageRows.map(row => (
               <div key={row.id} id={`crud_row_${row.id}`} className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
                 <button onClick={() => toggleSel(row.id!)} className="cursor-pointer shrink-0">{selected.has(row.id!) ? <CheckSquare size={16} color="var(--color-primary-fixed)" /> : <Square size={16} color="var(--color-on-surface-variant)" />}</button>
                 {fields.map(f => <span key={f.key} className="flex-1 min-w-0 truncate text-sm" style={{ color: 'var(--color-on-surface)' }}>{display(f, row[f.key])}</span>)}
-                <span className="w-24 flex items-center justify-end gap-1 shrink-0">
+                <span className="w-32 flex items-center justify-end gap-1 shrink-0">
                   {onRowOpen && <button onClick={() => onRowOpen(row)} title={L('فتح', 'Open')} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-[var(--color-surface-container-high)]"><Maximize2 size={14} color="var(--color-primary-fixed)" /></button>}
                   <button onClick={() => openEdit(row)} title={L('تعديل', 'Edit')} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-[var(--color-surface-container-high)]"><Pencil size={14} color="var(--color-on-surface-variant)" /></button>
+                  <button onClick={() => duplicate(row)} title={L('نسخ', 'Duplicate')} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-[var(--color-surface-container-high)]"><Copy size={14} color="var(--color-on-surface-variant)" /></button>
                   <button onClick={() => remove(row)} title={L('حذف', 'Delete')} className="w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:bg-[var(--color-surface-container-high)]"><Trash2 size={14} color="#f87171" /></button>
                 </span>
               </div>
