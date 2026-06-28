@@ -19,6 +19,7 @@ import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 import { StoreManagement } from './StoreManagement';
 import { KitchenQueue } from './KitchenQueue';
 import { MerchantWalletCenter } from './MerchantWalletCenter';
+import { MerchantReports } from './MerchantReports';
 import { NotificationCenter } from '../admin/NotificationCenter';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -1025,6 +1026,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         {/* ══════════════════════════════════════════════════════════ */}
         {activeTab === 'wallet' && (
           <div className="space-y-4" id="merchant_wallet_tab">
+            <MerchantReports orders={orders as any} lang={lang} cur={cur} money={money} />
             {(() => {
               const a = merchantStats;
               const cards = [

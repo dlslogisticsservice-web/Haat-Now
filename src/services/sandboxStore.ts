@@ -196,7 +196,8 @@ export const sandboxStore = {
   getMerchantAnalytics(): { orders: number; delivered: number; revenue: number; avgOrder: number } {
     const all = this.getMerchantOrders();
     const delivered = all.filter(o => o.status === 'delivered');
-    const revenue = delivered.reduce((s, o) => s + (o.total_amount - o.delivery_fee), 0);
+    // Guard each term: a single row missing total_amount/delivery_fee must not poison the whole sum into NaN.
+    const revenue = delivered.reduce((s, o) => s + ((o.total_amount || 0) - (o.delivery_fee || 0)), 0);
     return { orders: all.length, delivered: delivered.length, revenue, avgOrder: delivered.length ? Math.round(revenue / delivered.length) : 0 };
   },
 
