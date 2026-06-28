@@ -35,6 +35,7 @@ import { CustomerWorkspace } from './workspaces/CustomerWorkspace';
 import { BranchWorkspace } from './workspaces/BranchWorkspace';
 import { TenantWorkspace } from './workspaces/TenantWorkspace';
 import { seedDemoData } from '../../services/demoSeed';
+import { ZoneCoverageEditor } from './ZoneCoverageEditor';
 import { Layers, MapPin, UserRound, Truck, Store, Building2, ClipboardList, Users } from 'lucide-react';
 import { notificationService } from '../../services/notification.service';
 
@@ -88,6 +89,8 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [wsCustomer,        setWsCustomer]        = useState<any | null>(null);
   const [wsBranch,          setWsBranch]          = useState<any | null>(null);
   const [wsTenant,          setWsTenant]          = useState<any | null>(null);
+  const [zoneCoverage,      setZoneCoverage]      = useState<any | null>(null);
+  const [zoneReload,        setZoneReload]        = useState(0);
   const [tenantReload,      setTenantReload]      = useState(0);
   const [searchOpen,        setSearchOpen]        = useState(false);
   const [sidebarOpen,       setSidebarOpen]       = useState(false);
@@ -346,9 +349,22 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             fields={[{ key: 'name', ar: 'الاسم', en: 'Name', required: true, placeholder: 'e.g. Beverages' }]} />
         )}
         {activeTab === 'catalog' && catTab === 'zones' && (
-          <CrudManager table="zones" Icon={MapPin} lang={lang}
-            titleAr="مناطق الكتالوج" titleEn="Zones" subtitleAr="إدارة مناطق التغطية" subtitleEn="Manage coverage zones"
-            fields={[{ key: 'name', ar: 'الاسم', en: 'Name', required: true, placeholder: 'e.g. Downtown' }, { key: 'city_id', ar: 'معرّف المدينة', en: 'City ID', placeholder: 'optional UUID' }]} />
+          <CrudManager key={zoneReload} table="zones" Icon={MapPin} lang={lang} onRowOpen={setZoneCoverage}
+            titleAr="إدارة المناطق" titleEn="Zone Manager" subtitleAr="التغطية · الرسوم · الأولوية · المضلّع" subtitleEn="Coverage · fees · priority · polygon"
+            fields={[
+              { key: 'name', ar: 'الاسم', en: 'Name', required: true, placeholder: 'e.g. Downtown' },
+              { key: 'city', ar: 'المدينة', en: 'City', placeholder: 'e.g. Riyadh' },
+              { key: 'country_code', ar: 'الدولة', en: 'Country', placeholder: 'SA' },
+              { key: 'delivery_fee', ar: 'رسوم التوصيل', en: 'Delivery fee', type: 'number', placeholder: '10' },
+              { key: 'min_order', ar: 'الحد الأدنى', en: 'Min order', type: 'number', placeholder: '30' },
+              { key: 'eta_minutes', ar: 'زمن التوصيل (د)', en: 'ETA (min)', type: 'number', placeholder: '35' },
+              { key: 'radius_km', ar: 'نطاق التغطية (كم)', en: 'Coverage radius (km)', type: 'number', placeholder: '5' },
+              { key: 'priority', ar: 'الأولوية', en: 'Priority', type: 'select', options: [{ value: 'high', ar: 'عالية', en: 'High' }, { value: 'medium', ar: 'متوسطة', en: 'Medium' }, { value: 'low', ar: 'منخفضة', en: 'Low' }] },
+              { key: 'is_active', ar: 'مفعّلة', en: 'Active', type: 'boolean' },
+            ]} />
+        )}
+        {zoneCoverage && (
+          <ZoneCoverageEditor zone={zoneCoverage} lang={lang} onClose={() => setZoneCoverage(null)} onSaved={() => { setZoneReload(n => n + 1); }} />
         )}
 
         {/* ── Business records CRUD (real Supabase tables, reusable engine) ── */}
