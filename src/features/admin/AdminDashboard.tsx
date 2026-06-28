@@ -34,6 +34,7 @@ import { OrderWorkspace } from './workspaces/OrderWorkspace';
 import { CustomerWorkspace } from './workspaces/CustomerWorkspace';
 import { BranchWorkspace } from './workspaces/BranchWorkspace';
 import { TenantWorkspace } from './workspaces/TenantWorkspace';
+import { seedDemoData } from '../../services/demoSeed';
 import { Layers, MapPin, UserRound, Truck, Store, Building2, ClipboardList, Users } from 'lucide-react';
 import { notificationService } from '../../services/notification.service';
 
@@ -99,6 +100,9 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     else setActiveTab(k as AdminTab);
   };
   // Ctrl/Cmd+K opens global search; live unread notification badge.
+  // Demo environment — populate the sandbox data layer so no admin page is empty.
+  useEffect(() => { if (import.meta.env.VITE_AUTH_MODE === 'sandbox') seedDemoData(); }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setSearchOpen(v => !v); } };
     window.addEventListener('keydown', onKey);
