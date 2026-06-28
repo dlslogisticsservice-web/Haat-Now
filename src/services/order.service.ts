@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { Order, OrderItem, OrderStatusHistory } from './types';
 import { notificationService } from './notification.service';
+import { sandboxStore } from './sandboxStore';
+
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
 
 export const orderService = {
   // Place enterprise order with custom shopping list items nested in Supabase transactional flow
@@ -161,6 +164,15 @@ export const orderService = {
 
   // Cancel order (only if pending). reason is optional — defaults to generic Arabic note.
   async cancelOrder(orderId: string, reason?: string): Promise<{ success: boolean; error: any }> {
+    // Sandbox: mirror the createOrder sandbox path — only a pending order may be cancelled.
+    if (SANDBOX) {
+      const o = sandboxStore.getById(orderId);
+      if (!o || o.status !== 'pending') {
+        return { success: false, error: new Error('Order is already in progress and cannot be cancelled.') };
+      }
+      sandboxStore.setStatus(orderId, 'cancelled');
+      return { success: true, error: null };
+    }
     const { data: order } = await supabase
       .from('orders')
       .select('status')
