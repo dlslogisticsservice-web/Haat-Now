@@ -292,6 +292,24 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     finally { setActionLoading(false); }
   };
 
+  // Merchant rejects an order — failure workflow (cancels + notifies the customer).
+  const handleRejectOrder = async (orderId: string) => {
+    if (!(await confirmDialog({ title: D('رفض الطلب', 'Reject order'), message: D('سيتم رفض هذا الطلب وإشعار العميل. لا يمكن التراجع.', 'This order will be rejected and the customer notified. This cannot be undone.'), danger: true, confirmText: D('رفض', 'Reject') }))) return;
+    setActionLoading(true);
+    try {
+      if (SANDBOX) {
+        sandboxStore.failOrder(orderId, 'merchant_rejected', 'merchant');
+        const sb = sandboxStore.getMerchantOrders();
+        setOrders(sb.map(o => ({ id: o.id, status: o.status, total_amount: o.total_amount, created_at: o.created_at, order_items: o.items?.map((it) => ({ quantity: it.qty })), customers: { full_name: o.customer_name } })) as any);
+      } else {
+        const { error } = await orderService.updateOrderStatus(orderId, 'cancelled', 'تم رفض الطلب من المتجر.');
+        if (error) { toast.error(`${D('خطأ', 'Error')}: ${(error as any).message}`); return; }
+        await reloadBranchData(selectedBranchId);
+      }
+      toast.success(D('تم رفض الطلب', 'Order rejected'));
+    } catch (e) { console.error(e); } finally { setActionLoading(false); }
+  };
+
   // ── Handlers: catalog ────────────────────────────────────────────────────
   const handleAddProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -677,6 +695,9 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                         <div className="flex flex-wrap gap-2 justify-end pt-1" id="merch_order_actions">
                           {ord.status === 'pending' && (
                             <Button variant="primary" size="sm" loading={actionLoading} onClick={() => handleUpdateStatus(ord.id, 'accepted')} leftIcon={<Icon name="check_circle" size={16} fill={1} />}>{D('قبول الطلب','Accept order')}</Button>
+                          )}
+                          {ord.status === 'pending' && (
+                            <Button variant="danger" size="sm" loading={actionLoading} onClick={() => handleRejectOrder(ord.id)} id="merch_reject_btn" leftIcon={<Icon name="cancel" size={16} fill={1} />}>{D('رفض الطلب','Reject order')}</Button>
                           )}
                           {ord.status === 'accepted' && (
                             <Button variant="secondary" size="sm" loading={actionLoading} onClick={() => handleUpdateStatus(ord.id, 'preparing')} leftIcon={<Icon name="restaurant" size={16} fill={1} />}>{D('بدء التحضير','Start preparing')}</Button>

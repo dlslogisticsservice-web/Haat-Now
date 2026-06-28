@@ -21,6 +21,8 @@ export interface SbOrder {
   items: SbOrderItem[];
   created_at: string;
   history: { status: SbStatus; at: string }[];
+  failureReason?: string;   // set when cancelled via a failure workflow
+  failedBy?: string;        // merchant | driver | customer | system
 }
 export interface SbNotif { id: string; target_user_id: string; message: string; created_at: string; read?: boolean }
 export interface SbReview { id: string; order_id: string; rating: number; comment: string; created_at: string }
@@ -108,6 +110,27 @@ export const sandboxStore = {
     pushNotif(o.customer_id, `طلب #${o.id.toUpperCase()}: ${msg[status]}`);
     return o;
   },
+
+  // Order-failure workflows — merchant reject/cancel, driver failed pickup/delivery,
+  // customer refused / no-show. A failure is a cancellation carrying a typed reason.
+  failOrder(id: string, reason: string, by: string): SbOrder | undefined {
+    const orders = this.getOrders();
+    const o = orders.find(x => x.id === id);
+    if (!o || o.status === 'delivered' || o.status === 'cancelled') return undefined;
+    o.status = 'cancelled'; o.failureReason = reason; o.failedBy = by;
+    o.history.push({ status: 'cancelled', at: nowISO() });
+    write(ORDERS_KEY, orders);
+    const labels: Record<string, string> = {
+      merchant_rejected: 'اعتذر المتجر عن تنفيذ طلبك', merchant_cancelled: 'ألغى المتجر طلبك',
+      driver_rejected: 'تعذّر إسناد كابتن، نعيد المحاولة', failed_pickup: 'تعذّر استلام الطلب من المتجر',
+      failed_delivery: 'تعذّر تسليم الطلب', customer_refused: 'تم تسجيل رفض الاستلام', customer_no_show: 'العميل غير متواجد',
+    };
+    pushNotif(o.customer_id, `طلب #${o.id.toUpperCase()}: ${labels[reason] || 'تم إلغاء الطلب'}`);
+    return o;
+  },
+
+  // Failed / incident orders for the Operations incident dashboard.
+  getFailedOrders(): SbOrder[] { return this.getOrders().filter(o => o.status === 'cancelled' && !!o.failureReason); },
 
   assignDriver(id: string, driverId: string): SbOrder | undefined {
     const orders = this.getOrders();

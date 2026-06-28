@@ -5,6 +5,7 @@ import { commandService, LiveDriver, LiveOrder, LiveMerchant, OpsSummary, ZoneAn
 import { dispatchService } from '../../services/ops/dispatch.service';
 import { OpsSlaMonitor } from './OpsSlaMonitor';
 import { OpsExecutionConsole } from './OpsExecutionConsole';
+import { OpsIncidentLog } from './OpsIncidentLog';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -164,6 +165,7 @@ export const OperationsCommandCenter: React.FC = () => {
 
       <OpsSlaMonitor />
       <OpsExecutionConsole />
+      <OpsIncidentLog />
     </div>
   );
 };
