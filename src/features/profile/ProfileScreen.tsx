@@ -675,7 +675,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
         </div>
       )}
 
-      <main className="relative z-10 px-4 pt-4 pb-2 max-w-lg mx-auto space-y-3">
+      <main className="relative z-10 px-4 pt-5 pb-2 max-w-lg mx-auto space-y-3">
 
         {/* ══════════════════════════════════════════════════
             SETTINGS SUB-PAGE

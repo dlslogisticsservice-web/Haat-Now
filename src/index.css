@@ -1551,11 +1551,14 @@ input, select, button, textarea {
   --app-tabs-height:        0px;    /* optional sticky tab strip under the header */
   --app-bottom-nav-height:  88px;   /* floating bottom navigation (customer) */
   --app-action-bar-height:  0px;    /* optional fixed bottom action/CTA bar */
+  /* Floating nav sits 12px off the bottom and the center cart FAB protrudes ~22px above it;
+     reserve that protrusion so no content/button ever sits under the FAB. */
+  --app-bottom-nav-clearance: 34px;
 
   /* Reserve top = notch/status-bar inset + header + tabs. */
   --top-safe-space:    calc(env(safe-area-inset-top, 0px) + var(--app-header-height) + var(--app-tabs-height));
-  /* Reserve bottom = home-indicator inset + bottom nav + action bar + breathing. */
-  --bottom-safe-space: calc(env(safe-area-inset-bottom, 0px) + var(--app-bottom-nav-height) + var(--app-action-bar-height) + 24px);
+  /* Reserve bottom = home-indicator inset + bottom nav + action bar + FAB clearance + breathing. */
+  --bottom-safe-space: calc(env(safe-area-inset-bottom, 0px) + var(--app-bottom-nav-height) + var(--app-action-bar-height) + var(--app-bottom-nav-clearance) + 24px);
 }
 /* Sticky headers/tabs add the TOP inset so the notch/status bar never overlaps them. */
 .app-header-safe { padding-top: env(safe-area-inset-top, 0px); }
