@@ -1531,12 +1531,14 @@ input, select, button, textarea {
 /* ── SAFE_BOTTOM_ACTION_SPACE — global bottom-action protection (hotfix) ──────
    --safe-bottom-action-space: for FIXED bars that sit ABOVE the bottom nav
      (floating cart, checkout swipe) -> inset + nav height (88px) + 24px breathing.
-   --safe-sheet-space: for modals/drawers/bottom-sheets that OVERLAY the nav
-     -> inset + 24px (the nav is hidden behind them, so no nav height needed). */
+   --safe-sheet-space: for modals/drawers/bottom-sheets. The floating nav lives in a
+     higher stacking context (sibling of the page) and renders ON TOP of in-page sheets,
+     so the sheet action bar MUST clear the nav height (+ its 12px float offset) to stay
+     tappable. */
 :root {
   --bottom-nav-height: 88px;
   --safe-bottom-action-space: calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height) + 24px);
-  --safe-sheet-space: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  --safe-sheet-space: calc(env(safe-area-inset-bottom, 0px) + var(--bottom-nav-height) + 36px);
 }
 .safe-bottom-action { padding-bottom: var(--safe-bottom-action-space) !important; }
 .safe-sheet-action  { padding-bottom: var(--safe-sheet-space) !important; }
