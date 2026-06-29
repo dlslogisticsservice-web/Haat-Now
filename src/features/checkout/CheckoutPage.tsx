@@ -204,6 +204,18 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const fetchCheckoutPreRequisites = async () => {
     try {
       setLoading(true);
+      if (SANDBOX) {
+        // Self-contained demo: seeded zones + saved addresses (no backend).
+        let z: any[] = [];
+        try { z = JSON.parse(localStorage.getItem('haat_crud_zones') || '[]'); } catch { z = []; }
+        const zones = z.length ? z.map((x: any) => ({ id: x.id, name: x.name })) : [{ id: 'z1', name: 'وسط المدينة' }, { id: 'z2', name: 'حي الأعمال' }, { id: 'z3', name: 'الواجهة البحرية' }];
+        setZones(zones as any); setSelectedZoneId(zones[0].id);
+        const addrs = sandboxStore.getAddresses(customerId);
+        setAddresses(addrs as any);
+        if (addrs.length > 0) { const def = addrs.find((a: any) => a.is_default); setSelectedAddress(def ? def.id : addrs[0].id); }
+        setLoading(false);
+        return;
+      }
       const { data: zoneData }    = await supabase.from('zones').select('*');
       if (zoneData) { setZones(zoneData); if (zoneData.length > 0) setSelectedZoneId(zoneData[0].id); }
       const { data: addressData } = await supabase.from('addresses').select('*').eq('customer_id', customerId).order('is_default', { ascending: false });
@@ -250,6 +262,11 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
     if (!newAddressText || !selectedZoneId) return;
     setActionLoading(true);
     try {
+      if (SANDBOX) {
+        const a = sandboxStore.addAddress({ customer_id: customerId, zone_id: selectedZoneId, address_line: newAddressText, label: t('checkout.customLocation') });
+        setAddresses([a as any, ...addresses]); setSelectedAddress(a.id); setNewAddressText(''); setIsAddingAddress(false);
+        setActionLoading(false); return;
+      }
       const { data, error } = await supabase.from('addresses')
         .insert({ customer_id: customerId, zone_id: selectedZoneId, address_line: newAddressText, label: t('checkout.customLocation') })
         .select().single();

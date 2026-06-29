@@ -41,6 +41,7 @@ const STOCK_KEY  = 'haat_sb_stock_moves';
 const COUPON_KEY = 'haat_sb_coupons';
 const LOYAL_KEY  = 'haat_sb_loyalty';
 const PUSH_KEY   = 'haat_sb_push_tokens';
+const ADDR_KEY   = 'haat_sb_addresses';
 const SEQ_KEY    = 'haat_sb_seq';
 
 function read<T>(k: string, def: T): T {
@@ -299,6 +300,28 @@ export const sandboxStore = {
     if (c.max_uses > 0 && c.used >= c.max_uses) return { ok: false, reason: 'تم استنفاد الكوبون' };
     if (c.country && c.country !== country) return { ok: false, reason: 'الكوبون غير متاح في بلدك' };
     return { ok: true, coupon: c };
+  },
+
+  // ── Saved addresses (demo) ───────────────────────────────────────────────────
+  getAddresses(customerId: string): any[] {
+    const all = read<any[]>(ADDR_KEY, []);
+    let mine = all.filter(a => a.customer_id === customerId);
+    if (mine.length === 0) {
+      // Seed a couple of realistic default addresses so checkout/address-book are never empty.
+      const seed = [
+        { id: nextId('addr'), customer_id: customerId, zone_id: 'z1', address_line: 'شارع الملك فهد، حي العليا، الرياض', label: 'المنزل', is_default: true },
+        { id: nextId('addr'), customer_id: customerId, zone_id: 'z2', address_line: 'طريق الملك عبدالله، حي الملقا، الرياض', label: 'العمل', is_default: false },
+      ];
+      write(ADDR_KEY, [...all, ...seed]);
+      mine = seed;
+    }
+    return mine.sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0));
+  },
+  addAddress(input: { customer_id: string; zone_id: string; address_line: string; label: string }): any {
+    const all = read<any[]>(ADDR_KEY, []);
+    const a = { id: nextId('addr'), customer_id: input.customer_id, zone_id: input.zone_id, address_line: input.address_line, label: input.label, is_default: all.filter(x => x.customer_id === input.customer_id).length === 0 };
+    write(ADDR_KEY, [a, ...all]);
+    return a;
   },
 
   // ── Loyalty / rewards ────────────────────────────────────────────────────────
