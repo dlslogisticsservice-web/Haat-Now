@@ -94,6 +94,9 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const [tenantReload,      setTenantReload]      = useState(0);
   const [searchOpen,        setSearchOpen]        = useState(false);
   const [sidebarOpen,       setSidebarOpen]       = useState(false);
+  // Desktop sidebar rail (icon-only) mode — remembered across sessions.
+  const [railed,            setRailed]            = useState(() => { try { return localStorage.getItem('haat_admin_rail') === '1'; } catch { return false; } });
+  const toggleRail = () => setRailed(v => { const n = !v; try { localStorage.setItem('haat_admin_rail', n ? '1' : '0'); } catch { /* ignore */ } return n; });
   const [notifBadge,        setNotifBadge]        = useState(0);
   const activeNav: NavKey = activeTab === 'ops' ? (`ops:${opsTab}` as NavKey) : activeTab === 'catalog' ? (`catalog:${catTab}` as NavKey) : activeTab === 'mgmt' ? (`mgmt:${mgmtTab}` as NavKey) : (activeTab as NavKey);
   const handleNav = (k: NavKey) => {
@@ -252,12 +255,14 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         onRefresh={fetchAdminModuleData}
         mobileOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        railed={railed}
+        onToggleRail={toggleRail}
       />
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} lang={lang} onNavigate={handleNav} />
 
       {/* ── Main Content ───────────────────────────────────── */}
       <main
-        className="flex-1 min-h-screen overflow-y-auto px-5 pb-6 md:px-8 md:pb-8 space-y-6 md:ms-[260px]"
+        className={`flex-1 min-h-screen overflow-y-auto px-5 pb-6 md:px-8 md:pb-8 space-y-6 transition-[margin] duration-200 ${railed ? 'md:ms-[76px]' : 'md:ms-[260px]'}`}
         style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }}
         id="admin_main_content"
       >
