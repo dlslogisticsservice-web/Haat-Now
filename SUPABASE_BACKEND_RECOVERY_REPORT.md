@@ -82,6 +82,12 @@ Typecheck/Lint **0** · Build ✅ · **unfiltered 4-role console audit: 0 errors
 
 ## Production
 - URL: https://haat-now.vercel.app
-### Verification log
-- Feature CI: `<status>` · Merge commit: `<sha>` · version.json == HEAD: `<sha>` ·
-  SW `haat-shell-<sha>` == HEAD: `<yes>` · **Production matches latest commit**: `<confirmed>`
+### Verification log (confirmed)
+- Feature CI (`6806e4f`): **success** — Typecheck·Lint·Build + E2E (Puppeteer) 24/24.
+- Merge commit on main: **`c0995a3`** (`git merge --no-ff`, no force).
+- Main CI: **success**.
+- Production `version.json` short: **`c0995a3`** == main HEAD ✅
+- Service Worker cache: **`haat-shell-c0995a3`** == main HEAD ✅
+- **LIVE PRODUCTION console probe** (`https://haat-now.vercel.app`, driver + admin→OCC):
+  **0 console errors · 0 × 403/401/500 · 0 Supabase websockets** — `GRAND_PROD_BACKEND_ERRORS: 0`.
+- **Production matches the latest commit & is backend-error-free: CONFIRMED ✅**
