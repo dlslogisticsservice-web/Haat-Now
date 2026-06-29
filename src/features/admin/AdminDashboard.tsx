@@ -13,10 +13,9 @@ import { authService } from '../../services/auth.service';
 import { couponService } from '../../services/coupon.service';
 import { analyticsService } from '../../services/analytics.service';
 
-// Sandbox is only ever active in dev — keep this consistent with auth.service's
-// IS_SANDBOX (`&& import.meta.env.DEV`) so this module never disagrees with the
-// auth layer about which mode it is in (a mode mismatch previously mis-gated super-admin).
-const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' && import.meta.env.DEV;
+// Keyed off VITE_AUTH_MODE ONLY — must match auth.service's IS_SANDBOX and lib/supabase.ts
+// (no `&& import.meta.env.DEV`: that broke login on the deployed production build).
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 import { DesignCenter } from './DesignCenter';
 import { CampaignCenter } from './CampaignCenter';
