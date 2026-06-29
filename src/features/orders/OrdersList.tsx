@@ -190,6 +190,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
 
   useEffect(() => {
     fetchOrders();
+    if (SANDBOX) return;   // demo is client-side — no realtime socket (avoids 403/ws errors)
     const channel = supabase.channel('orders-realtime-customer')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `customer_id=eq.${customerId}` }, () => {
         fetchOrders();
@@ -265,6 +266,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   useEffect(() => {
     const driverId    = orderDetails?.driver_id;
     const activeStatus = orderDetails?.status;
+    if (SANDBOX) return;   // demo is client-side — no realtime driver-location socket
     if (!driverId || !['preparing', 'on_the_way'].includes(activeStatus)) {
       if (driverLocChannelRef.current) { supabase.removeChannel(driverLocChannelRef.current); driverLocChannelRef.current = null; }
       return;

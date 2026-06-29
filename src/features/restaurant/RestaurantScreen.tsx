@@ -29,6 +29,16 @@ interface RestaurantScreenProps {
 // A pharmacy shows pharmacy imagery, a flower shop shows flowers — never food.
 const TABS = ['الوجبات', 'العروض', 'التقييمات', 'عن المطعم'];
 
+// Self-contained demo menu (no backend) — the customer browse/order flow must work offline in sandbox.
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+const DEMO_DISHES = ['برجر لحم فاخر', 'شاورما دجاج', 'كبسة لحم', 'مندي دجاج', 'بيتزا مارجريتا', 'باستا ألفريدو', 'سلطة سيزر', 'عصير برتقال طازج', 'تشيز كيك', 'بطاطس مقلية'];
+const sandboxMenu = (branchId: string) => DEMO_DISHES.map((name, i) => ({
+  id: `${branchId}-p${i + 1}`, name, description: 'صنف عالي الجودة يُحضَّر طازجًا عند الطلب.',
+  price: 18 + i * 7,
+  product_images: [] as { url: string }[],
+  product_variants: i % 2 === 0 ? [{ id: `${branchId}-v${i}a`, name: 'وسط', price_modifier: 0 }, { id: `${branchId}-v${i}b`, name: 'كبير', price_modifier: 8 }] : [],
+}));
+
 // Guard: HomeScreen renders mock fallback cards (ids "m1"–"m4", "f1"–"f6") when the
 // catalog is empty/unreadable. Those non-UUID ids must never reach a uuid-typed
 // branch_id query (Postgres 22P02). Real branch ids are always UUIDs.
@@ -83,6 +93,7 @@ export const RestaurantScreen = ({
   const fetchBranchMenu = async () => {
     try {
       setLoading(true);
+      if (SANDBOX) { setProducts(sandboxMenu(branchId) as any); return; }
       if (!isValidBranchId(branchId)) {
         // Mock/placeholder branch (catalog empty) — skip the broken uuid query.
         console.warn('fetchBranchMenu: non-UUID branchId, skipping product fetch:', branchId);

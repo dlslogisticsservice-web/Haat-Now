@@ -179,6 +179,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
 
   // G-02 — Realtime: refresh available feed on any order UPDATE.
   useEffect(() => {
+    if (SANDBOX) return;   // demo is client-side — no realtime socket (avoids 403/ws errors)
     const channel = supabase
       .channel(`driver-orders-feed-${driverId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => {
