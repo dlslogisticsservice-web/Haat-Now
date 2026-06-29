@@ -81,17 +81,19 @@ Google Maps tiles (external key; SVG sim functional).
 
 ## 6. Build / CI / Production
 - **Typecheck/Lint**: 0 errors. **Build**: success. **E2E**: 24/24.
-- **CI**: GitHub Actions — *(filled below after the feature push)*.
-- **Production SHA**: *(filled below after merge + deploy)*.
-- **version.json / Service Worker**: *(verified below)*.
+- **CI**: GitHub Actions GREEN on both feature branch and main.
+- **Production SHA**: `4be26ba` (merge commit).
+- **version.json / Service Worker**: verified (below).
 - **Production URL**: https://haat-now.vercel.app
 
-### Verification log (filled at deploy)
-- Feature branch CI: `<status>`
-- Merge commit on main: `<sha>`
-- Production version.json short == HEAD: `<sha>`
-- Service Worker cache `haat-shell-<sha>` == HEAD: `<yes>`
-- **Production matches latest commit**: `<confirmed>`
+### Verification log (deploy confirmed)
+- Feature branch (`450690c`) CI: **success** — Typecheck·Lint·Build + E2E (Puppeteer) 24/24 + Edge Deno.
+- Merge commit on `main`: **`4be26ba`** (`git merge --no-ff`, no force).
+- Main CI: **success**.
+- Production `version.json` short: **`4be26ba`** == main HEAD ✅
+- Service Worker cache: **`haat-shell-4be26ba`** == main HEAD ✅
+- `robots.txt` live in production: ✅ (`User-agent: *`)
+- **Production matches the latest commit: CONFIRMED ✅**
 
 ---
 
