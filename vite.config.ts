@@ -4,7 +4,16 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
+  // The platform ships as a SELF-CONTAINED DEMO (all accounts/data/lifecycle live client-side).
+  // Force sandbox at build time so production can never hit a backend it was not provisioned for
+  // (no 403/401/realtime errors). `.env*` is gitignored, so the deployed build has no env files and
+  // would otherwise fall back to whatever the host injects. A real backend deploy opts in explicitly
+  // with HAAT_LIVE_BACKEND=1. This define is the single committed source of truth for the auth mode.
+  const authMode = process.env.HAAT_LIVE_BACKEND === '1' ? 'supabase' : 'sandbox';
   return {
+    define: {
+      'import.meta.env.VITE_AUTH_MODE': JSON.stringify(authMode),
+    },
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

@@ -21,6 +21,15 @@ these errors in verification (a real prior mistake) and audited every role with 
 **intact** (security is NOT disabled). The bug was pointing a localStorage demo at a backend it was never
 seeded/authenticated for.
 
+### Why `.env.production` alone wasn't enough (the real production lever)
+`.env*` is **gitignored** — neither `.env` nor `.env.production` is committed, so the Vercel build has **no
+env files** and `VITE_AUTH_MODE` came only from the **Vercel dashboard** (which a code change can't set).
+So the deterministic, committed fix is in **`vite.config.ts`**: a build-time
+`define: { 'import.meta.env.VITE_AUTH_MODE': '"sandbox"' }` (opt out to a real backend with
+`HAAT_LIVE_BACKEND=1`). **Proven**: a build with `VITE_AUTH_MODE=supabase` injected + no env files (exactly
+the Vercel scenario) still ran fully sandbox — driver + admin/OCC = **0 console errors, 0 403/401/500, 0
+websockets**.
+
 ## Per-endpoint explanation + fix
 | Failing endpoint | Why it 403'd | Fix |
 |---|---|---|
