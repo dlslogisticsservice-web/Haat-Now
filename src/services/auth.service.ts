@@ -3,15 +3,14 @@ import { User } from '../features/auth/types';
 import { toE164 } from '../utils/phone';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dual-mode authentication.
-//   VITE_AUTH_MODE=sandbox   → local demo OTP (123456) + fixed demo accounts.
-//   VITE_AUTH_MODE=supabase  → real Supabase phone OTP (production).
-// Sandbox is gated on `import.meta.env.DEV` — a BUILD-TIME constant that is FALSE
-// in any production build (`vite build`). So in production: demo accounts + OTP
-// 123456 can never authenticate, AND the sandbox branches (incl. DEMO_ACCOUNTS)
-// are statically dead → tree-shaken out of the production bundle. Dev keeps sandbox.
+// Dual-mode authentication — keyed off VITE_AUTH_MODE ONLY (must match lib/supabase.ts
+// and every other service; do NOT re-add an `&& import.meta.env.DEV` gate — that made
+// the demo unable to log in on the deployed production build, where DEV is false).
+//   VITE_AUTH_MODE=sandbox   → local demo OTP (123456) + fixed demo accounts (the demo;
+//                              forced in vite.config so production ships as the demo).
+//   VITE_AUTH_MODE=supabase  → real Supabase phone OTP (opt in with HAAT_LIVE_BACKEND=1).
 // ─────────────────────────────────────────────────────────────────────────────
-const IS_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' && import.meta.env.DEV;
+const IS_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 
 export const SANDBOX_OTP = '123456';
 const SANDBOX_SESSION_KEY = 'haat_sandbox_session';
