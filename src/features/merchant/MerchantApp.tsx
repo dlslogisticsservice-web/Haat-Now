@@ -183,6 +183,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
 
   // G-01 — Realtime subscription: re-fetch orders when any order for this branch changes.
   useEffect(() => {
+    if (SANDBOX) return;   // demo is client-side — no realtime socket (avoids 403/ws errors)
     if (!selectedBranchId) return;
 
     if (ordersChannelRef.current) {
