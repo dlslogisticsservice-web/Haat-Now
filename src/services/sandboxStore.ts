@@ -101,7 +101,7 @@ export const sandboxStore = {
     const o = orders.find(x => x.id === id);
     if (!o) return undefined;
     o.status = status;
-    o.history.push({ status, at: nowISO() });
+    (o.history ||= []).push({ status, at: nowISO() });   // guard: orders from any source may lack history
     write(ORDERS_KEY, orders);
     const msg: Record<SbStatus, string> = {
       pending: 'طلبك قيد المراجعة', accepted: 'قَبِل المتجر طلبك ✅', preparing: 'المتجر يحضّر طلبك الآن 👨‍🍳',
@@ -118,7 +118,7 @@ export const sandboxStore = {
     const o = orders.find(x => x.id === id);
     if (!o || o.status === 'delivered' || o.status === 'cancelled') return undefined;
     o.status = 'cancelled'; o.failureReason = reason; o.failedBy = by;
-    o.history.push({ status: 'cancelled', at: nowISO() });
+    (o.history ||= []).push({ status: 'cancelled', at: nowISO() });
     write(ORDERS_KEY, orders);
     const labels: Record<string, string> = {
       merchant_rejected: 'اعتذر المتجر عن تنفيذ طلبك', merchant_cancelled: 'ألغى المتجر طلبك',
