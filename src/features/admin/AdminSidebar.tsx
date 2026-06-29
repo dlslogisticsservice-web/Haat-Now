@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Map, Route, MapPin, UserRound, Truck, Wallet, Banknote, TicketPercent,
   Headset, ShieldCheck, LifeBuoy, Target, Megaphone, Palette, Settings2, ChevronDown, LogOut,
   Languages, RefreshCw, LucideIcon, Layers, Bell, ScrollText, Search,
-  Store, Building2, ClipboardList, Users,
+  Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react';
 
 export type NavKey =
@@ -24,8 +24,8 @@ const GROUPS: Group[] = [
     { key: 'ops:zones', ar: 'المناطق', en: 'Zones', Icon: MapPin },
   ] },
   { ar: 'الأسطول', en: 'Fleet', items: [
-    { key: 'ops:performance', ar: 'المندوبون', en: 'Drivers', Icon: UserRound },
-    { key: 'ops:vehicles', ar: 'المركبات', en: 'Vehicles', Icon: Truck },
+    { key: 'ops:performance', ar: 'أداء المندوبين', en: 'Driver Performance', Icon: Gauge },
+    { key: 'ops:vehicles', ar: 'حالة المركبات', en: 'Vehicle Status', Icon: Truck },
   ] },
   { ar: 'التجارة', en: 'Commerce', items: [{ key: 'coupons', ar: 'الكوبونات', en: 'Coupons', Icon: TicketPercent }] },
   { ar: 'الكتالوج', en: 'Catalog', items: [
@@ -71,72 +71,91 @@ export const AdminSidebar: React.FC<{
   supportBadge?: number; notifBadge?: number; onSearch?: () => void;
   onLogout: () => void; onToggleLang: () => void; onRefresh: () => void;
   mobileOpen?: boolean; onClose?: () => void;
-}> = ({ active, onSelect, lang, isSuper, supportBadge, notifBadge, onSearch, onLogout, onToggleLang, onRefresh, mobileOpen, onClose }) => {
+  railed?: boolean; onToggleRail?: () => void;
+}> = ({ active, onSelect, lang, isSuper, supportBadge, notifBadge, onSearch, onLogout, onToggleLang, onRefresh, mobileOpen, onClose, railed, onToggleRail }) => {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const toggle = (g: string) => setCollapsed(c => ({ ...c, [g]: !c[g] }));
   // Persistent on desktop; slide-in Drawer on mobile (off-canvas toward the start edge when closed).
   const closedTransform = mobileOpen ? '' : (lang === 'ar' ? 'max-md:translate-x-full' : 'max-md:-translate-x-full');
+  // Rail = desktop icon-only mode. Applied via md: utilities so the mobile drawer always shows full labels.
+  const r = !!railed;
+  const hideText = r ? 'md:hidden' : '';            // hide labels/group headers on desktop when railed
   const select = (k: NavKey) => { onSelect(k); onClose?.(); };
 
   return (
     <>
       {/* Mobile drawer backdrop */}
       {mobileOpen && <div className="md:hidden fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.55)' }} onClick={onClose} aria-hidden="true" />}
-    <aside className={`fixed inset-y-0 start-0 w-[260px] flex flex-col z-50 md:z-40 transition-transform duration-200 md:translate-x-0 ${closedTransform}`}
+    <aside className={`fixed inset-y-0 start-0 w-[260px] ${r ? 'md:w-[76px]' : 'md:w-[260px]'} flex flex-col z-50 md:z-40 transition-[transform,width] duration-200 md:translate-x-0 ${closedTransform}`}
       dir={lang === 'ar' ? 'rtl' : 'ltr'} role="navigation" aria-label={L('التنقل الرئيسي', 'Main navigation')}
       style={{ background: 'var(--color-surface-container-lowest, #0a0f14)', borderInlineEnd: '1px solid var(--color-outline-variant)' }}>
-      {/* Brand */}
-      <div className="px-5 py-5 flex items-center gap-2.5" style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
-        <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--color-primary-fixed)' }}>
+      {/* Brand + desktop rail toggle */}
+      <div className={`px-4 py-5 flex items-center gap-2.5 ${r ? 'md:justify-center md:px-0' : ''}`} style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
+        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--color-primary-fixed)' }}>
           <Layers size={18} color="var(--color-on-primary-fixed)" />
         </span>
-        <div>
+        <div className={hideText}>
           <p className="font-extrabold text-sm tracking-tight" style={{ color: 'var(--color-on-surface)' }}>HAAT NOW</p>
           <p className="text-[10px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('منصة الإدارة', 'Admin Platform')}</p>
         </div>
+        <button onClick={onToggleRail} title={L('طيّ الشريط', 'Collapse sidebar')} aria-label={L('طيّ الشريط', 'Collapse sidebar')}
+          className={`hidden md:flex items-center justify-center w-7 h-7 rounded-lg cursor-pointer ms-auto ${r ? 'md:hidden' : ''}`}
+          style={{ color: 'var(--color-on-surface-variant)' }}>
+          <PanelLeftClose size={16} />
+        </button>
       </div>
 
+      {/* Expand button — only when railed (desktop) */}
+      {r && (
+        <button onClick={onToggleRail} title={L('توسيع الشريط', 'Expand sidebar')} aria-label={L('توسيع الشريط', 'Expand sidebar')}
+          className="hidden md:flex items-center justify-center mx-auto mt-2 w-9 h-9 rounded-lg cursor-pointer" style={{ color: 'var(--color-on-surface-variant)', background: 'var(--color-surface-container-high)' }}>
+          <PanelLeftOpen size={16} />
+        </button>
+      )}
+
       {/* Global search trigger */}
-      <div className="px-3 pt-3">
-        <button onClick={onSearch} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer"
+      <div className={`px-3 pt-3 ${r ? 'md:px-2' : ''}`}>
+        <button onClick={onSearch} title={L('بحث شامل', 'Search')} className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm cursor-pointer ${r ? 'md:justify-center md:px-0' : ''}`}
           style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
-          <Search size={15} />
-          <span className="flex-1 text-start">{L('بحث شامل…', 'Search…')}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'var(--color-surface-container-lowest)' }}>Ctrl K</span>
+          <Search size={15} className="shrink-0" />
+          <span className={`flex-1 text-start ${hideText}`}>{L('بحث شامل…', 'Search…')}</span>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${hideText}`} style={{ background: 'var(--color-surface-container-lowest)' }}>Ctrl K</span>
         </button>
       </div>
 
       {/* Nav groups */}
-      <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-1">
+      <nav className={`flex-1 overflow-y-auto px-2.5 py-3 space-y-1 ${r ? 'md:px-2' : ''}`}>
         {GROUPS.map(g => {
           const items = g.items.filter(i => !i.super || isSuper);
           if (items.length === 0) return null;
-          const isCollapsed = collapsed[g.en];
+          const isCollapsed = collapsed[g.en] && !r;        // ignore group-collapse when railed (show all icons)
           return (
             <div key={g.en}>
               <button onClick={() => toggle(g.en)}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide cursor-pointer"
+                className={`w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide cursor-pointer ${hideText}`}
                 style={{ color: 'var(--color-on-surface-variant)' }}>
                 <span>{L(g.ar, g.en)}</span>
                 <ChevronDown size={13} style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform .15s' }} />
               </button>
+              {/* thin divider between groups when railed */}
+              {r && <div className="hidden md:block mx-2 my-1.5" style={{ borderTop: '1px solid var(--color-outline-variant)' }} />}
               {!isCollapsed && (
                 <div className="space-y-0.5 mt-0.5">
                   {items.map(it => {
                     const on = active === it.key;
                     const badge = it.key === 'support' ? supportBadge : it.key === 'notifications' ? notifBadge : undefined;
                     return (
-                      <button key={it.key} onClick={() => select(it.key)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all"
+                      <button key={it.key} onClick={() => select(it.key)} title={L(it.ar, it.en)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer transition-all relative ${r ? 'md:justify-center md:px-0 md:gap-0' : ''}`}
                         style={on
                           ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontWeight: 700 }
                           : { color: 'var(--color-on-surface)', background: 'transparent' }}
                         onMouseEnter={e => { if (!on) e.currentTarget.style.background = 'var(--color-surface-container-high)'; }}
                         onMouseLeave={e => { if (!on) e.currentTarget.style.background = 'transparent'; }}>
-                        <it.Icon size={17} />
-                        <span className="flex-1 text-start">{L(it.ar, it.en)}</span>
-                        {badge ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--color-error)', color: '#fff' }}>{badge}</span> : null}
+                        <it.Icon size={17} className="shrink-0" />
+                        <span className={`flex-1 text-start ${hideText}`}>{L(it.ar, it.en)}</span>
+                        {badge ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${r ? 'md:absolute md:top-1 md:end-1 md:px-1 md:py-0' : ''}`} style={{ background: 'var(--color-error)', color: '#fff' }}>{badge}</span> : null}
                       </button>
                     );
                   })}
@@ -148,10 +167,10 @@ export const AdminSidebar: React.FC<{
       </nav>
 
       {/* Footer actions */}
-      <div className="px-3 py-3 space-y-1" style={{ borderTop: '1px solid var(--color-outline-variant)' }}>
-        <button onClick={onRefresh} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer" style={{ color: 'var(--color-on-surface-variant)' }}><RefreshCw size={16} />{L('تحديث', 'Refresh')}</button>
-        <button onClick={onToggleLang} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer" style={{ color: 'var(--color-on-surface-variant)' }}><Languages size={16} />{lang === 'ar' ? 'English' : 'العربية'}</button>
-        <button onClick={onLogout} className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer" style={{ color: '#f87171' }}><LogOut size={16} />{L('تسجيل الخروج', 'Sign out')}</button>
+      <div className={`px-3 py-3 space-y-1 ${r ? 'md:px-2' : ''}`} style={{ borderTop: '1px solid var(--color-outline-variant)' }}>
+        <button onClick={onRefresh} title={L('تحديث', 'Refresh')} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer ${r ? 'md:justify-center md:px-0' : ''}`} style={{ color: 'var(--color-on-surface-variant)' }}><RefreshCw size={16} className="shrink-0" /><span className={hideText}>{L('تحديث', 'Refresh')}</span></button>
+        <button onClick={onToggleLang} title={lang === 'ar' ? 'English' : 'العربية'} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer ${r ? 'md:justify-center md:px-0' : ''}`} style={{ color: 'var(--color-on-surface-variant)' }}><Languages size={16} className="shrink-0" /><span className={hideText}>{lang === 'ar' ? 'English' : 'العربية'}</span></button>
+        <button onClick={onLogout} title={L('تسجيل الخروج', 'Sign out')} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer ${r ? 'md:justify-center md:px-0' : ''}`} style={{ color: '#f87171' }}><LogOut size={16} className="shrink-0" /><span className={hideText}>{L('تسجيل الخروج', 'Sign out')}</span></button>
       </div>
     </aside>
     </>
