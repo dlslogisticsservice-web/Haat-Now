@@ -30,14 +30,54 @@ interface RestaurantScreenProps {
 const TABS = ['الوجبات', 'العروض', 'التقييمات', 'عن المطعم'];
 
 // Self-contained demo menu (no backend) — the customer browse/order flow must work offline in sandbox.
+// Each restaurant gets a DISTINCT menu (cuisine chosen deterministically by branch id) so browsing
+// feels like a real catalogue rather than the same list everywhere.
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
-const DEMO_DISHES = ['برجر لحم فاخر', 'شاورما دجاج', 'كبسة لحم', 'مندي دجاج', 'بيتزا مارجريتا', 'باستا ألفريدو', 'سلطة سيزر', 'عصير برتقال طازج', 'تشيز كيك', 'بطاطس مقلية'];
-const sandboxMenu = (branchId: string) => DEMO_DISHES.map((name, i) => ({
-  id: `${branchId}-p${i + 1}`, name, description: 'صنف عالي الجودة يُحضَّر طازجًا عند الطلب.',
-  price: 18 + i * 7,
-  product_images: [] as { url: string }[],
-  product_variants: i % 2 === 0 ? [{ id: `${branchId}-v${i}a`, name: 'وسط', price_modifier: 0 }, { id: `${branchId}-v${i}b`, name: 'كبير', price_modifier: 8 }] : [],
-}));
+const MENUS: { dish: string; desc: string; base: number; sizes?: [string, string] }[][] = [
+  [ // مشاوي / grill
+    { dish: 'مشاوي مشكّلة', desc: 'تشكيلة لحوم مشوية على الفحم مع أرز بخاري.', base: 78, sizes: ['فردي', 'عائلي'] },
+    { dish: 'كبسة لحم', desc: 'أرز بسمتي مع لحم طري ومكسّرات.', base: 62 },
+    { dish: 'مندي دجاج', desc: 'دجاج مدخّن على الطريقة اليمنية.', base: 48, sizes: ['ربع', 'نصف'] },
+    { dish: 'شاورما لحم', desc: 'خبز صاج مع لحم وصلصة طحينة.', base: 28 },
+    { dish: 'كباب مشوي', desc: 'كباب لحم متبّل مشوي.', base: 44 },
+    { dish: 'سلطة فتوش', desc: 'خضار طازجة مع خبز محمّص.', base: 18 },
+  ],
+  [ // كافيه / cafe
+    { dish: 'قهوة سعودية', desc: 'قهوة عربية أصيلة بالهيل.', base: 14, sizes: ['صغير', 'كبير'] },
+    { dish: 'لاتيه', desc: 'إسبريسو مع حليب مبخّر.', base: 19, sizes: ['وسط', 'كبير'] },
+    { dish: 'شاي كرك', desc: 'شاي بالحليب والبهارات.', base: 12 },
+    { dish: 'تشيز كيك', desc: 'تشيز كيك كريمي بصوص التوت.', base: 26 },
+    { dish: 'كروسان زعتر', desc: 'كروسان طازج محشو بالزعتر.', base: 16 },
+    { dish: 'موكا بارد', desc: 'قهوة مثلجة بالشوكولاتة.', base: 22 },
+  ],
+  [ // بيتزا / pizza & pasta
+    { dish: 'بيتزا مارجريتا', desc: 'صلصة طماطم وجبنة موزاريلا.', base: 42, sizes: ['وسط', 'كبير'] },
+    { dish: 'بيتزا بيبروني', desc: 'بيبروني مع جبن وفلفل.', base: 52, sizes: ['وسط', 'كبير'] },
+    { dish: 'باستا ألفريدو', desc: 'باستا بصلصة كريمة الفطر.', base: 46 },
+    { dish: 'لازانيا لحم', desc: 'طبقات باستا بلحم وجبن.', base: 54 },
+    { dish: 'سلطة سيزر', desc: 'خس وصلصة سيزر مع دجاج.', base: 32 },
+    { dish: 'خبز بالثوم', desc: 'خبز محمّص بزبدة الثوم.', base: 18 },
+  ],
+  [ // بقالة/سوبرماركت / grocery
+    { dish: 'أرز بسمتي ٥كجم', desc: 'أرز فاخر طويل الحبة.', base: 65 },
+    { dish: 'زيت زيتون ١لتر', desc: 'زيت زيتون بكر ممتاز.', base: 48 },
+    { dish: 'حليب طازج ٢لتر', desc: 'حليب كامل الدسم.', base: 14 },
+    { dish: 'بيض طازج ٣٠حبة', desc: 'بيض مزارع طازج.', base: 26 },
+    { dish: 'معكرونة ٥٠٠غ', desc: 'معكرونة قمح صلب.', base: 9 },
+    { dish: 'جبن شيدر ٤٠٠غ', desc: 'جبن شيدر مبشور.', base: 22 },
+  ],
+];
+const sandboxMenu = (branchId: string) => {
+  let h = 0; for (let i = 0; i < branchId.length; i++) h = (h * 31 + branchId.charCodeAt(i)) >>> 0;
+  const menu = MENUS[h % MENUS.length];
+  const count = 5 + (h % 2); // 5–6 items
+  return menu.slice(0, count).map((m, i) => ({
+    id: `${branchId}-p${i + 1}`, name: m.dish, description: m.desc,
+    price: m.base + ((h >> i) % 6), // small per-restaurant price variation
+    product_images: [] as { url: string }[],
+    product_variants: m.sizes ? [{ id: `${branchId}-v${i}a`, name: m.sizes[0], price_modifier: 0 }, { id: `${branchId}-v${i}b`, name: m.sizes[1], price_modifier: 8 + (i % 4) * 2 }] : [],
+  }));
+};
 
 // Guard: HomeScreen renders mock fallback cards (ids "m1"–"m4", "f1"–"f6") when the
 // catalog is empty/unreadable. Those non-UUID ids must never reach a uuid-typed
