@@ -16,6 +16,64 @@ import { Loader, EmptyState } from '../../components/ui/Primitives';
 import { DriverOpsPanel } from './DriverOpsPanel';
 import { OnboardingForm } from '../onboarding/OnboardingForm';
 
+/**
+ * DriverMiniMap — a live trip map for the Captain app (no Google Maps key needed).
+ * With an active trip it animates the rider along a pickup→delivery route (store → home
+ * pin) with a live ETA; idle it shows the rider with nearby available-order pins. Pure SVG.
+ */
+const DriverMiniMap: React.FC<{ hasTrip: boolean; online: boolean; pickup?: string; dropoff?: string; lang: 'ar' | 'en'; available: number; height?: number }> = ({ hasTrip, online, pickup, dropoff, lang, available, height = 200 }) => {
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
+  const [t, setT] = React.useState(0.12);
+  const raf = React.useRef(0);
+  React.useEffect(() => {
+    let last = 0;
+    const step = (ts: number) => {
+      if (ts - last >= 140) { last = ts; setT(v => (hasTrip ? (v >= 0.97 ? 0.05 : v + 0.012) : (v + 0.02) % 1)); }
+      raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf.current);
+  }, [hasTrip]);
+  const W = 100, H = 56;
+  const A = { x: 20, y: 40 }, B = { x: 80, y: 16 };                 // pickup → dropoff
+  const pos = { x: A.x + (B.x - A.x) * t, y: A.y + (B.y - A.y) * t };
+  const eta = Math.max(1, Math.round((1 - t) * 18));
+  const pins = [{ x: 30, y: 22 }, { x: 64, y: 38 }, { x: 50, y: 18 }, { x: 74, y: 28 }];
+  return (
+    <div style={{ position: 'relative', height, borderRadius: 24, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid slice" style={{ background: 'linear-gradient(160deg,#0d1419,#0a0f14)' }}>
+        <defs><pattern id="dgrid" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M7 0H0V7" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.3" /></pattern></defs>
+        <rect width={W} height={H} fill="url(#dgrid)" />
+        {hasTrip ? (
+          <>
+            <line x1={A.x} y1={A.y} x2={B.x} y2={B.y} stroke="rgba(158,212,66,0.6)" strokeWidth="0.7" strokeDasharray="2 1.5" strokeDashoffset={-(Math.round(t * 100) % 14)} strokeLinecap="round" />
+            {/* pickup store */}
+            <g><polygon points={`${A.x - 2},${A.y - 0.4} ${A.x},${A.y - 2.2} ${A.x + 2},${A.y - 0.4}`} fill="#9ed442" /><rect x={A.x - 1.6} y={A.y - 0.4} width="3.2" height="2.2" rx="0.3" fill="#9ed442" /></g>
+            {/* dropoff home pin */}
+            <path d={`M${B.x},${B.y + 1.6} L${B.x - 1.5},${B.y - 0.6} A1.5 1.5 0 1 1 ${B.x + 1.5},${B.y - 0.6} Z`} fill="#38bdf8" stroke="#fff" strokeWidth="0.25" />
+            {/* rider */}
+            <circle cx={pos.x} cy={pos.y} r={2 + (Math.round(t * 100) % 6) * 0.18} fill="none" stroke="#9ed442" strokeWidth="0.3" opacity={0.5} />
+            <circle cx={pos.x} cy={pos.y} r="2" fill="#9ed442" stroke="#0c1410" strokeWidth="0.4" />
+          </>
+        ) : (
+          <>
+            {online && pins.map((p, i) => <g key={i}><circle cx={p.x} cy={p.y} r="1.4" fill="#9ed442" opacity="0.85" /><circle cx={p.x} cy={p.y} r={1.4 + (Math.round(t * 100 + i * 20) % 6) * 0.2} fill="none" stroke="#9ed442" strokeWidth="0.2" opacity={0.4} /></g>)}
+            <circle cx={50} cy={30} r="2.4" fill={online ? '#9ed442' : '#6e747a'} stroke="#0c1410" strokeWidth="0.5" />
+          </>
+        )}
+      </svg>
+      <div style={{ position: 'absolute', top: 8, insetInlineStart: 10, fontSize: 11, fontWeight: 800, color: hasTrip ? '#9ed442' : online ? '#9ed442' : '#aab0b6', background: 'rgba(0,0,0,0.5)', padding: '3px 9px', borderRadius: 10 }}>
+        {hasTrip ? `${L('الوصول خلال', 'ETA')} ${eta}′` : online ? L('متصل · ابحث عن طلبات', 'Online · finding orders') : L('غير متصل', 'Offline')}
+      </div>
+      {hasTrip && (
+        <div style={{ position: 'absolute', bottom: 8, insetInlineStart: 10, insetInlineEnd: 10, display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#cbd5e1', background: 'rgba(0,0,0,0.5)', padding: '4px 9px', borderRadius: 10 }}>
+          <span>🟢 {pickup || L('المتجر', 'Pickup')}</span><span>📍 {dropoff || L('العميل', 'Drop-off')}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Types (unchanged) ─────────────────────────────────────────
 interface ActiveOrder {
   id: string;
@@ -47,6 +105,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   const [earnings,                setEarnings]                = useState<any[]>([]);
   const [loading,                 setLoading]                 = useState(true);
   const [actionLoading,           setActionLoading]           = useState(false);
+  const [tab,                     setTab]                     = useState<'home' | 'trip' | 'earnings' | 'profile'>('home');
   const feedChannelRef = useRef<any>(null);
   const watchIdRef     = useRef<number | null>(null);
 
@@ -169,11 +228,12 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         sandboxStore.assignDriver(orderId, driverId);
         sandboxStore.setStatus(orderId, 'on_the_way');
         loadSandboxDriver();
+        setTab('trip');               // jump to the live trip view
         return;
       }
       const { success, error } = await driverService.acceptDelivery(orderId, driverProfile.id);
       if (error) toast.error(`${D('فشل قبول الطلب','Failed to accept order')}: ${(error as any).message || error}`);
-      else if (success) { toast.success(D('تم قبول الطلب بنجاح!','Order accepted successfully!')); await reloadDriverState(driverProfile.id); }
+      else if (success) { toast.success(D('تم قبول الطلب بنجاح!','Order accepted successfully!')); await reloadDriverState(driverProfile.id); setTab('trip'); }
     } catch (e) { console.error(e); }
     finally { setActionLoading(false); }
   };
@@ -223,272 +283,209 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
     return <OnboardingForm entityType="driver" />;
   }
 
-  return (
-    <div className="min-h-screen px-6 pb-6 md:px-8 md:pb-8 space-y-5" style={{ paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))' }} id="driver_app_container" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+  const activeJob = activeJobs[0];
+  const hasTrip = !!activeJob;
+  const avgTrip = completedCount ? totalEarned / completedCount : 0;
 
-      {/* ── Top bar: logout + language ─────────────────────── */}
-      <div className="flex items-center justify-between" id="driver_topbar">
-        <div className="flex items-center gap-2">
-          <Button variant="danger" size="sm" onClick={onLogout} id="driver_logout_btn" leftIcon={<Icon name="logout" size={16} />}>
-            {D("تسجيل الخروج", "Sign out")}
-          </Button>
-          <button id="driver_delete_account" onClick={async () => {
-            if (!(await confirmDialog({ title: D('حذف الحساب', 'Delete account'), message: D('سيتم حذف حسابك وبياناتك نهائيًا. لا يمكن التراجع.', 'Your account and data will be permanently deleted. This cannot be undone.'), danger: true, confirmText: D('تأكيد الحذف', 'Confirm delete') }))) return;
-            const { error } = await accountService.deleteMyAccount();
-            if (error) { toast.error(D('تعذّر حذف الحساب', 'Could not delete the account')); return; }
-            toast.success(D('تم حذف حسابك', 'Your account was deleted')); onLogout();
-          }} className="text-xs font-semibold cursor-pointer" style={{ color: '#f87171' }}>{D('حذف الحساب', 'Delete account')}</button>
+  // Reusable active-trip card (COD · pickup→delivery · navigate/call/chat · confirm CTA).
+  const TripCard = (job: ActiveOrder) => (
+    <Card key={job.id} variant="z3" radius="xl" padding="p-5" className="space-y-4 animate-slide-up" id={`active_job_card_${job.id}`}>
+      <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.06)]">
+        <span className="px-2.5 py-1 rounded-full text-label-sm font-bold" style={{ background: 'rgba(158,212,66,0.14)', color: 'var(--color-lime-vb,#9ed442)', textTransform: 'none', letterSpacing: 0 }}>
+          {D('الدفع نقدًا', 'COD')} · {money(job.total_amount)}
+        </span>
+        <span className="text-label-sm font-semibold" style={{ color: 'var(--color-primary-container)', textTransform: 'none', letterSpacing: 0 }}>#{job.id.slice(-6).toUpperCase()}</span>
+      </div>
+      <div className="space-y-0">
+        <div className="flex items-start gap-3 justify-end">
+          <div className="text-end flex-1 min-w-0">
+            <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{D('الاستلام من', 'Pick up from')}</p>
+            <p className="font-semibold truncate text-[var(--color-on-surface)]">{job.merchant_branches?.name || D('المطعم', 'Restaurant')}</p>
+          </div>
+          <div className="flex flex-col items-center pt-1.5 shrink-0"><Icon name="storefront" size={15} className="text-[var(--color-primary-container)]" fill={1} /><span className="w-px h-7 my-1" style={{ background: 'rgba(255,255,255,0.14)' }} /></div>
         </div>
-        <Button variant="ghost" size="sm" onClick={toggleLang} id="driver_lang_btn" leftIcon={<Icon name="language" size={16} />}>
-          {lang === 'ar' ? 'EN' : 'ع'}
+        <div className="flex items-start gap-3 justify-end">
+          <div className="text-end flex-1 min-w-0">
+            <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{D('التسليم إلى', 'Deliver to')}</p>
+            <p className="font-semibold truncate text-[var(--color-on-surface)]">{job.customers?.full_name || D('العميل', 'Customer')}</p>
+          </div>
+          <div className="flex flex-col items-center shrink-0"><Icon name="location_on" size={16} style={{ color: '#9ed442' }} fill={1} /></div>
+        </div>
+      </div>
+      <div className="flex items-center justify-between pt-1">
+        <div className="flex gap-2">
+          <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.customers?.full_name || job.merchant_branches?.name || 'destination')}`, '_blank')} title={D('الملاحة', 'Navigate')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition" style={{ background: 'rgba(158,212,66,0.14)', color: 'var(--color-lime-vb,#9ed442)' }}><Icon name="navigation" size={16} fill={1} /></button>
+          <button onClick={() => { const ph = job.customers?.phone_number; if (ph) window.location.href = `tel:${ph}`; else toast.info(D('رقم العميل غير متاح في الوضع التجريبي', 'Customer phone unavailable in demo')); }} title={D('اتصال', 'Call')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)' }}><Icon name="call" size={16} fill={1} /></button>
+          <button onClick={() => { const ph = job.customers?.phone_number; if (ph) window.open(`https://wa.me/${ph.replace(/[^0-9]/g, '')}`, '_blank'); else toast.info(D('الدردشة غير متاحة في الوضع التجريبي', 'Chat unavailable in demo')); }} title={D('محادثة', 'Chat')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)' }}><Icon name="chat" size={16} fill={1} /></button>
+        </div>
+        <Badge variant="primary" dot>{job.status === 'preparing' ? D('جاهز للاستلام', 'Ready for pickup') : D('في الطريق', 'On the way')}</Badge>
+      </div>
+      <div className="pt-3 border-t border-[rgba(255,255,255,0.06)]" id="active_job_actions">
+        <Button variant="primary" size="md" loading={actionLoading} onClick={() => handleAdvanceActiveJob(job)} leftIcon={<Icon name={job.status === 'preparing' ? 'inventory_2' : 'task_alt'} size={18} fill={1} />} id="advance_job_trigger" className="w-full justify-center">
+          {job.status === 'preparing' ? D('تأكيد الاستلام من المتجر', 'Confirm pickup') : D('تأكيد التسليم للعميل', 'Confirm delivery')}
         </Button>
       </div>
+    </Card>
+  );
 
-      {/* ══════════════════════════════════════════════════════
-          PRIMARY — Command Center: Online Status Hero
-      ══════════════════════════════════════════════════════ */}
-      <Card variant="z4" radius="xl" padding="p-7" className="flex flex-col items-center text-center gap-6" id="driver_presence_head">
-        {/* Identity */}
-        <div className="flex items-center gap-2.5" id="driver_badge_box">
-          <Icon name="local_shipping" size={20} className="text-[var(--color-primary-container)]" fill={1} />
-          <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-            {driverProfile?.full_name || D('الكابتن','Captain')}
-          </h3>
-          <span className="text-label-sm text-[var(--color-on-surface-variant)]" style={{ textTransform: 'none', letterSpacing: 0 }}>
-            #{driverProfile?.id.slice(-6).toUpperCase()}
+  const NAV: { key: typeof tab; ar: string; en: string; icon: string }[] = [
+    { key: 'home', ar: 'الرئيسية', en: 'Home', icon: 'home' },
+    { key: 'trip', ar: 'الرحلة', en: 'Trip', icon: 'local_shipping' },
+    { key: 'earnings', ar: 'الأرباح', en: 'Earnings', icon: 'account_balance_wallet' },
+    { key: 'profile', ar: 'الحساب', en: 'Profile', icon: 'person' },
+  ];
+
+  return (
+    <div className="min-h-screen flex flex-col" id="driver_app_container" dir={lang === 'ar' ? 'rtl' : 'ltr'} style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
+
+      {/* ── Compact top bar: identity + online pill + language ── */}
+      <div className="flex items-center justify-between px-5 pb-2" id="driver_topbar">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(158,212,66,0.14)' }}><Icon name="local_shipping" size={18} className="text-[var(--color-lime-vb,#9ed442)]" fill={1} /></span>
+          <div className="min-w-0">
+            <p className="font-bold text-sm truncate text-[var(--color-on-surface)]">{driverProfile?.full_name || D('الكابتن', 'Captain')}</p>
+            <p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>#{driverProfile?.id.slice(-6).toUpperCase()} · ⭐ {driverProfile?.rating || '4.8'}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold" style={{ background: isOnline ? 'rgba(158,212,66,0.14)' : 'rgba(255,255,255,0.05)', color: isOnline ? 'var(--color-lime-vb,#9ed442)' : 'var(--color-on-surface-variant)' }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: isOnline ? '#9ed442' : '#6e747a' }} />{isOnline ? D('متصل', 'Online') : D('غير متصل', 'Offline')}
           </span>
+          <Button variant="ghost" size="sm" onClick={toggleLang} id="driver_lang_btn">{lang === 'ar' ? 'EN' : 'ع'}</Button>
         </div>
-
-        {/* Primary toggle — the command */}
-        <button
-          onClick={handleToggleOnline}
-          disabled={actionLoading}
-          className={[
-            'flex items-center gap-4 px-10 py-5 rounded-[var(--radius-sheet)] text-headline-sm font-bold cursor-pointer transition-all duration-300',
-            isOnline ? 'neon-glow-sm' : 'opacity-80',
-          ].join(' ')}
-          style={{
-            background: isOnline ? 'rgba(158,212,66,0.14)' : 'rgba(255,255,255,0.05)',
-            borderTop: isOnline ? '1px solid rgba(158,212,66,0.5)' : '1px solid rgba(255,255,255,0.1)',
-            borderLeft: '1px solid rgba(255,255,255,0.06)',
-            borderRight: '1px solid rgba(255,255,255,0.06)',
-            borderBottom: '1px solid rgba(255,255,255,0.02)',
-            color: isOnline ? 'var(--color-lime-vb, #9ed442)' : 'var(--color-t3, #aab0b6)',
-            boxShadow: isOnline ? '0 0 40px rgba(158,212,66,0.22)' : 'none',
-            minWidth: '260px',
-          }}
-          id="toggle_online_presence"
-        >
-          <Icon name={isOnline ? 'wifi' : 'wifi_off'} size={28} fill={isOnline ? 1 : 0} />
-          <span>{isOnline ? D('متصل — نشط','Online — active') : D('اضغط للاتصال','Tap to go online')}</span>
-        </button>
-
-        {/* Supporting metrics row — secondary inside primary card */}
-        <div className="grid grid-cols-3 gap-6 w-full max-w-sm border-t border-[rgba(255,255,255,0.06)] pt-5">
-          <div className="text-center">
-            <p className="text-headline-sm font-bold" style={{ color: 'var(--color-lime-vb, #9ed442)' }}>{money(totalEarned)}</p>
-            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{D('أرباح اليوم','Today')}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{activeJobs.length}</p>
-            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{D('شحنة نشطة','Active')}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-headline-sm font-bold" style={{ color: availableFeed.length > 0 ? 'var(--color-lime-vb, #9ed442)' : 'var(--color-t3, #aab0b6)' }}>{availableFeed.length}</p>
-            <p className="text-label-sm" style={{ color: 'var(--color-t4, #6e747a)', textTransform: 'none' }}>{D('طلب متاح','Available')}</p>
-          </div>
-        </div>
-      </Card>
-
-      {/* TERTIARY — Compact stat chips (2-up on phones, 4-up on larger) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label={D('نشطة','Active')}     value={activeJobs.length}               icon={<Icon name="inventory_2" size={16} fill={1} />} accentColor="var(--color-primary-container)" />
-        <StatCard label={D('متاحة','Available')}    value={availableFeed.length}             icon={<Icon name="storefront"  size={16} fill={1} />} accentColor="var(--color-secondary)" />
-        <StatCard label={D('مكتملة','Completed')}   value={completedCount}                   icon={<Icon name="task_alt"    size={16} fill={1} />} accentColor="var(--color-tertiary-container)" />
-        <StatCard label={D('الأرباح','Earnings')}  value={money(totalEarned)} icon={<Icon name="payments"    size={16} fill={1} />} accentColor="var(--color-neon)" />
       </div>
 
-      {/* ── Operations: shift / dispatch offers / wallet ──────── */}
-      <DriverOpsPanel driverId={driverId} />
+      {/* ── Tab content (scrolls; clears the bottom nav) ── */}
+      <div className="flex-1 overflow-y-auto px-5 pt-2 space-y-5" style={{ paddingBottom: 'calc(96px + env(safe-area-inset-bottom, 0px))' }}>
 
-      {/* ── Main Grid ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" id="driver_app_grids">
-
-        {/* Active jobs — col 8 */}
-        <div className="lg:col-span-8 space-y-4" id="active_jobs_wrapper">
-          <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{D('شحناتي النشطة','My active shipments')}</h3>
-
-          {activeJobs.length === 0 ? (
-            <EmptyState
-              icon="directions_bike"
-              title={D('لا توجد شحنات نشطة','No active shipments')}
-              description={D('اختر من السوق أدناه للبدء','Pick from the market below to start')}
-            />
-          ) : (
-            activeJobs.map((job) => (
-              <Card
-                key={job.id}
-                variant="z3"
-                radius="xl"
-                padding="p-5"
-                className="space-y-4"
-                id={`active_job_card_${job.id}`}
-              >
-                {/* Header: order id + COD amount + status */}
-                <div className="flex items-center justify-between pb-3 border-b border-[rgba(255,255,255,0.06)]">
-                  <span className="px-2.5 py-1 rounded-full text-label-sm font-bold" style={{ background: 'rgba(158,212,66,0.14)', color: 'var(--color-lime-vb,#9ed442)', textTransform: 'none', letterSpacing: 0 }}>
-                    {D('الدفع نقدًا','COD')} · {money(job.total_amount)}
-                  </span>
-                  <span className="text-label-sm font-semibold" style={{ color: 'var(--color-primary-container)', textTransform: 'none', letterSpacing: 0 }}>
-                    #{job.id.slice(-6).toUpperCase()}
-                  </span>
+        {/* ════ HOME ════ */}
+        {tab === 'home' && (
+          <div className="space-y-5 animate-fade-in">
+            <DriverMiniMap hasTrip={false} online={isOnline} lang={lang} available={availableFeed.length} height={190} />
+            {/* Online toggle */}
+            <button onClick={handleToggleOnline} disabled={actionLoading} id="toggle_online_presence"
+              className={`w-full flex items-center justify-center gap-3 py-4 rounded-[var(--radius-sheet)] text-base font-bold cursor-pointer transition-all duration-300 ${isOnline ? 'neon-glow-sm' : ''}`}
+              style={{ background: isOnline ? 'rgba(158,212,66,0.14)' : 'rgba(255,255,255,0.05)', border: `1px solid ${isOnline ? 'rgba(158,212,66,0.5)' : 'rgba(255,255,255,0.1)'}`, color: isOnline ? 'var(--color-lime-vb,#9ed442)' : 'var(--color-t3,#aab0b6)' }}>
+              <Icon name={isOnline ? 'wifi' : 'wifi_off'} size={22} fill={isOnline ? 1 : 0} />{isOnline ? D('متصل — جاهز لاستقبال الطلبات', 'Online — ready for orders') : D('اضغط للاتصال وبدء العمل', 'Tap to go online')}
+            </button>
+            {/* Quick stats */}
+            <div className="grid grid-cols-3 gap-3">
+              {[{ v: money(totalEarned), l: D('أرباح اليوم', 'Today'), c: 'var(--color-lime-vb,#9ed442)' }, { v: activeJobs.length, l: D('نشطة', 'Active'), c: 'var(--color-on-surface)' }, { v: availableFeed.length, l: D('متاحة', 'Available'), c: 'var(--color-primary-container)' }].map((s, i) => (
+                <Card key={i} variant="z2" radius="xl" padding="p-3" className="text-center"><p className="text-title-lg font-extrabold" style={{ color: s.c }}>{s.v}</p><p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{s.l}</p></Card>
+              ))}
+            </div>
+            <DriverOpsPanel driverId={driverId} />
+            {/* Orders market */}
+            <div className="space-y-3">
+              <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{D('سوق الطلبات', 'Orders market')} ({availableFeed.length})</h3>
+              {!isOnline ? (
+                <Card variant="z3" radius="xl" padding="p-6" className="text-center space-y-3" id="driver_offline_alert"><Icon name="wifi_off" size={36} className="text-[var(--color-error)] mx-auto opacity-60" /><p className="text-body-md text-[var(--color-on-surface-variant)]">{D('قم بتفعيل الاتصال لعرض الطلبات المتاحة', 'Go online to see available orders')}</p></Card>
+              ) : availableFeed.length === 0 ? (
+                <EmptyState icon="storefront" title={D('لا توجد طلبات', 'No orders')} description={D('لا توجد طلبات بانتظار سائق حالياً', 'No orders waiting for a driver right now')} />
+              ) : (
+                <div className="space-y-3" id="available_jobs_scroller">
+                  {availableFeed.map(f => (
+                    <Card key={f.id} variant="z3" radius="xl" padding="p-4" className="space-y-3" id={`available_f_job_${f.id}`}>
+                      <div className="flex items-center justify-between"><span className="text-label-sm" style={{ color: 'var(--color-primary-container)', textTransform: 'none', letterSpacing: 0 }}>#{f.id.slice(-6).toUpperCase()}</span><p className="text-label-md font-semibold text-[var(--color-on-surface)]">{f.merchant_branches?.name || D('المطعم', 'Restaurant')}</p></div>
+                      <div className="flex items-center justify-between"><span className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>{money(10)}</span><span className="text-label-md text-[var(--color-on-surface-variant)]">{D('أجرة التوصيل', 'Delivery fee')}</span></div>
+                      <Button variant="secondary" size="sm" fullWidth loading={actionLoading} onClick={() => handleAcceptJob(f.id)} id={`accept_job_btn_${f.id}`}>{D('قبول الطلب', 'Accept order')}</Button>
+                    </Card>
+                  ))}
                 </div>
+              )}
+            </div>
+          </div>
+        )}
 
-                {/* Pickup → Delivery timeline */}
-                <div className="space-y-0">
-                  <div className="flex items-start gap-3 justify-end">
-                    <div className="text-end flex-1 min-w-0">
-                      <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{D('الاستلام من','Pick up from')}</p>
-                      <p className="font-semibold truncate text-[var(--color-on-surface)]">{job.merchant_branches?.name || D('المطعم','Restaurant')}</p>
-                    </div>
-                    <div className="flex flex-col items-center pt-1.5 shrink-0">
-                      <Icon name="storefront" size={15} className="text-[var(--color-primary-container)]" fill={1} />
-                      <span className="w-px h-7 my-1" style={{ background: 'rgba(255,255,255,0.14)' }} />
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3 justify-end">
-                    <div className="text-end flex-1 min-w-0">
-                      <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{D('التسليم إلى','Deliver to')}</p>
-                      <p className="font-semibold truncate text-[var(--color-on-surface)]">{job.customers?.full_name || D('العميل','Customer')}</p>
-                    </div>
-                    <div className="flex flex-col items-center shrink-0">
-                      <Icon name="location_on" size={16} style={{ color: '#9ed442' }} fill={1} />
-                    </div>
-                  </div>
-                </div>
+        {/* ════ TRIP ════ */}
+        {tab === 'trip' && (
+          <div className="space-y-5 animate-fade-in" id="active_jobs_wrapper">
+            <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{D('الرحلة الحالية', 'Current trip')}</h3>
+            {hasTrip ? (
+              <>
+                <DriverMiniMap hasTrip online={isOnline} lang={lang} available={availableFeed.length} height={230} pickup={activeJob.merchant_branches?.name} dropoff={activeJob.customers?.full_name} />
+                {activeJobs.map(job => TripCard(job))}
+              </>
+            ) : (
+              <EmptyState icon="directions_bike" title={D('لا توجد رحلة نشطة', 'No active trip')} description={D('اقبل طلبًا من الرئيسية للبدء', 'Accept an order from Home to start')} />
+            )}
+          </div>
+        )}
 
-                {/* Status + quick actions (navigate / call / chat — real deep links) */}
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex gap-2">
-                    <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.customers?.full_name || job.merchant_branches?.name || 'destination')}`, '_blank')} title={D('الملاحة','Navigate')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: 'rgba(158,212,66,0.14)', color: 'var(--color-lime-vb,#9ed442)' }}><Icon name="navigation" size={16} fill={1} /></button>
-                    <button onClick={() => { const ph = job.customers?.phone_number; if (ph) window.location.href = `tel:${ph}`; else toast.info(D('رقم العميل غير متاح في الوضع التجريبي','Customer phone unavailable in demo')); }} title={D('اتصال','Call')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)' }}><Icon name="call" size={16} fill={1} /></button>
-                    <button onClick={() => { const ph = job.customers?.phone_number; if (ph) window.open(`https://wa.me/${ph.replace(/[^0-9]/g, '')}`, '_blank'); else toast.info(D('الدردشة غير متاحة في الوضع التجريبي','Chat unavailable in demo')); }} title={D('محادثة','Chat')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)' }}><Icon name="chat" size={16} fill={1} /></button>
-                  </div>
-                  <Badge variant="primary" dot>
-                    {job.status === 'preparing' ? D('جاهز للاستلام','Ready for pickup') : D('في الطريق','On the way')}
-                  </Badge>
-                </div>
-
-                {/* Primary action — full width, proof of delivery on completion */}
-                <div className="pt-3 border-t border-[rgba(255,255,255,0.06)]" id="active_job_actions">
-                  <Button
-                    variant="primary"
-                    size="md"
-                    loading={actionLoading}
-                    onClick={() => handleAdvanceActiveJob(job)}
-                    leftIcon={<Icon name={job.status === 'preparing' ? 'inventory_2' : 'task_alt'} size={18} fill={1} />}
-                    id="advance_job_trigger"
-                    className="w-full justify-center"
-                  >
-                    {job.status === 'preparing' ? D('تأكيد الاستلام من المتجر','Confirm pickup') : D('تأكيد التسليم للعميل','Confirm delivery')}
-                  </Button>
-                </div>
-              </Card>
-            ))
-          )}
-        </div>
-
-        {/* Feed / Market — col 4 */}
-        <div className="lg:col-span-4 space-y-4" id="available_jobs_col">
-          <h3 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">
-            {D('سوق الطلبات','Orders market')} ({availableFeed.length})
-          </h3>
-
-          {!isOnline ? (
-            <Card variant="z3" radius="xl" padding="p-6" className="text-center space-y-3" id="driver_offline_alert">
-              <Icon name="wifi_off" size={36} className="text-[var(--color-error)] mx-auto opacity-60" />
-              <p className="text-body-md text-[var(--color-on-surface-variant)]">
-                {D("قم بتفعيل الاتصال لعرض الطلبات المتاحة", "Go online to see available orders")}
-              </p>
+        {/* ════ EARNINGS ════ */}
+        {tab === 'earnings' && (
+          <div className="space-y-5 animate-fade-in" id="driver_earnings_tab">
+            <Card variant="z4" radius="xl" padding="p-6" className="text-center space-y-1">
+              <p className="text-label-md" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{D('أرباح اليوم', "Today's earnings")}</p>
+              <p className="text-display-sm font-extrabold" style={{ color: 'var(--color-lime-vb,#9ed442)' }}>{money(totalEarned)}</p>
+              <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)', textTransform: 'none' }}>{completedCount} {D('رحلة مكتملة', 'completed trips')}</p>
             </Card>
-          ) : availableFeed.length === 0 ? (
-            <EmptyState icon="storefront" title={D('لا توجد طلبات','No orders')} description={D('لا توجد طلبات بانتظار سائق حالياً','No orders waiting for a driver right now')} />
-          ) : (
-            <div className="space-y-3" id="available_jobs_scroller">
-              {availableFeed.map((f) => (
-                <Card
-                  key={f.id}
-                  variant="z3"
-                  radius="xl"
-                  padding="p-4"
-                  className="space-y-3"
-                  id={`available_f_job_${f.id}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className="text-label-sm"
-                      style={{ color: 'var(--color-primary-container)', textTransform: 'none', letterSpacing: 0 }}
-                    >
-                      #{f.id.slice(-6).toUpperCase()}
-                    </span>
-                    <p className="text-label-md font-semibold text-[var(--color-on-surface)]">
-                      {f.merchant_branches?.name || D('المطعم','Restaurant')}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>
-                      {money(10)}
-                    </span>
-                    <span className="text-label-md text-[var(--color-on-surface-variant)]">{D('أجرة التوصيل','Delivery fee')}</span>
-                  </div>
-
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    fullWidth
-                    loading={actionLoading}
-                    onClick={() => handleAcceptJob(f.id)}
-                    id={`accept_job_btn_${f.id}`}
-                  >
-                    {D("قبول الطلب", "Accept order")}
-                  </Button>
+            <div className="grid grid-cols-2 gap-3" id="driver_earnings_analytics">
+              {[{ l: D('الرحلات', 'Trips'), v: completedCount }, { l: D('متوسط الرحلة', 'Avg / trip'), v: money(avgTrip) }, { l: D('قيد التوصيل', 'In delivery'), v: activeJobs.length }, { l: D('أرباح الأسبوع', 'This week'), v: money(totalEarned) }].map((s, i) => (
+                <Card key={i} variant="z2" radius="xl" padding="p-4" className="text-center"><p className="text-label-sm mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>{s.l}</p><p className="text-title-lg font-bold text-[var(--color-on-surface)]">{s.v}</p></Card>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <h4 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{D('سجل الرحلات', 'Trip history')}</h4>
+              {earnings.length === 0 ? <EmptyState icon="receipt_long" title={D('لا توجد رحلات بعد', 'No trips yet')} description={D('ستظهر رحلاتك المكتملة هنا', 'Your completed trips will appear here')} /> : earnings.slice(0, 12).map((e, i) => (
+                <Card key={e.id || i} variant="z2" radius="lg" padding="p-3" className="flex items-center justify-between">
+                  <span className="font-bold" style={{ color: 'var(--color-lime-vb,#9ed442)' }}>+{money(Number(e.delivery_fee_earned))}</span>
+                  <span className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{D('رحلة', 'Trip')} #{String(e.id || i).slice(-5)}</span>
                 </Card>
               ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Earnings summary */}
-          <Card variant="z3" radius="xl" padding="p-5" className="space-y-4" id="driver_earnings_summary_card">
-            <h4 className="text-headline-sm font-semibold text-[var(--color-on-surface)] text-end pb-3 border-b border-[rgba(255,255,255,0.06)]">
-              {D("ملخص المحفظة", "Wallet summary")}
-            </h4>
-            <div className="grid grid-cols-2 gap-3 text-center" id="driver_earnings_analytics">
-              <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_1">
-                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{D('الرحلات','Trips')}</p>
-                <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{completedCount}</p>
+        {/* ════ PROFILE ════ */}
+        {tab === 'profile' && (
+          <div className="space-y-5 animate-fade-in" id="driver_profile_tab">
+            <Card variant="z4" radius="xl" padding="p-6" className="flex flex-col items-center text-center gap-2">
+              <span className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(158,212,66,0.14)' }}><Icon name="person" size={32} className="text-[var(--color-lime-vb,#9ed442)]" fill={1} /></span>
+              <h3 className="text-headline-sm font-bold text-[var(--color-on-surface)]">{driverProfile?.full_name || D('الكابتن', 'Captain')}</h3>
+              <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>#{driverProfile?.id.slice(-6).toUpperCase()}</p>
+              <div className="flex gap-6 pt-3 mt-2 border-t border-[rgba(255,255,255,0.06)] w-full justify-center">
+                <div><p className="text-title-lg font-bold" style={{ color: '#fbbf24' }}>⭐ {driverProfile?.rating || '4.8'}</p><p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{D('التقييم', 'Rating')}</p></div>
+                <div><p className="text-title-lg font-bold text-[var(--color-on-surface)]">{completedCount}</p><p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{D('رحلات', 'Trips')}</p></div>
+                <div><p className="text-title-lg font-bold text-[var(--color-on-surface)]">{D('دراجة', 'Moto')}</p><p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{D('المركبة', 'Vehicle')}</p></div>
               </div>
-              <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_2">
-                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{D('الأرباح','Earnings')}</p>
-                <p className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>
-                  {money(totalEarned)}
-                </p>
-              </div>
-              <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_3">
-                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{D('متوسط الرحلة','Avg / trip')}</p>
-                <p className="text-headline-sm font-bold text-[var(--color-on-surface)]">{money(completedCount ? totalEarned / completedCount : 0)}</p>
-              </div>
-              <div className="p-3 rounded-[var(--radius-lg)] surface-z2" id="earn_4">
-                <p className="text-label-sm text-[var(--color-on-surface-variant)] mb-1">{D('قيد التوصيل','In delivery')}</p>
-                <p className="text-headline-sm font-bold" style={{ color: '#fbbf24' }}>{activeJobs.length}</p>
-              </div>
-            </div>
-            <p className="text-label-sm text-[var(--color-on-surface-variant)] text-center leading-relaxed" style={{ textTransform: 'none', letterSpacing: 0 }}>
-              {money(10)} {D('أجرة ثابتة لكل رحلة مكتملة','fixed fee per completed trip')}
-            </p>
-          </Card>
-        </div>
+            </Card>
+            <Card variant="z2" radius="xl" padding="p-2">
+              {[{ icon: 'two_wheeler', l: D('المركبة والوثائق', 'Vehicle & documents') }, { icon: 'verified_user', l: D('التحقق', 'Verification') }, { icon: 'help', l: D('الدعم', 'Support') }].map((r, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-3 rounded-xl" style={{ borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}><Icon name={r.icon} size={18} className="text-[var(--color-on-surface-variant)]" /><span className="flex-1 text-start text-[var(--color-on-surface)]">{r.l}</span><Icon name={lang === 'ar' ? 'chevron_left' : 'chevron_right'} size={18} className="text-[var(--color-on-surface-variant)]" /></div>
+              ))}
+            </Card>
+            <Button variant="ghost" size="md" fullWidth onClick={toggleLang} leftIcon={<Icon name="language" size={18} />}>{lang === 'ar' ? 'English' : 'العربية'}</Button>
+            <Button variant="danger" size="md" fullWidth onClick={onLogout} id="driver_logout_btn" leftIcon={<Icon name="logout" size={18} />}>{D('تسجيل الخروج', 'Sign out')}</Button>
+            <button id="driver_delete_account" onClick={async () => {
+              if (!(await confirmDialog({ title: D('حذف الحساب', 'Delete account'), message: D('سيتم حذف حسابك وبياناتك نهائيًا. لا يمكن التراجع.', 'Your account and data will be permanently deleted. This cannot be undone.'), danger: true, confirmText: D('تأكيد الحذف', 'Confirm delete') }))) return;
+              const { error } = await accountService.deleteMyAccount();
+              if (error) { toast.error(D('تعذّر حذف الحساب', 'Could not delete the account')); return; }
+              toast.success(D('تم حذف حسابك', 'Your account was deleted')); onLogout();
+            }} className="w-full text-center text-xs font-semibold cursor-pointer pt-1" style={{ color: '#f87171' }}>{D('حذف الحساب', 'Delete account')}</button>
+          </div>
+        )}
       </div>
+
+      {/* ── Bottom navigation (fixed, safe-area aware) ── */}
+      <nav className="fixed bottom-0 inset-x-0 z-50 flex items-stretch" id="driver_bottom_nav"
+        style={{ background: 'var(--color-surface-container-lowest,#0a0f14)', borderTop: '1px solid var(--color-outline-variant)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        {NAV.map(n => {
+          const on = tab === n.key;
+          const badge = n.key === 'trip' && activeJobs.length > 0 ? activeJobs.length : undefined;
+          return (
+            <button key={n.key} onClick={() => setTab(n.key)} id={`driver_tab_${n.key}`}
+              className="flex-1 flex flex-col items-center justify-center gap-1 py-2.5 cursor-pointer relative transition-colors"
+              style={{ color: on ? 'var(--color-lime-vb,#9ed442)' : 'var(--color-on-surface-variant)' }}>
+              <span className="relative"><Icon name={n.icon} size={22} fill={on ? 1 : 0} />
+                {badge ? <span className="absolute -top-1.5 -end-2 text-[9px] font-bold px-1 rounded-full" style={{ background: '#f87171', color: '#fff', minWidth: 14 }}>{badge}</span> : null}
+              </span>
+              <span className="text-[10px] font-bold">{D(n.ar, n.en)}</span>
+              {on && <span className="absolute top-0 inset-x-6 h-0.5 rounded-full" style={{ background: 'var(--color-lime-vb,#9ed442)' }} />}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 };
