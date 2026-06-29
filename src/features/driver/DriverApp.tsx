@@ -132,7 +132,7 @@ const DriverMiniMap: React.FC<{ hasTrip: boolean; online: boolean; pickup?: stri
       </div>
       {hasTrip && (
         <div style={{ position: 'absolute', bottom: 8, insetInlineStart: 10, insetInlineEnd: 10, display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#cbd5e1', background: 'rgba(0,0,0,0.5)', padding: '4px 9px', borderRadius: 10 }}>
-          <span>🟢 {pickup || L('المتجر', 'Pickup')}</span><span>📍 {dropoff || L('العميل', 'Drop-off')}</span>
+          <span className="flex items-center gap-1"><Icon name="storefront" size={12} fill={1} style={{ color: '#9ed442' }} />{pickup || L('المتجر', 'Pickup')}</span><span className="flex items-center gap-1"><Icon name="location_on" size={12} fill={1} style={{ color: '#38bdf8' }} />{dropoff || L('العميل', 'Drop-off')}</span>
         </div>
       )}
     </div>
@@ -425,7 +425,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
           <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(158,212,66,0.14)' }}><Icon name="local_shipping" size={18} className="text-[var(--color-lime-vb,#9ed442)]" fill={1} /></span>
           <div className="min-w-0">
             <p className="font-bold text-sm truncate text-[var(--color-on-surface)]">{driverProfile?.full_name || D('الكابتن', 'Captain')}</p>
-            <p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>#{driverProfile?.id.slice(-6).toUpperCase()} · ⭐ {driverProfile?.rating || '4.8'}</p>
+            <p className="text-[11px] flex items-center gap-1" style={{ color: 'var(--color-on-surface-variant)' }}>#{driverProfile?.id.slice(-6).toUpperCase()} <span className="opacity-40">·</span> <Icon name="star" size={11} fill={1} style={{ color: '#fbbf24' }} />{driverProfile?.rating || '4.8'}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -453,9 +453,9 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-[15px] truncate text-[var(--color-on-surface)]">{driverProfile?.full_name || D('الكابتن', 'Captain')}</p>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[12px] font-bold" style={{ color: '#fbbf24' }}>★ {rating.toFixed(1)}</span>
+                    <span className="flex items-center gap-0.5 text-[12px] font-bold" style={{ color: '#fbbf24' }}><Icon name="star" size={13} fill={1} />{rating.toFixed(1)}</span>
                     <span className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>#{driverProfile?.id.slice(-6).toUpperCase()}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface-variant)' }}>🏍 {D('دراجة', 'Moto')}</span>
+                    <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface-variant)' }}><Icon name="two_wheeler" size={12} fill={1} />{D('دراجة', 'Moto')}</span>
                   </div>
                 </div>
                 <button onClick={handleToggleOnline} disabled={actionLoading} id="toggle_online_presence" className="px-3 py-2 rounded-xl text-[12px] font-extrabold cursor-pointer active:scale-95 transition" style={{ background: isOnline ? 'rgba(158,212,66,0.16)' : 'rgba(255,255,255,0.06)', color: isOnline ? 'var(--color-lime-vb,#9ed442)' : 'var(--color-on-surface-variant)', border: `1px solid ${isOnline ? 'rgba(158,212,66,0.4)' : 'rgba(255,255,255,0.1)'}` }}>
@@ -476,8 +476,13 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
               </div>
               {/* live device chips */}
               <div className="flex flex-wrap gap-2 mt-3">
-                {[{ ok: device.online, on: '📶 ' + D('الإنترنت', 'Net'), off: '📵 ' + D('منقطع', 'Offline') }, { ok: isOnline, on: '📍 GPS', off: '📍 GPS' }, ...(device.battery !== null ? [{ ok: device.battery > 20, on: `🔋 ${device.battery}%`, off: `🪫 ${device.battery}%` }] : []), { ok: true, on: `⏱ ${shift}`, off: `⏱ ${shift}` }].map((c, i) => (
-                  <span key={i} className="text-[11px] font-semibold px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.25)', color: c.ok ? '#cbd5e1' : '#f87171' }}>{c.ok ? c.on : c.off}</span>
+                {[
+                  { ok: device.online, icon: device.online ? 'wifi' : 'wifi_off', label: device.online ? D('الإنترنت', 'Net') : D('منقطع', 'Offline') },
+                  { ok: isOnline, icon: 'my_location', label: 'GPS' },
+                  ...(device.battery !== null ? [{ ok: device.battery > 20, icon: device.battery > 20 ? 'battery_full' : 'battery_alert', label: `${device.battery}%` }] : []),
+                  { ok: true, icon: 'timer', label: shift },
+                ].map((c, i) => (
+                  <span key={i} className="flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.25)', color: c.ok ? '#cbd5e1' : '#f87171' }}><Icon name={c.icon} size={12} fill={1} />{c.label}</span>
                 ))}
               </div>
             </div>
@@ -523,24 +528,24 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
               </div>
               {!isOnline ? (
                 <div className="rounded-[22px] p-6 text-center space-y-2" id="driver_offline_alert" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <div className="text-3xl">😴</div>
+                  <div className="flex justify-center"><Icon name="bedtime" size={34} className="text-[var(--color-on-surface-variant)]" /></div>
                   <p className="font-bold text-[var(--color-on-surface)]">{D('أنت غير متصل', "You're offline")}</p>
                   <p className="text-[13px]" style={{ color: 'var(--color-on-surface-variant)' }}>{D('فعّل الاتصال لاستقبال الطلبات القريبة', 'Go online to receive nearby orders')}</p>
                 </div>
               ) : availableFeed.length === 0 ? (
                 /* Premium empty state — hotspots + bonus + motivation */
                 <div className="rounded-[22px] p-5 space-y-4" style={{ background: 'linear-gradient(160deg, rgba(158,212,66,0.08), rgba(255,255,255,0.02))', border: '1px solid rgba(158,212,66,0.18)' }}>
-                  <div className="text-center space-y-1"><div className="text-3xl">🔥</div><p className="font-bold text-[var(--color-on-surface)]">{D('لا طلبات الآن — اقترب من منطقة نشطة', 'No orders yet — head to a hotspot')}</p><p className="text-[12px]" style={{ color: 'var(--color-on-surface-variant)' }}>{D('الطلب أعلى في هذه المناطق حالياً', 'Demand is higher in these areas right now')}</p></div>
+                  <div className="text-center space-y-1"><div className="flex justify-center"><Icon name="local_fire_department" size={32} fill={1} style={{ color: '#fb923c' }} /></div><p className="font-bold text-[var(--color-on-surface)]">{D('لا طلبات الآن — اقترب من منطقة نشطة', 'No orders yet — head to a hotspot')}</p><p className="text-[12px]" style={{ color: 'var(--color-on-surface-variant)' }}>{D('الطلب أعلى في هذه المناطق حالياً', 'Demand is higher in these areas right now')}</p></div>
                   <div className="space-y-2">
                     {[{ z: D('وسط المدينة', 'Downtown'), d: D('طلب مرتفع', 'High demand'), x: 1.4 }, { z: D('حي الأعمال', 'Business district'), d: D('متوسط', 'Medium'), x: 1.2 }, { z: D('الواجهة البحرية', 'Marina'), d: D('مرتفع', 'High'), x: 1.5 }].map((h, i) => (
                       <div key={i} className="flex items-center gap-3 rounded-xl p-2.5" style={{ background: 'rgba(0,0,0,0.2)' }}>
-                        <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(251,146,60,0.16)' }}>📍</span>
+                        <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(251,146,60,0.16)' }}><Icon name="location_on" size={16} fill={1} style={{ color: '#fb923c' }} /></span>
                         <div className="flex-1 min-w-0"><p className="text-[13px] font-bold text-[var(--color-on-surface)]">{h.z}</p><p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>{h.d}</p></div>
                         <span className="text-[12px] font-extrabold px-2 py-1 rounded-lg" style={{ background: 'rgba(251,146,60,0.16)', color: '#fb923c' }}>{h.x}×</span>
                       </div>
                     ))}
                   </div>
-                  <div className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(158,212,66,0.12)' }}><p className="text-[12px] font-bold" style={{ color: 'var(--color-lime-vb,#9ed442)' }}>🎁 {D('أكمل 3 رحلات للحصول على مكافأة', 'Complete 3 trips for a bonus')} +{money(15)}</p></div>
+                  <div className="rounded-xl p-2.5" style={{ background: 'rgba(158,212,66,0.12)' }}><p className="text-[12px] font-bold flex items-center justify-center gap-1.5" style={{ color: 'var(--color-lime-vb,#9ed442)' }}><Icon name="redeem" size={14} fill={1} />{D('أكمل 3 رحلات للحصول على مكافأة', 'Complete 3 trips for a bonus')} +{money(15)}</p></div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -551,7 +556,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
                         <div className="p-4 space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="text-[11px] font-bold px-2 py-0.5 rounded-md" style={{ background: 'rgba(158,212,66,0.14)', color: 'var(--color-lime-vb,#9ed442)' }}>{D('تكسب', 'Earn')} {money(fee)}</span>
-                            <div className="text-end min-w-0"><p className="font-bold text-[14px] truncate text-[var(--color-on-surface)]">{f.merchant_branches?.name || D('المطعم', 'Restaurant')}</p><p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>★ {rRate} · {money(val)} {D('قيمة', 'value')}</p></div>
+                            <div className="text-end min-w-0"><p className="font-bold text-[14px] truncate text-[var(--color-on-surface)]">{f.merchant_branches?.name || D('المطعم', 'Restaurant')}</p><p className="text-[11px] flex items-center gap-1 justify-end" style={{ color: 'var(--color-on-surface-variant)' }}><Icon name="star" size={11} fill={1} style={{ color: '#fbbf24' }} />{rRate} · {money(val)} {D('قيمة', 'value')}</p></div>
                           </div>
                           <div className="flex items-center justify-around rounded-xl py-2" style={{ background: 'rgba(0,0,0,0.2)' }}>
                             {[{ v: `${dist.toFixed(1)} ${D('كم', 'km')}`, l: D('المسافة', 'Distance') }, { v: `${pETA}′`, l: D('للاستلام', 'To pickup') }, { v: `${dETA}′`, l: D('للتسليم', 'To drop') }].map((s, i) => (
@@ -612,7 +617,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
             <div className="space-y-2">
               <h4 className="text-headline-sm font-semibold text-[var(--color-on-surface)]">{D('سجل الرحلات', 'Trip history')}</h4>
               {earnings.length === 0 ? (
-                <div className="rounded-[22px] p-6 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}><div className="text-3xl mb-1">🧾</div><p className="font-bold text-[var(--color-on-surface)]">{D('لا توجد رحلات بعد', 'No trips yet')}</p><p className="text-[12px]" style={{ color: 'var(--color-on-surface-variant)' }}>{D('ستظهر رحلاتك المكتملة وأرباحها هنا', 'Your completed trips & earnings appear here')}</p></div>
+                <div className="rounded-[22px] p-6 text-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}><div className="flex justify-center mb-1.5"><Icon name="receipt_long" size={30} className="text-[var(--color-on-surface-variant)]" /></div><p className="font-bold text-[var(--color-on-surface)]">{D('لا توجد رحلات بعد', 'No trips yet')}</p><p className="text-[12px]" style={{ color: 'var(--color-on-surface-variant)' }}>{D('ستظهر رحلاتك المكتملة وأرباحها هنا', 'Your completed trips & earnings appear here')}</p></div>
               ) : earnings.slice(0, 14).map((e, i) => (
                 <div key={e.id || i} className="flex items-center gap-3 rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(158,212,66,0.14)' }}><Icon name="two_wheeler" size={17} className="text-[var(--color-lime-vb,#9ed442)]" fill={1} /></span>
@@ -632,7 +637,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
               <h3 className="text-headline-sm font-bold text-[var(--color-on-surface)]">{driverProfile?.full_name || D('الكابتن', 'Captain')}</h3>
               <p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>#{driverProfile?.id.slice(-6).toUpperCase()}</p>
               <div className="flex gap-6 pt-3 mt-2 border-t border-[rgba(255,255,255,0.06)] w-full justify-center">
-                <div><p className="text-title-lg font-bold" style={{ color: '#fbbf24' }}>⭐ {driverProfile?.rating || '4.8'}</p><p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{D('التقييم', 'Rating')}</p></div>
+                <div><p className="text-title-lg font-bold flex items-center justify-center gap-1" style={{ color: '#fbbf24' }}><Icon name="star" size={18} fill={1} />{driverProfile?.rating || '4.8'}</p><p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{D('التقييم', 'Rating')}</p></div>
                 <div><p className="text-title-lg font-bold text-[var(--color-on-surface)]">{completedCount}</p><p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{D('رحلات', 'Trips')}</p></div>
                 <div><p className="text-title-lg font-bold text-[var(--color-on-surface)]">{D('دراجة', 'Moto')}</p><p className="text-label-sm" style={{ color: 'var(--color-on-surface-variant)' }}>{D('المركبة', 'Vehicle')}</p></div>
               </div>
