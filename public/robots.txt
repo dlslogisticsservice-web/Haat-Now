@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /$
+Allow: /icons/
+Allow: /manifest.webmanifest
+# Authenticated SPA — role portals live behind login and carry no crawlable content.
+Disallow: /api/
+Disallow: /?screen=
+
+Sitemap: https://haat-now.vercel.app/sitemap.xml
