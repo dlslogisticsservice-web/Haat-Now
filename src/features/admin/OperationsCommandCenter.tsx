@@ -6,6 +6,7 @@ import { dispatchService } from '../../services/ops/dispatch.service';
 import { OpsSlaMonitor } from './OpsSlaMonitor';
 import { OpsExecutionConsole } from './OpsExecutionConsole';
 import { OpsIncidentLog } from './OpsIncidentLog';
+import { OpsSvgMap } from './OpsSvgMap';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -109,12 +110,7 @@ export const OperationsCommandCenter: React.FC = () => {
                 </APIProvider>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-2 text-center p-8" style={{ height: 460 }}>
-                <p className="font-bold">{L('الخريطة الحيّة جاهزة — يلزم مفتاح Google Maps','Live map ready — a Google Maps key is required')}</p>
-                <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
-                  {L('اضبط','Set')} <code>VITE_GOOGLE_MAPS_API_KEY</code> {L('لعرض المندوبين','to show drivers')} ({drivers.length}) {L('والطلبات','and orders')} ({orders.length}) {L('والمتاجر','and merchants')} ({merchants.length}) {L('على الخريطة.','on the map.')} {L('البيانات الحيّة تعمل في اللوحات المجاورة.','Live data works in the adjacent panels.')}
-                </p>
-              </div>
+              <OpsSvgMap drivers={drivers} orders={orders} merchants={merchants} layers={layers} lang={lang} />
             )}
           </Card>
         </div>
