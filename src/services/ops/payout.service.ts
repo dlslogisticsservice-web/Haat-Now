@@ -74,7 +74,11 @@ export const payoutService = {
 
   /** Payout requests — all (admin) or scoped to a driver. */
   async listRequests(driverId?: string): Promise<{ data: PayoutRequest[]; error: any }> {
-    if (SANDBOX) return { data: [], error: null };
+    if (SANDBOX) {
+      let drivers: any[] = []; try { drivers = JSON.parse(localStorage.getItem('haat_crud_drivers') || '[]'); } catch { /* */ }
+      const data = drivers.slice(0, 6).map((d, i) => ({ id: `pr-${d.id}`, driver_id: d.id, amount: 80 + i * 45, status: (i % 3 === 0 ? 'approved' : i % 3 === 1 ? 'pending' : 'paid') as PayoutRequest['status'], note: null, requested_at: new Date(Date.now() - (i + 1) * 3600000).toISOString(), processed_at: i % 3 === 2 ? new Date().toISOString() : null, processed_by: null, drivers: { full_name: d.full_name, phone_number: d.phone_number } } as any));
+      return { data: driverId ? data.filter(x => x.driver_id === driverId) : data, error: null };
+    }
     let q = supabase.from('payout_requests').select('*, drivers(full_name, phone_number)').order('requested_at', { ascending: false });
     if (driverId) q = q.eq('driver_id', driverId);
     const { data, error } = await q;

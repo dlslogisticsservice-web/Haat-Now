@@ -1,5 +1,9 @@
 import { supabase } from '../lib/supabase';
 
+// Demo growth: derive figures from seeded data so the Growth Center is usable on the demo backend.
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+const gls = <T,>(t: string): T[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+
 /** Enterprise-B growth/loyalty/retention service (advanced coupons, loyalty rules/rewards,
  *  segments, promotions, banners, merchant growth, retention, analytics, templates). */
 export const growthbService = {
@@ -16,6 +20,14 @@ export const growthbService = {
     return { error };
   },
   async listCoupons(): Promise<{ data: any[]; error: any }> {
+    if (SANDBOX) {
+      return { data: [
+        { id: 'c1', code: 'HAAT20', type: 'percent', value: 20, max_discount: 30, min_order: 50, usage_limit: 1000, used_count: 412, is_active: true, created_at: new Date().toISOString() },
+        { id: 'c2', code: 'WELCOME10', type: 'fixed', value: 10, max_discount: 10, min_order: 25, usage_limit: 5000, used_count: 1830, is_active: true, created_at: new Date().toISOString() },
+        { id: 'c3', code: 'FREESHIP', type: 'shipping', value: 100, max_discount: 15, min_order: 40, usage_limit: 2000, used_count: 905, is_active: true, created_at: new Date().toISOString() },
+        { id: 'c4', code: 'EID50', type: 'percent', value: 50, max_discount: 60, min_order: 80, usage_limit: 500, used_count: 500, is_active: false, created_at: new Date().toISOString() },
+      ], error: null };
+    }
     const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
     return { data: data || [], error };
   },
@@ -97,6 +109,11 @@ export const growthbService = {
 
   // ── M10 analytics ───────────────────────────────────────────────────────────
   async analytics(): Promise<any> {
+    if (SANDBOX) {
+      const customers = gls('customers').length, orders = gls<any>('orders');
+      const delivered = orders.filter((o: any) => o.status === 'delivered').length;
+      return { total_customers: customers, active_customers: Math.round(customers * 0.62), new_this_week: Math.round(customers * 0.14), repeat_rate: 38, redemptions: 3147, points_issued: 128400, campaigns_active: 3, retention_30d: 54, orders_total: orders.length, orders_delivered: delivered };
+    }
     const { data } = await supabase.rpc('growth_analytics');
     return data ?? {};
   },
