@@ -60,6 +60,7 @@ export const PERMISSIONS: Permission[] = [
   { key: 'platform.tenants.manage', group: 'platform', ar: 'إدارة المستأجرين', en: 'Manage tenants' },
   { key: 'security.rbac.manage', group: 'security', ar: 'إدارة الأدوار والصلاحيات', en: 'Manage RBAC' },
   { key: 'security.logs.view', group: 'security', ar: 'عرض سجلّات النظام', en: 'View system logs' },
+  { key: 'platform.integrations.manage', group: 'platform', ar: 'إدارة التكاملات والمزوّدين', en: 'Manage integrations' },
   { key: 'system.settings.manage', group: 'system', ar: 'إدارة الإعدادات', en: 'Manage settings' },
   { key: 'system.notifications.manage', group: 'system', ar: 'إدارة الإشعارات', en: 'Manage notifications' },
 ];
