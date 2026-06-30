@@ -4,6 +4,23 @@ import { supabase } from '../lib/supabase';
 const CX_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 const cxls = <T,>(t: string): T[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
 
+// ── Demo support-ticket store (persisted) ─────────────────────────────────────
+// Makes Customer Care actions (reply / internal note / status change / create) survive
+// reloads on the demo backend. Seeded once from the same shape allTickets used.
+const TK_KEY = 'haat_sb_tickets', TKM_KEY = 'haat_sb_ticket_msgs';
+const tkRead = (): any[] => {
+  try { const raw = localStorage.getItem(TK_KEY); if (raw) return JSON.parse(raw); } catch { /* reseed */ }
+  const customers = cxls<any>('customers'); const orders = cxls<any>('orders');
+  const subjects = ['تأخر في التوصيل', 'طلب غير مكتمل', 'استفسار عن الفاتورة', 'مشكلة في الدفع', 'طلب استرداد', 'سؤال عام'];
+  const types = ['dispute', 'refund', 'inquiry', 'general']; const sts = ['open', 'in_progress', 'resolved', 'open', 'resolved'];
+  const seeded = Array.from({ length: 12 }, (_, i) => { const c = customers[i % Math.max(1, customers.length)] || { id: 'cu', full_name: 'عميل' }; const o = orders[i % Math.max(1, orders.length)]; return { id: `tk-${i}`, subject: subjects[i % subjects.length], type: types[i % types.length], status: sts[i % sts.length], priority: i % 4 === 0 ? 'high' : 'normal', customer_id: c.id, order_id: o?.id || null, customers: { full_name: c.full_name }, created_at: new Date(Date.now() - i * 5400000).toISOString(), updated_at: new Date(Date.now() - i * 5400000).toISOString() }; });
+  try { localStorage.setItem(TK_KEY, JSON.stringify(seeded)); } catch { /* ignore */ }
+  return seeded;
+};
+const tkWrite = (t: any[]) => { try { localStorage.setItem(TK_KEY, JSON.stringify(t)); } catch { /* ignore */ } };
+const tkMsgs = (): Record<string, any[]> => { try { return JSON.parse(localStorage.getItem(TKM_KEY) || '{}'); } catch { return {}; } };
+const tkMsgsWrite = (m: Record<string, any[]>) => { try { localStorage.setItem(TKM_KEY, JSON.stringify(m)); } catch { /* ignore */ } };
+
 export interface RatingSummary { avg_rating: number; rating_count: number; five: number; four: number; three: number; two: number; one: number; }
 export interface OrderTracking {
   order_id: string; status: string;
@@ -96,27 +113,50 @@ export const cxService = {
 
   // ── M5 Support ──────────────────────────────────────────────────────────────
   async createTicket(subject: string, type: 'dispute' | 'refund' | 'inquiry' | 'general', message: string, orderId?: string): Promise<{ data: any; error: any }> {
+    if (CX_SANDBOX) {
+      const now = new Date().toISOString();
+      const ticket = { id: `tk-${Date.now().toString(36)}`, subject, type, status: 'open', priority: 'normal', customer_id: 'me', order_id: orderId ?? null, customers: { full_name: 'أنا' }, created_at: now, updated_at: now };
+      tkWrite([ticket, ...tkRead()]);
+      const m = tkMsgs(); m[ticket.id] = [{ id: `m-${Date.now()}`, ticket_id: ticket.id, message_text: message, is_internal: false, sender_type: 'customer', created_at: now }]; tkMsgsWrite(m);
+      return { data: ticket, error: null };
+    }
     const { data, error } = await supabase.rpc('create_support_ticket', { p_subject: subject, p_type: type, p_message: message, p_order_id: orderId ?? null });
     return { data, error };
   },
   async addTicketMessage(ticketId: string, message: string, isInternal = false): Promise<{ error: any }> {
+    if (CX_SANDBOX) {
+      const m = tkMsgs(); (m[ticketId] ||= []).push({ id: `m-${Date.now()}`, ticket_id: ticketId, message_text: message, is_internal: isInternal, sender_type: 'agent', created_at: new Date().toISOString() }); tkMsgsWrite(m);
+      const tk = tkRead(); const i = tk.findIndex(t => t.id === ticketId);
+      if (i >= 0) { if (tk[i].status === 'open') tk[i].status = 'in_progress'; tk[i].updated_at = new Date().toISOString(); tkWrite(tk); }
+      return { error: null };
+    }
     const { error } = await supabase.rpc('add_ticket_message', { p_ticket_id: ticketId, p_message: message, p_is_internal: isInternal });
     return { error };
   },
   async updateTicketStatus(ticketId: string, status: string): Promise<{ error: any }> {
+    if (CX_SANDBOX) {
+      const tk = tkRead(); const i = tk.findIndex(t => t.id === ticketId);
+      if (i >= 0) { tk[i].status = status; tk[i].updated_at = new Date().toISOString(); tkWrite(tk); }
+      return { error: null };
+    }
     const { error } = await supabase.rpc('update_ticket_status', { p_ticket_id: ticketId, p_status: status });
     return { error };
   },
   async slaStats(): Promise<any> {
-    if (CX_SANDBOX) return { open: 7, in_progress: 4, resolved: 138, breached: 2, avg_first_response_min: 6, avg_resolution_min: 41, satisfaction: 92 };
+    if (CX_SANDBOX) {
+      const t = tkRead();
+      return { open: t.filter(x => x.status === 'open').length, in_progress: t.filter(x => x.status === 'in_progress').length, resolved: t.filter(x => x.status === 'resolved' || x.status === 'closed').length, sla_breached: t.filter(x => x.priority === 'high' && x.status === 'open').length, avg_first_response_min: 6, avg_resolution_hours: 0.7, satisfaction: 92 };
+    }
     const { data } = await supabase.rpc('support_sla_stats');
     return data ?? {};
   },
   async myTickets(customerId: string): Promise<{ data: any[]; error: any }> {
+    if (CX_SANDBOX) return { data: tkRead().filter(t => t.customer_id === customerId || t.customer_id === 'me'), error: null };
     const { data, error } = await supabase.from('support_tickets').select('*').eq('customer_id', customerId).order('created_at', { ascending: false });
     return { data: data || [], error };
   },
   async ticketMessages(ticketId: string, includeInternal = false): Promise<{ data: any[]; error: any }> {
+    if (CX_SANDBOX) { const all = tkMsgs()[ticketId] || []; return { data: includeInternal ? all : all.filter(m => !m.is_internal), error: null }; }
     let q = supabase.from('support_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
     if (!includeInternal) q = q.eq('is_internal', false);
     const { data, error } = await q;
@@ -124,10 +164,7 @@ export const cxService = {
   },
   async allTickets(status?: string): Promise<{ data: any[]; error: any }> {
     if (CX_SANDBOX) {
-      const customers = cxls<any>('customers'); const orders = cxls<any>('orders');
-      const subjects = ['تأخر في التوصيل', 'طلب غير مكتمل', 'استفسار عن الفاتورة', 'مشكلة في الدفع', 'طلب استرداد', 'سؤال عام'];
-      const types = ['dispute', 'refund', 'inquiry', 'general']; const sts = ['open', 'in_progress', 'resolved', 'open', 'resolved'];
-      const data = Array.from({ length: 12 }, (_, i) => { const c = customers[i % Math.max(1, customers.length)] || { id: 'cu', full_name: 'عميل' }; const o = orders[i % Math.max(1, orders.length)]; return { id: `tk-${i}`, subject: subjects[i % subjects.length], type: types[i % types.length], status: sts[i % sts.length], priority: i % 4 === 0 ? 'high' : 'normal', customer_id: c.id, order_id: o?.id || null, customers: { full_name: c.full_name }, created_at: new Date(Date.now() - i * 5400000).toISOString() }; });
+      const data = tkRead();
       return { data: status ? data.filter(d => d.status === status) : data, error: null };
     }
     let q = supabase.from('support_tickets').select('*').order('created_at', { ascending: false });

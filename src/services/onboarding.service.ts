@@ -25,6 +25,25 @@ export interface HistoryRow {
   from_status: string | null; to_status: string; action: string; reason: string | null; created_at: string;
 }
 
+// ── Demo KYC decision store (persisted) ───────────────────────────────────────
+// Lets admin KYC actions (approve/reject/suspend/ban/lift) survive reloads on the demo
+// backend. Base statuses are derived deterministically (same distribution as before),
+// then per-entity overrides are applied. Queue universe = first 16 drivers / 10 merchants.
+const KYC_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+const kls = (t: string): any[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+const KYC_OVR_KEY = 'haat_sb_kyc';
+const kycOvr = (): Record<string, { status: string; reviewed_at: string | null; decision_notes: string | null }> => { try { return JSON.parse(localStorage.getItem(KYC_OVR_KEY) || '{}'); } catch { return {}; } };
+const kycOvrWrite = (o: Record<string, any>) => { try { localStorage.setItem(KYC_OVR_KEY, JSON.stringify(o)); } catch { /* ignore */ } };
+const kycSetOverride = (entityType: string, entityId: string, status: string, notes?: string | null) => {
+  const o = kycOvr(); o[`${entityType}:${entityId}`] = { status, reviewed_at: new Date().toISOString(), decision_notes: notes ?? null }; kycOvrWrite(o);
+};
+const kycAllRows = (): KycQueueItem[] => {
+  const drivers = kls('drivers').slice(0, 16), merchants = kls('merchants').slice(0, 10); const ovr = kycOvr(); const rows: KycQueueItem[] = [];
+  drivers.forEach((d: any, i: number) => { const base = i < 5 ? 'pending' : i < 14 ? 'approved' : 'rejected'; const o = ovr[`driver:${d.id}`]; rows.push({ id: `kyc-d-${d.id}`, entity_type: 'driver' as any, entity_id: d.id, status: (o?.status ?? base) as any, submitted_at: new Date(Date.now() - (i + 1) * 7200000).toISOString(), reviewed_at: o?.reviewed_at ?? (base === 'pending' ? null : new Date().toISOString()), decision_notes: o?.decision_notes ?? (base === 'rejected' ? 'وثائق غير واضحة' : null), entity_name: d.full_name }); });
+  merchants.forEach((m: any, i: number) => { const base = i < 3 ? 'pending' : i < 9 ? 'approved' : 'rejected'; const o = ovr[`merchant:${m.id}`]; rows.push({ id: `kyc-m-${m.id}`, entity_type: 'merchant' as any, entity_id: m.id, status: (o?.status ?? base) as any, submitted_at: new Date(Date.now() - (i + 1) * 9000000).toISOString(), reviewed_at: o?.reviewed_at ?? (base === 'pending' ? null : new Date().toISOString()), decision_notes: o?.decision_notes ?? null, entity_name: m.business_name }); });
+  return rows;
+};
+
 /** Trust / KYC / supply-onboarding service. Applicant submission + document upload + admin review. */
 export const onboardingService = {
   // ── applicant submission ──────────────────────────────────────────────────
@@ -78,14 +97,8 @@ export const onboardingService = {
 
   // ── admin review ──────────────────────────────────────────────────────────
   async kycQueue(status: 'pending' | 'approved' | 'rejected' = 'pending'): Promise<{ data: KycQueueItem[]; error: any }> {
-    if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
-      const ls = (t: string): any[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
-      const drivers = ls('drivers'), merchants = ls('merchants');
-      const map: Record<string, { d: [number, number]; m: [number, number] }> = { pending: { d: [0, 5], m: [0, 3] }, approved: { d: [5, 14], m: [3, 9] }, rejected: { d: [14, 16], m: [9, 10] } };
-      const r = map[status]; const rows: KycQueueItem[] = [];
-      drivers.slice(r.d[0], r.d[1]).forEach((d: any, i: number) => rows.push({ id: `kyc-d-${d.id}`, entity_type: 'driver' as any, entity_id: d.id, status, submitted_at: new Date(Date.now() - (i + 1) * 7200000).toISOString(), reviewed_at: status === 'pending' ? null : new Date().toISOString(), decision_notes: status === 'rejected' ? 'وثائق غير واضحة' : null, entity_name: d.full_name }));
-      merchants.slice(r.m[0], r.m[1]).forEach((m: any, i: number) => rows.push({ id: `kyc-m-${m.id}`, entity_type: 'merchant' as any, entity_id: m.id, status, submitted_at: new Date(Date.now() - (i + 1) * 9000000).toISOString(), reviewed_at: status === 'pending' ? null : new Date().toISOString(), decision_notes: null, entity_name: m.business_name }));
-      return { data: rows, error: null };
+    if (KYC_SANDBOX) {
+      return { data: kycAllRows().filter(r => r.status === status), error: null };
     }
     const { data, error } = await supabase.from('kyc_reviews').select('*')
       .eq('status', status).order('submitted_at', { ascending: true });
@@ -118,32 +131,37 @@ export const onboardingService = {
   },
 
   async reviewDocument(entityType: EntityType, docId: string, status: 'approved' | 'rejected', notes?: string): Promise<{ error: any }> {
+    if (KYC_SANDBOX) return { error: null };
     const { error } = await supabase.rpc('review_document', { p_entity_type: entityType, p_doc_id: docId, p_status: status, p_notes: notes ?? null });
     return { error };
   },
   async reviewKyc(entityType: EntityType, entityId: string, decision: 'approved' | 'rejected', notes?: string): Promise<{ error: any }> {
+    if (KYC_SANDBOX) { kycSetOverride(entityType, entityId, decision, notes); return { error: null }; }
     const { error } = await supabase.rpc('review_kyc', { p_entity_type: entityType, p_entity_id: entityId, p_decision: decision, p_notes: notes ?? null });
     return { error };
   },
   async suspend(entityType: EntityType, entityId: string, reason: string): Promise<{ error: any }> {
+    if (KYC_SANDBOX) { kycSetOverride(entityType, entityId, 'suspended', reason); return { error: null }; }
     const { error } = await supabase.rpc('suspend_entity', { p_entity_type: entityType, p_entity_id: entityId, p_reason: reason });
     return { error };
   },
   async liftSuspension(entityType: EntityType, entityId: string): Promise<{ error: any }> {
+    if (KYC_SANDBOX) { kycSetOverride(entityType, entityId, 'approved', null); return { error: null }; }
     const { error } = await supabase.rpc('lift_suspension', { p_entity_type: entityType, p_entity_id: entityId });
     return { error };
   },
   async ban(entityType: EntityType, entityId: string, reason: string): Promise<{ error: any }> {
+    if (KYC_SANDBOX) { kycSetOverride(entityType, entityId, 'banned', reason); return { error: null }; }
     const { error } = await supabase.rpc('ban_entity', { p_entity_type: entityType, p_entity_id: entityId, p_reason: reason });
     return { error };
   },
 
   /** Compliance dashboard counts by status across both entity types. */
   async complianceStats(): Promise<{ data: Record<string, Record<string, number>>; error: any }> {
-    if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
-      const ls = (t: string): any[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
-      const dN = ls('drivers').length, mN = ls('merchants').length;
-      return { data: { merchant: { approved: Math.round(mN * 0.7), pending: Math.round(mN * 0.2), suspended: Math.round(mN * 0.05), rejected: Math.round(mN * 0.05) }, driver: { approved: Math.round(dN * 0.75), pending: Math.round(dN * 0.15), suspended: Math.round(dN * 0.05), banned: Math.round(dN * 0.05) } }, error: null };
+    if (KYC_SANDBOX) {
+      const out: Record<string, Record<string, number>> = { merchant: {}, driver: {} };
+      kycAllRows().forEach(r => { const g = out[r.entity_type]; g[r.status] = (g[r.status] || 0) + 1; });
+      return { data: out, error: null };
     }
     const { data, error } = await supabase.from('account_status').select('entity_type, status');
     const out: Record<string, Record<string, number>> = { merchant: {}, driver: {} };
