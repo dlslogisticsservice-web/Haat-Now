@@ -76,6 +76,61 @@ As in V1 §Phase 0 — subscription states (trialing/active/past_due/canceled), 
 gated), environment defaults seeded by the provisioning engine. Billing/proration **modeled + flagged** (payment
 provider credential), never faked.
 
+### 0.3 Platform Operations (the tenant control plane)
+Operational tooling **over** the Provisioning Engine — all reusing existing engines (`tenant.service`,
+`provisioning.service`, Export/Import, Integration Center health, `operation_events` audit, version sources).
+
+**(a) Tenant Lifecycle Manager** — one console for every transition:
+- **Provision · Activate · Suspend · Resume · Archive · Clone · Backup · Restore · Delete.**
+- Mapping to engines: provision/activate/suspend/archive already in `tenant.service`; **Resume** = activate from
+  suspended; **Clone/Backup** = `exportTenant` (snapshot) ; **Restore** = `importTenant`; **Delete** = soft-
+  delete + purge stores (guarded, audited). Every transition writes an `operation_events` row.
+- *Files:* `tenant.service.ts` (resume/clone/backup/restore/delete), new `features/admin/TenantLifecycle.tsx`.
+  *Reuse:* lifecycle + Export/Import + audit. *Risk:* Medium (delete is destructive → confirm + backup-first).
+  *Rollback:* destructive actions backup before mutating; restore from the snapshot. *Completion:* every verb
+  works + audited. *Verification:* full lifecycle round-trip incl. clone→restore == identical tenant.
+
+**(b) Tenant Health Dashboard** — read-only aggregation per tenant: **Storage · Payments · Maps ·
+Notifications · Analytics · AI · SSL · Domains · Usage · Warnings · Errors.**
+- *Reuse (no new monitoring):* provider rows = Integration Center `platform.service.providerHealth`
+  (payments/maps/notifications/analytics/AI/storage); SSL/Domains = the Phase-0 state machine; Usage =
+  `usageGuard` vs plan limits; Warnings/Errors = `operation_events` + `monitoring.service`.
+- *Files:* new `features/admin/TenantHealth.tsx`, `platform.service.ts` (health read), `monitoring.service.ts`.
+  *Risk:* Low (read-only). *Rollback:* remove the view. *Completion:* each tile reflects real state
+  (connected/failed/within-limits). *Verification:* a failed provider + an over-limit usage surface correctly.
+
+**(c) Provisioning Timeline** — every provisioning **step logged** (start/ok/fail per artifact) so a run is
+auditable + resumable. *Reuse:* `provisioning.service` emits an `operation_events` row per step (the existing
+audit channel); the timeline renders them in order. *Files:* `provisioning.service.ts` (step logging),
+`features/admin/ProvisioningTimeline.tsx`. *Risk:* Low. *Rollback:* logging is additive. *Completion:* a
+provision run shows an ordered, timestamped step list with per-step status. *Verification:* a forced step
+failure appears as `failed` with its error.
+
+**(d) One-Click Demo Tenant** — generate a **complete** demo tenant for sales/testing in one action.
+- *Reuse:* `provisionTenant(spec)` + a **"Demo" Template** (Template Marketplace) + the validated seed harness
+  (the 1000-order simulation pattern) → a tenant with brand, website, catalog, drivers/merchants/customers,
+  orders, finance, all populated. *Files:* `provisioning.service.ts` (demo spec), `templates/templateCatalog.ts`
+  (Demo bundle), `features/admin/TenantLifecycle.tsx` (button). *Risk:* Low (additive). *Rollback:* delete the
+  demo tenant. *Completion:* one click → a fully-operational, data-rich demo tenant. *Verification:* the demo
+  tenant's admin/website/apps all show coherent populated data; 0 errors.
+
+**(e) Tenant Version Manager** — track per tenant: **Platform Version · Theme Version · CMS Version · Migration
+Version · Build Version.** *Reuse:* Platform/Build = `version.json` (`APP_VERSION`/SHA, already emitted); Theme =
+`DesignConfig` design-store version; CMS = `experience.service` `version_number`/history; Migration = the
+migrations dir. The manager **stamps** these onto the tenant at provision/publish and shows drift. *Files:*
+`tenant.service.ts` (version stamp), `features/admin/TenantVersions.tsx`. *Risk:* Low. *Rollback:* additive
+fields. *Completion:* a tenant shows its five versions + drift vs current. *Verification:* publishing CMS bumps
+the CMS version; a platform deploy bumps build version.
+
+**(f) Tenant Diagnostics** — runtime diagnostics for **every subsystem**: a diagnostic runner that probes each
+(storage readable, providers configured, CMS published, RBAC roles seeded, theme applied, subscription active,
+domain/SSL state) and reports pass/fail + remediation hint. *Reuse:* Integration Center `testConnection`,
+`monitoring.service`, RBAC/CMS/tenant reads — diagnostics **call** existing checks, no new probes invented.
+*Files:* new `services/diagnostics.service.ts` (runner over existing checks), `features/admin/TenantDiagnostics.tsx`.
+*Risk:* Low (read-only probes). *Rollback:* remove the runner. *Completion:* a diagnostics run yields a
+per-subsystem pass/fail report. *Verification:* a misconfigured subsystem (e.g. no maps key) reports `fail` with
+the exact reason; a healthy tenant reports all-green.
+
 ---
 
 ## CROSS-CUTTING PLATFORM CAPABILITIES (extend existing engines)
@@ -212,13 +267,18 @@ Import) → 1 → 2 (incl. Multi-Site) → 3 → 4 → 5 → 6 → 7.**
 Delivery within Phase 0 (sub-milestones, dependency-ordered):
 1. **0.1 Subscription + usage limits** (no deps) → 2. **0.2 Theme Presets** (DesignConfig snapshots) →
 3. **0.3 Brand Asset Manager** (asset slots) → 4. **0.4 Provisioning Engine** (orchestrates 0.1–0.3 + existing
-brand/RBAC/CMS) → 5. **0.5 Template Marketplace** (bundles consumed by the engine) → 6. **0.6 Onboarding Wizard**
-(drives the engine) → 7. **0.7 Export/Import** (serialize ↔ provision).
+brand/RBAC/CMS, with **Provisioning Timeline** step-logging) → 5. **0.5 Template Marketplace** (bundles consumed
+by the engine) → 6. **0.6 Onboarding Wizard** (drives the engine) → 7. **0.7 Export/Import** (serialize ↔
+provision) → 8. **0.8 Platform Operations** (Lifecycle Manager · Health Dashboard · One-Click Demo Tenant ·
+Version Manager · Diagnostics — the operational console *over* everything above).
 
 **Justification:** the Provisioning Engine (0.4) is the keystone but *depends on* presets (0.2), asset slots
 (0.3), and subscriptions (0.1) existing to wire together — so those land first. Template Marketplace (0.5) and
-Export/Import (0.7) are *consumers* of the engine, so they follow it. Only after a tenant can be fully
-provisioned do the **website stack (1→2→3)** and then the **flagship apps (4→5)** and **polish (6→7)** make
+Export/Import (0.7) are *consumers* of the engine, so they follow it. **Platform Operations (0.8) lands last in
+Phase 0** because every tool in it (lifecycle clone/backup/restore, health tiles, demo-tenant, version stamps,
+diagnostics) operates *over* the provisioning + export/import + integration-health primitives built in 0.1–0.7
+— it is the control plane, so its dependencies must exist first. Only after a tenant can be fully provisioned
+**and operated** do the **website stack (1→2→3)**, then the **flagship apps (4→5)** and **polish (6→7)** make
 commercial sense. **AI Website Generator** stays a reserved seam throughout — implemented in no phase.
 
 ## Global rollback & safety
@@ -227,4 +287,12 @@ Center + White Label remain backward-compatible (defaults = no visual change). E
 through the gate: **typecheck 0 · lint 0 · build ✓ · E2E 24/24 · runtime verify · commit → push → deploy →
 `version.json` == commit**, runtime-verified before the next.
 
-**This is the final architecture document. STOP. No implementation until approved.**
+---
+
+## ARCHITECTURE FROZEN
+This document is the **frozen** architecture for the productization program. No further architectural changes.
+The next sprint **begins implementation at sub-milestone 0.1 (Subscription + usage limits)** and proceeds in the
+order above, each sub-milestone shipping through the full gate (typecheck 0 · lint 0 · build ✓ · E2E 24/24 ·
+runtime verify · commit → push → deploy → `version.json` == commit) and runtime-verified before the next.
+
+**STOP — no implementation in this turn.**
