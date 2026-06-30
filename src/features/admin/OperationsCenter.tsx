@@ -18,7 +18,7 @@ import { OperationsCommandCenter } from './OperationsCommandCenter';
 import { GrowthCenter } from './GrowthCenter';
 import { CustomerCareCenter } from './CustomerCareCenter';
 import { GrowthCenterB } from './GrowthCenterB';
-import { Map, Route, MapPin, Truck, BarChart3, Banknote, ShieldCheck, Wallet, Rocket, Headset, Target, Star, LucideIcon } from 'lucide-react';
+import { Map, Route, MapPin, Truck, BarChart3, Banknote, ShieldCheck, Wallet, Headset, Target, Star, LucideIcon } from 'lucide-react';
 
 export type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care' | 'growthb';
 
@@ -31,9 +31,8 @@ const TABS: { id: OpsTab; ar: string; en: string; Icon: LucideIcon }[] = [
   { id: 'payouts', ar: 'المدفوعات', en: 'Payouts', Icon: Banknote },
   { id: 'kyc', ar: 'التحقق والامتثال', en: 'KYC & Compliance', Icon: ShieldCheck },
   { id: 'finance', ar: 'المركز المالي', en: 'Finance', Icon: Wallet },
-  { id: 'growth', ar: 'محرّك النمو', en: 'Growth Engine', Icon: Rocket },
   { id: 'care', ar: 'رعاية العملاء', en: 'Customer Care', Icon: Headset },
-  { id: 'growthb', ar: 'إدارة النمو', en: 'Growth Mgmt', Icon: Target },
+  { id: 'growthb', ar: 'النمو', en: 'Growth', Icon: Target },
 ];
 
 const money = (n: number) => `${Number(n || 0).toFixed(2)}`;
@@ -43,6 +42,7 @@ const surface = { background: 'var(--color-surface-container)', color: 'var(--co
 export const OperationsCenter: React.FC<{ tab?: OpsTab; onTab?: (t: OpsTab) => void; hideTabs?: boolean }> = ({ tab: extTab, onTab, hideTabs }) => {
   const { lang } = useAppConfig();
   const [intTab, setIntTab] = useState<OpsTab>('command');
+  const [growthSub, setGrowthSub] = useState<'mgmt' | 'engine'>('mgmt');
   const tab = extTab ?? intTab;
   const setTab = (t: OpsTab) => { onTab ? onTab(t) : setIntTab(t); };
   return (
@@ -68,9 +68,24 @@ export const OperationsCenter: React.FC<{ tab?: OpsTab; onTab?: (t: OpsTab) => v
       {tab === 'payouts' && <PayoutsPanel />}
       {tab === 'kyc' && <KycCenter />}
       {tab === 'finance' && <FinanceCenter />}
-      {tab === 'growth' && <GrowthCenter />}
       {tab === 'care' && <CustomerCareCenter />}
-      {tab === 'growthb' && <GrowthCenterB />}
+      {/* Unified Growth: one nav entry, two sub-views (Mgmt = coupons/offers; Engine = affiliates/influencers/segments/loyalty). */}
+      {(tab === 'growthb' || tab === 'growth') && (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            {([['mgmt', 'إدارة النمو', 'Growth Mgmt'], ['engine', 'محرّك النمو', 'Growth Engine']] as const).map(([k, ar, en]) => (
+              <button key={k} onClick={() => setGrowthSub(k)}
+                className="px-3 py-1.5 rounded-xl text-sm font-bold cursor-pointer transition-all"
+                style={growthSub === k
+                  ? { background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }
+                  : { background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>
+                {lang === 'ar' ? ar : en}
+              </button>
+            ))}
+          </div>
+          {growthSub === 'mgmt' ? <GrowthCenterB /> : <GrowthCenter />}
+        </div>
+      )}
     </div>
   );
 };

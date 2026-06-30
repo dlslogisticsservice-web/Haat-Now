@@ -49,7 +49,7 @@ const GROUPS: Group[] = [
     { key: 'ops:care', ar: 'رعاية العملاء', en: 'Customer Care', Icon: Headset },
   ] },
   { ar: 'التسويق', en: 'Marketing', items: [
-    { key: 'ops:growthb', ar: 'إدارة النمو', en: 'Growth', Icon: Target },
+    { key: 'ops:growthb', ar: 'النمو', en: 'Growth', Icon: Target },
     { key: 'campaigns', ar: 'الحملات', en: 'Campaigns', Icon: Megaphone, super: true },
   ] },
   { ar: 'الأمان', en: 'Security', items: [
