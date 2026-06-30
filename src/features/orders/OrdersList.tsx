@@ -666,7 +666,7 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
             const done    = delivered || idx < reachedIdx;   // completed (or all done when delivered)
             const current = !delivered && idx === reachedIdx; // exactly one current; future never "done"
             return (
-              <div key={step.key} className="flex gap-4 relative" id={`step_${step.key}`}>
+              <div key={`${step.labelKey}-${idx}`} className="flex gap-4 relative" id={`step_${idx}`}>
                 <div className="flex flex-col items-center">
                   {done && !current ? (
                     <div className="w-6 h-6 rounded-full flex items-center justify-center z-10" style={{ background: 'var(--color-primary-fixed)' }}>
