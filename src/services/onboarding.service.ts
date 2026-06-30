@@ -78,6 +78,15 @@ export const onboardingService = {
 
   // ── admin review ──────────────────────────────────────────────────────────
   async kycQueue(status: 'pending' | 'approved' | 'rejected' = 'pending'): Promise<{ data: KycQueueItem[]; error: any }> {
+    if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
+      const ls = (t: string): any[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+      const drivers = ls('drivers'), merchants = ls('merchants');
+      const map: Record<string, { d: [number, number]; m: [number, number] }> = { pending: { d: [0, 5], m: [0, 3] }, approved: { d: [5, 14], m: [3, 9] }, rejected: { d: [14, 16], m: [9, 10] } };
+      const r = map[status]; const rows: KycQueueItem[] = [];
+      drivers.slice(r.d[0], r.d[1]).forEach((d: any, i: number) => rows.push({ id: `kyc-d-${d.id}`, entity_type: 'driver' as any, entity_id: d.id, status, submitted_at: new Date(Date.now() - (i + 1) * 7200000).toISOString(), reviewed_at: status === 'pending' ? null : new Date().toISOString(), decision_notes: status === 'rejected' ? 'وثائق غير واضحة' : null, entity_name: d.full_name }));
+      merchants.slice(r.m[0], r.m[1]).forEach((m: any, i: number) => rows.push({ id: `kyc-m-${m.id}`, entity_type: 'merchant' as any, entity_id: m.id, status, submitted_at: new Date(Date.now() - (i + 1) * 9000000).toISOString(), reviewed_at: status === 'pending' ? null : new Date().toISOString(), decision_notes: null, entity_name: m.business_name }));
+      return { data: rows, error: null };
+    }
     const { data, error } = await supabase.from('kyc_reviews').select('*')
       .eq('status', status).order('submitted_at', { ascending: true });
     const rows = (data as KycQueueItem[]) || [];
@@ -131,6 +140,11 @@ export const onboardingService = {
 
   /** Compliance dashboard counts by status across both entity types. */
   async complianceStats(): Promise<{ data: Record<string, Record<string, number>>; error: any }> {
+    if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
+      const ls = (t: string): any[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+      const dN = ls('drivers').length, mN = ls('merchants').length;
+      return { data: { merchant: { approved: Math.round(mN * 0.7), pending: Math.round(mN * 0.2), suspended: Math.round(mN * 0.05), rejected: Math.round(mN * 0.05) }, driver: { approved: Math.round(dN * 0.75), pending: Math.round(dN * 0.15), suspended: Math.round(dN * 0.05), banned: Math.round(dN * 0.05) } }, error: null };
+    }
     const { data, error } = await supabase.from('account_status').select('entity_type, status');
     const out: Record<string, Record<string, number>> = { merchant: {}, driver: {} };
     (data || []).forEach((r: any) => { out[r.entity_type][r.status] = (out[r.entity_type][r.status] || 0) + 1; });
