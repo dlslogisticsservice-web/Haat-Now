@@ -20,6 +20,15 @@ const finStats = () => {
 };
 const iso = (d: number) => new Date(Date.now() - d * 86400000).toISOString();
 
+// ── Demo finance mutation store (persisted) ───────────────────────────────────
+// Lets Pay / Issue-compensation survive reloads on the demo backend. A settlement is "paid"
+// if it appears in haat_sb_fin_paid; issued compensations are appended to haat_sb_fin_comp.
+const FIN_PAID = 'haat_sb_fin_paid', FIN_COMP = 'haat_sb_fin_comp';
+const finPaid = (): string[] => { try { return JSON.parse(localStorage.getItem(FIN_PAID) || '[]'); } catch { return []; } };
+const finPaidAdd = (id: string) => { try { const s = new Set(finPaid()); s.add(id); localStorage.setItem(FIN_PAID, JSON.stringify([...s])); } catch { /* ignore */ } };
+const finComps = (): any[] => { try { return JSON.parse(localStorage.getItem(FIN_COMP) || '[]'); } catch { return []; } };
+const finCompAdd = (c: any) => { try { localStorage.setItem(FIN_COMP, JSON.stringify([c, ...finComps()])); } catch { /* ignore */ } };
+
 /** Enterprise finance: double-entry ledger reads, commission, settlement engine, adjustments, compensation, exports. */
 export const financeService = {
   // ── dashboards ─────────────────────────────────────────────────────────────
@@ -78,25 +87,29 @@ export const financeService = {
     return { data: (data as SettlementRun[]) || [], error };
   },
   async generateMerchantSettlement(start: string, end: string): Promise<{ error: any }> {
+    if (SANDBOX) return { error: null };
     const { error } = await supabase.rpc('generate_merchant_settlement', { p_start: start, p_end: end });
     return { error };
   },
   async generateDriverSettlement(start: string, end: string): Promise<{ error: any }> {
+    if (SANDBOX) return { error: null };
     const { error } = await supabase.rpc('generate_driver_settlement', { p_start: start, p_end: end });
     return { error };
   },
   async payMerchantSettlement(id: string): Promise<{ error: any }> {
+    if (SANDBOX) { finPaidAdd(id); return { error: null }; }
     const { error } = await supabase.rpc('pay_merchant_settlement', { p_ms_id: id });
     return { error };
   },
   async payDriverSettlement(id: string): Promise<{ error: any }> {
+    if (SANDBOX) { finPaidAdd(id); return { error: null }; }
     const { error } = await supabase.rpc('pay_driver_settlement', { p_ds_id: id });
     return { error };
   },
   async merchantSettlements(status?: 'pending' | 'paid'): Promise<{ data: MerchantSettlement[]; error: any }> {
     if (SANDBOX) {
-      const f = finStats(); const merchants = ls<any>('merchants').slice(0, 8);
-      const data = merchants.map((m, i) => { const gross = +(f.gross / (merchants.length || 1) * (0.6 + (i % 5) * 0.18)).toFixed(2); const comm = +(gross * COMMISSION).toFixed(2); return { id: `ms-${m.id}`, settlement_id: 'run-m1', merchant_id: m.id, gross_sales: gross, total_commission: comm, net_payable: +(gross - comm).toFixed(2), status: (i % 3 === 0 ? 'paid' : 'pending') as 'pending' | 'paid', paid_at: i % 3 === 0 ? iso(1) : null, merchants: { business_name: m.business_name } }; });
+      const f = finStats(); const merchants = ls<any>('merchants').slice(0, 8); const paid = new Set(finPaid());
+      const data = merchants.map((m, i) => { const gross = +(f.gross / (merchants.length || 1) * (0.6 + (i % 5) * 0.18)).toFixed(2); const comm = +(gross * COMMISSION).toFixed(2); const isPaid = i % 3 === 0 || paid.has(`ms-${m.id}`); return { id: `ms-${m.id}`, settlement_id: 'run-m1', merchant_id: m.id, gross_sales: gross, total_commission: comm, net_payable: +(gross - comm).toFixed(2), status: (isPaid ? 'paid' : 'pending') as 'pending' | 'paid', paid_at: isPaid ? iso(1) : null, merchants: { business_name: m.business_name } }; });
       return { data: status ? data.filter(d => d.status === status) : data, error: null };
     }
     let q = supabase.from('merchant_settlements').select('*, merchants(business_name)').order('id', { ascending: false });
@@ -106,8 +119,8 @@ export const financeService = {
   },
   async driverSettlements(status?: 'pending' | 'paid'): Promise<{ data: DriverSettlement[]; error: any }> {
     if (SANDBOX) {
-      const drivers = ls<any>('drivers').slice(0, 10);
-      const data = drivers.map((d, i) => { const earn = 80 + (i % 7) * 35; const inc = (i % 4) * 15; const bon = (i % 3) * 10; const pen = (i % 6 === 0 ? 5 : 0); return { id: `ds-${d.id}`, driver_id: d.id, total_earnings: earn, total_incentives: inc, total_bonuses: bon, total_penalties: pen, net_payable: earn + inc + bon - pen, status: (i % 3 === 0 ? 'paid' : 'pending') as 'pending' | 'paid', paid_at: i % 3 === 0 ? iso(1) : null, drivers: { full_name: d.full_name } }; });
+      const drivers = ls<any>('drivers').slice(0, 10); const paid = new Set(finPaid());
+      const data = drivers.map((d, i) => { const earn = 80 + (i % 7) * 35; const inc = (i % 4) * 15; const bon = (i % 3) * 10; const pen = (i % 6 === 0 ? 5 : 0); const isPaid = i % 3 === 0 || paid.has(`ds-${d.id}`); return { id: `ds-${d.id}`, driver_id: d.id, total_earnings: earn, total_incentives: inc, total_bonuses: bon, total_penalties: pen, net_payable: earn + inc + bon - pen, status: (isPaid ? 'paid' : 'pending') as 'pending' | 'paid', paid_at: isPaid ? iso(1) : null, drivers: { full_name: d.full_name } }; });
       return { data: status ? data.filter(d => d.status === status) : data, error: null };
     }
     let q = supabase.from('driver_settlements').select('*, drivers(full_name)').order('id', { ascending: false });
@@ -118,19 +131,22 @@ export const financeService = {
 
   // ── driver adjustments ──────────────────────────────────────────────────────
   async addDriverAdjustment(driverId: string, type: 'incentive' | 'bonus' | 'penalty', amount: number, reason: string): Promise<{ error: any }> {
+    if (SANDBOX) return { error: null };
     const { error } = await supabase.rpc('add_driver_adjustment', { p_driver: driverId, p_type: type, p_amount: amount, p_reason: reason, p_order: null });
     return { error };
   },
 
   // ── compensation ────────────────────────────────────────────────────────────
   async issueCompensation(entityType: 'merchant' | 'driver' | 'customer', entityId: string, amount: number, reason: string, orderId?: string): Promise<{ error: any }> {
+    if (SANDBOX) { finCompAdd({ id: `cmp-${Date.now().toString(36)}`, entity_type: entityType, entity_id: entityId, amount, reason, status: 'issued', created_at: new Date().toISOString() }); return { error: null }; }
     const { error } = await supabase.rpc('issue_compensation', { p_entity_type: entityType, p_entity_id: entityId, p_amount: amount, p_reason: reason, p_order: orderId ?? null });
     return { error };
   },
   async listCompensations(): Promise<{ data: Compensation[]; error: any }> {
     if (SANDBOX) {
       const reasons = ['تأخر التوصيل', 'طلب ناقص', 'إلغاء من المتجر'];
-      return { data: Array.from({ length: 4 }, (_, i) => ({ id: `cmp-${i}`, entity_type: ['customer', 'merchant', 'driver'][i % 3], entity_id: `e${i}`, amount: 10 + i * 8, reason: reasons[i % reasons.length], status: i % 2 === 0 ? 'issued' : 'pending', created_at: iso(i + 1) })), error: null };
+      const demo = Array.from({ length: 4 }, (_, i) => ({ id: `cmp-${i}`, entity_type: ['customer', 'merchant', 'driver'][i % 3], entity_id: `e${i}`, amount: 10 + i * 8, reason: reasons[i % reasons.length], status: i % 2 === 0 ? 'issued' : 'pending', created_at: iso(i + 1) }));
+      return { data: [...finComps(), ...demo] as Compensation[], error: null };
     }
     const { data, error } = await supabase.from('compensations').select('*').order('created_at', { ascending: false }).limit(50);
     return { data: (data as Compensation[]) || [], error };
@@ -148,6 +164,7 @@ export const financeService = {
 
   // ── accounting exports ──────────────────────────────────────────────────────
   async generateExport(type: 'revenue' | 'commission' | 'settlement' | 'ledger', start: string, end: string): Promise<{ data: any; error: any }> {
+    if (SANDBOX) { const f = finStats(); return { data: { type, start, end, rows: f.count, total: type === 'commission' ? f.commission : f.gross, generated_at: new Date().toISOString() }, error: null }; }
     const { data, error } = await supabase.rpc('generate_accounting_export', { p_type: type, p_start: start, p_end: end });
     return { data, error };
   },
