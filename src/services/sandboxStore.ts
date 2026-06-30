@@ -64,6 +64,21 @@ function pushNotif(target: string, message: string) {
   write(NOTIF_KEY, list);
 }
 
+// Bridge: mirror lifecycle orders into the admin/finance store (haat_crud_orders) so a
+// single order flows to Admin Orders + Finance + Analytics — one integrated system, not
+// two parallel order stores. Upsert by id; best-effort (never breaks the lifecycle).
+const CRUD_ORDERS_KEY = 'haat_crud_orders';
+function mirrorOrderToCrud(o: SbOrder) {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const list = read<any[]>(CRUD_ORDERS_KEY, []);
+    const row = { id: o.id, customer_id: o.customer_id, customer_name: o.customer_name, branch_id: o.branch_id, branch_name: o.branch_name, merchant_branches: { name: o.branch_name }, driver_id: o.driver_id, status: o.status, total_amount: o.total_amount, delivery_fee: o.delivery_fee, created_at: o.created_at };
+    const i = list.findIndex((x: any) => x.id === o.id);
+    if (i >= 0) list[i] = { ...list[i], ...row }; else list.unshift(row);
+    write(CRUD_ORDERS_KEY, list);
+  } catch { /* best-effort bridge */ }
+}
+
 export const sandboxStore = {
   // ── Orders ────────────────────────────────────────────────────────────────
   getOrders(): SbOrder[] { return read<SbOrder[]>(ORDERS_KEY, []); },
@@ -92,6 +107,7 @@ export const sandboxStore = {
     };
     orders.unshift(order);
     write(ORDERS_KEY, orders);
+    mirrorOrderToCrud(order);
     pushNotif(input.customer_id, `تم استلام طلبك #${order.id.toUpperCase()} وهو قيد المراجعة.`);
     pushNotif('merchant', `طلب جديد #${order.id.toUpperCase()} بقيمة ${input.total_amount}.`);
     return order;
@@ -104,6 +120,7 @@ export const sandboxStore = {
     o.status = status;
     (o.history ||= []).push({ status, at: nowISO() });   // guard: orders from any source may lack history
     write(ORDERS_KEY, orders);
+    mirrorOrderToCrud(o);
     const msg: Record<SbStatus, string> = {
       pending: 'طلبك قيد المراجعة', accepted: 'قَبِل المتجر طلبك ✅', preparing: 'المتجر يحضّر طلبك الآن 👨‍🍳',
       on_the_way: 'الكابتن في الطريق إليك 🚴', delivered: 'تم تسليم طلبك ✅', cancelled: 'تم إلغاء طلبك',
@@ -121,6 +138,7 @@ export const sandboxStore = {
     o.status = 'cancelled'; o.failureReason = reason; o.failedBy = by;
     (o.history ||= []).push({ status: 'cancelled', at: nowISO() });
     write(ORDERS_KEY, orders);
+    mirrorOrderToCrud(o);
     const labels: Record<string, string> = {
       merchant_rejected: 'اعتذر المتجر عن تنفيذ طلبك', merchant_cancelled: 'ألغى المتجر طلبك',
       driver_rejected: 'تعذّر إسناد كابتن، نعيد المحاولة', failed_pickup: 'تعذّر استلام الطلب من المتجر',
@@ -139,6 +157,7 @@ export const sandboxStore = {
     if (!o) return undefined;
     o.driver_id = driverId;
     write(ORDERS_KEY, orders);
+    mirrorOrderToCrud(o);
     return o;
   },
 
