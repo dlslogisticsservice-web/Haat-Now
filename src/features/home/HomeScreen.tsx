@@ -279,7 +279,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
                 {/* Label */}
                 <span style={{
                   position: 'absolute', left: '3px', right: '3px', bottom: '5px',
-                  textAlign: 'center', fontSize: '8.5px', fontWeight: 700, lineHeight: 1.1,
+                  textAlign: 'center', fontSize: '10px', fontWeight: 700, lineHeight: 1.1,
                   color: isActive ? 'var(--color-primary-fixed)' : '#f2f4f6',
                   textShadow: '0 1px 6px rgba(0,0,0,0.85)', letterSpacing: '-0.02em',
                 }}>
