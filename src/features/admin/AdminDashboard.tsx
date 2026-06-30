@@ -24,6 +24,7 @@ import { AdminSidebar, NavKey } from './AdminSidebar';
 import { AdminDashboardHome } from './AdminDashboardHome';
 import { NotificationCenter } from './NotificationCenter';
 import { SystemLogs } from './SystemLogs';
+import { RbacCenter } from './RbacCenter';
 import { GlobalSearch } from './GlobalSearch';
 import { CrudManager } from '../../components/admin/CrudManager';
 import { DriverWorkspace } from './workspaces/DriverWorkspace';
@@ -53,7 +54,7 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants' | 'rbac';
 type CatTab = 'categories' | 'zones';
 type MgmtTab = 'drivers' | 'vehicles' | 'merchants' | 'branches' | 'orders' | 'customers';
 
@@ -457,6 +458,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         )}
         {activeTab === 'notifications' && <NotificationCenter adminId={adminId} lang={lang} onUnread={setNotifBadge} />}
         {activeTab === 'logs' && isSuper && <SystemLogs lang={lang} />}
+        {activeTab === 'rbac' && isSuper && <RbacCenter lang={lang} />}
 
         {activeTab === 'design' && isSuper && <DesignCenter />}
 

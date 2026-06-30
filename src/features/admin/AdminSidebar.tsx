@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 
 export type NavKey =
-  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants'
+  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac'
   | 'catalog:categories' | 'catalog:zones'
   | 'mgmt:drivers' | 'mgmt:vehicles' | 'mgmt:merchants' | 'mgmt:branches' | 'mgmt:orders' | 'mgmt:customers'
   | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles'
@@ -53,6 +53,7 @@ const GROUPS: Group[] = [
     { key: 'campaigns', ar: 'الحملات', en: 'Campaigns', Icon: Megaphone, super: true },
   ] },
   { ar: 'الأمان', en: 'Security', items: [
+    { key: 'rbac', ar: 'الأدوار والصلاحيات', en: 'Roles & Permissions', Icon: ShieldCheck, super: true },
     { key: 'ops:kyc', ar: 'التحقق والامتثال', en: 'Compliance', Icon: ShieldCheck },
     { key: 'logs', ar: 'سجلّات النظام', en: 'System Logs', Icon: ScrollText, super: true },
   ] },
