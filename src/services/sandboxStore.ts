@@ -354,3 +354,7 @@ export const sandboxStore = {
     return read<SbPushToken[]>(PUSH_KEY, []).filter(t => t.user_id === userId);
   },
 };
+
+// Dev-only harness hook — lets the operational-simulation suite drive the real engine.
+// Guarded by import.meta.env.DEV so it is tree-shaken out of every production build.
+if (import.meta.env.DEV && typeof window !== 'undefined') { (window as any).__sb = sandboxStore; }
