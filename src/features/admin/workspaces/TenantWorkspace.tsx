@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from 'react';
-import { Building2, Palette, Globe, CreditCard, BarChart3, Power, PauseCircle, Archive, Save, RotateCcw, Eye, ToggleRight, Image, MessageSquare } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Building2, Palette, Globe, CreditCard, BarChart3, Power, PauseCircle, Archive, Save, RotateCcw, Eye, ToggleRight, Image, MessageSquare, Check, Crown } from 'lucide-react';
 import { Drawer } from '../../../components/ui/Modal';
 import { MetricCard, EmptyStateBox, StatusBadge } from '../../../components/admin/EnterpriseUI';
 import { toast } from '../../../components/ui/feedback';
 import { WsHeader, WsTabBar, wsCard, type WsTab } from './shell';
 import { tenantService } from '../../../services/tenant.service';
 import { adminCrud } from '../../../services/admin-crud.service';
+import { subscriptionService, PLAN_CATALOG, type PlanKey, type SubStatus } from '../../../services/subscription.service';
+import { Can } from '../../../hooks/useRbac';
 
 const TABS: WsTab[] = [
   { k: 'brand', ar: 'الهوية', en: 'Brand', Icon: Palette },
   { k: 'theme', ar: 'السمة', en: 'Theme', Icon: Image },
+  { k: 'subscription', ar: 'الاشتراك', en: 'Subscription', Icon: CreditCard },
   { k: 'apps', ar: 'التطبيقات والنطاق', en: 'Apps & Domain', Icon: Globe },
   { k: 'features', ar: 'الميزات', en: 'Features', Icon: ToggleRight },
   { k: 'templates', ar: 'القوالب', en: 'Templates', Icon: MessageSquare },
@@ -35,6 +38,7 @@ export const TenantWorkspace: React.FC<{ tenant: any; lang: 'ar' | 'en'; onClose
   const [usage, setUsage] = useState<{ orders: number; drivers: number; merchants: number; customers: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({ ...tenant });
+  const formRef = useRef(form); formRef.current = form;
   const [features, setFeatures] = useState<Record<string, boolean>>(() => {
     try { return tenant.features_json ? JSON.parse(tenant.features_json) : { wallet: true, loyalty: true, scheduling: true, tips: true, live_tracking: true, ratings: true, referrals: false, subscriptions: false }; }
     catch { return {}; }
@@ -79,6 +83,20 @@ export const TenantWorkspace: React.FC<{ tenant: any; lang: 'ar' | 'en'; onClose
   };
   const applyTheme = () => { tenantService.applyTheme({ ...form }); toast.success(L('تم تطبيق سمة العلامة (معاينة حيّة)', 'Brand theme applied (live preview)')); };
   const restore = () => { tenantService.restoreDefaultTheme(); toast.success(L('تمت استعادة سمة HAAT NOW', 'HAAT NOW theme restored')); };
+
+  // ── Subscription (Phase 0.1) — derived view + actions over subscription.service ──
+  const sub = subscriptionService.view(form);
+  const usageGuards = subscriptionService.allUsage(form);
+  const subStatusKind = (s: SubStatus) => s === 'active' ? 'success' : s === 'trialing' ? 'pending' : s === 'past_due' ? 'warning' : 'inactive';
+  const afterSub = (patch: Record<string, any>, okAr: string, okEn: string) => { setForm(f => ({ ...f, ...patch })); toast.success(L(okAr, okEn)); onChanged?.(); };
+  const choosePlan = async (key: PlanKey) => {
+    // Decide trial vs change from the LATEST form (ref avoids stale-closure on rapid clicks).
+    const f = formRef.current;
+    const firstSubscription = f.sub_status === undefined && !f.trial_ends_at;
+    if (firstSubscription) { const { error } = await subscriptionService.startTrial(tenant.id, key); if (!error) afterSub({ plan: key, sub_status: 'trialing', trial_ends_at: new Date(Date.now() + subscriptionService.getPlan(key).trialDays * 86400000).toISOString() }, 'بدأت التجربة', 'Trial started'); }
+    else { const { error } = await subscriptionService.changePlan(tenant.id, key); if (!error) afterSub({ plan: key, sub_status: 'active' }, 'تم تغيير الخطة', 'Plan changed'); }
+  };
+  const setSubStatus = async (s: SubStatus) => { const { error } = await subscriptionService.setStatus(tenant.id, s); if (!error) afterSub({ sub_status: s }, 'تم تحديث حالة الاشتراك', 'Subscription status updated'); };
 
   const transition = async (fn: () => Promise<{ error: any }>, next: string, okAr: string, okEn: string) => {
     const { error } = await fn();
@@ -175,6 +193,70 @@ export const TenantWorkspace: React.FC<{ tenant: any; lang: 'ar' | 'en'; onClose
               );
             })}
             <p className="col-span-2 text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('تُحفظ مفاتيح الميزات لكل مستأجر (features_json) وتتحكّم في تفعيل وحدات المنتج لتلك العلامة.', 'Feature flags persist per tenant (features_json) and gate product modules for that brand.')}</p>
+          </div>
+        )}
+
+        {tab === 'subscription' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+              <MetricCard label={L('الخطة', 'Plan')} value={L(sub.plan.ar, sub.plan.en)} Icon={Crown} accent="#9ed442" />
+              <MetricCard label={L('الحالة', 'Status')} value={<StatusBadge kind={subStatusKind(sub.status) as any} label={sub.status} />} />
+              <MetricCard label={L('أيام التجربة', 'Trial days')} value={sub.onTrial ? sub.trialDaysLeft : '—'} accent={sub.onTrial && sub.trialDaysLeft <= 3 ? '#f87171' : '#60a5fa'} />
+              <MetricCard label={L('السعر/شهر', 'Price/mo')} value={sub.plan.custom ? L('مخصّص', 'Custom') : (sub.plan.priceMonthly ? `$${sub.plan.priceMonthly}` : L('مجاني', 'Free'))} />
+            </div>
+
+            <div>
+              <span style={lblS}>{L('الخطط', 'Plans')}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {PLAN_CATALOG.map(pl => {
+                  const current = pl.key === sub.plan.key;
+                  return (
+                    <div key={pl.key} id={`plan_${pl.key}`} className="rounded-2xl p-3" style={{ background: 'var(--color-surface-container-high)', border: `1px solid ${current ? 'var(--color-primary-fixed)' : 'var(--color-outline-variant)'}` }}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm flex items-center gap-1.5">{pl.key === 'enterprise' && <Crown size={13} style={{ color: '#fbbf24' }} />}{L(pl.ar, pl.en)}</span>
+                        <span className="text-xs font-bold">{pl.custom ? L('مخصّص', 'Custom') : pl.priceMonthly ? `$${pl.priceMonthly}/mo` : L('مجاني', 'Free')}</span>
+                      </div>
+                      <div className="text-[11px] mt-1.5 space-y-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>
+                        <div>{L('طلبات', 'Orders')}: {pl.limits.orders < 0 ? '∞' : pl.limits.orders} · {L('مندوبون', 'Drivers')}: {pl.limits.drivers < 0 ? '∞' : pl.limits.drivers}</div>
+                        <div>{L('تجّار', 'Merchants')}: {pl.limits.merchants < 0 ? '∞' : pl.limits.merchants} · {L('فروع', 'Branches')}: {pl.limits.branches < 0 ? '∞' : pl.limits.branches}</div>
+                        <div>{L('تجربة', 'Trial')}: {pl.trialDays} {L('يوم', 'days')} · {pl.features.length} {L('ميزة', 'features')}</div>
+                      </div>
+                      <Can perm="platform.tenants.manage" fallback={current ? <span className="text-[11px] mt-2 inline-block" style={{ color: 'var(--color-primary-fixed)' }}>{L('الخطة الحالية', 'Current plan')}</span> : null}>
+                        {current
+                          ? <span className="text-[11px] mt-2 inline-flex items-center gap-1" style={{ color: 'var(--color-primary-fixed)' }}><Check size={12} />{L('الخطة الحالية', 'Current plan')}</span>
+                          : <button id={`choose_${pl.key}`} onClick={() => choosePlan(pl.key)} className="mt-2 w-full h-9 rounded-lg text-xs font-bold cursor-pointer" style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }}>{(!form.sub_status && !form.trial_ends_at) ? L('ابدأ التجربة', 'Start trial') : L('اختر هذه الخطة', 'Choose plan')}</button>}
+                      </Can>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <span style={lblS}>{L('الاستخدام مقابل الحدود', 'Usage vs limits')}</span>
+              <div className="space-y-2">
+                {usageGuards.map(u => (
+                  <div key={u.resource} id={`usage_${u.resource}`} className="rounded-xl p-2.5" style={{ background: 'var(--color-surface-container-high)' }}>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-bold">{L(({ orders: 'الطلبات', drivers: 'المندوبون', merchants: 'التجّار', branches: 'الفروع' } as Record<string, string>)[u.resource], u.resource)}</span>
+                      <span style={{ color: u.overage ? '#f87171' : 'var(--color-on-surface-variant)' }}>{u.used} / {u.unlimited ? '∞' : u.limit}{u.overage ? ` · ${L('تجاوز', 'over')}` : ''}</span>
+                    </div>
+                    <div className="h-1.5 rounded-full" style={{ background: 'var(--color-surface-container-lowest)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${u.unlimited ? 4 : u.pct}%`, background: u.overage ? '#f87171' : u.pct > 85 ? '#fbbf24' : 'var(--color-primary-fixed)' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Can perm="platform.tenants.manage">
+              <div className="flex gap-2 flex-wrap">
+                {sub.status !== 'active' && <button onClick={() => setSubStatus('active')} className="h-9 px-3 rounded-lg text-xs font-bold cursor-pointer" style={{ background: 'rgba(74,222,128,0.15)', color: '#4ade80' }}>{L('تفعيل الاشتراك', 'Activate')}</button>}
+                {sub.status !== 'past_due' && <button onClick={() => setSubStatus('past_due')} className="h-9 px-3 rounded-lg text-xs font-bold cursor-pointer" style={wsCard}>{L('متأخر السداد', 'Mark past due')}</button>}
+                {sub.status !== 'canceled' && <button onClick={() => setSubStatus('canceled')} className="h-9 px-3 rounded-lg text-xs font-bold cursor-pointer" style={{ ...wsCard, color: '#f87171' }}>{L('إلغاء', 'Cancel')}</button>}
+              </div>
+            </Can>
+            <p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('الفوترة والتناسب (proration) تتطلّب مزوّد دفع — مُصمَّمة ومُعلَّمة، غير مُفعَّلة.', 'Billing & proration require a payment provider — modeled & flagged, not active.')}</p>
           </div>
         )}
 
