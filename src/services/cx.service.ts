@@ -1,5 +1,9 @@
 import { supabase } from '../lib/supabase';
 
+// Demo CX: derive support tickets/SLA from seeded data so Customer Care is usable offline.
+const CX_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+const cxls = <T,>(t: string): T[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+
 export interface RatingSummary { avg_rating: number; rating_count: number; five: number; four: number; three: number; two: number; one: number; }
 export interface OrderTracking {
   order_id: string; status: string;
@@ -104,6 +108,7 @@ export const cxService = {
     return { error };
   },
   async slaStats(): Promise<any> {
+    if (CX_SANDBOX) return { open: 7, in_progress: 4, resolved: 138, breached: 2, avg_first_response_min: 6, avg_resolution_min: 41, satisfaction: 92 };
     const { data } = await supabase.rpc('support_sla_stats');
     return data ?? {};
   },
@@ -118,6 +123,13 @@ export const cxService = {
     return { data: data || [], error };
   },
   async allTickets(status?: string): Promise<{ data: any[]; error: any }> {
+    if (CX_SANDBOX) {
+      const customers = cxls<any>('customers'); const orders = cxls<any>('orders');
+      const subjects = ['تأخر في التوصيل', 'طلب غير مكتمل', 'استفسار عن الفاتورة', 'مشكلة في الدفع', 'طلب استرداد', 'سؤال عام'];
+      const types = ['dispute', 'refund', 'inquiry', 'general']; const sts = ['open', 'in_progress', 'resolved', 'open', 'resolved'];
+      const data = Array.from({ length: 12 }, (_, i) => { const c = customers[i % Math.max(1, customers.length)] || { id: 'cu', full_name: 'عميل' }; const o = orders[i % Math.max(1, orders.length)]; return { id: `tk-${i}`, subject: subjects[i % subjects.length], type: types[i % types.length], status: sts[i % sts.length], priority: i % 4 === 0 ? 'high' : 'normal', customer_id: c.id, order_id: o?.id || null, customers: { full_name: c.full_name }, created_at: new Date(Date.now() - i * 5400000).toISOString() }; });
+      return { data: status ? data.filter(d => d.status === status) : data, error: null };
+    }
     let q = supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
     if (status) q = q.eq('status', status);
     const { data, error } = await q;
@@ -142,6 +154,7 @@ export const cxService = {
     return data || [];
   },
   async searchTermStats(): Promise<any> {
+    if (CX_SANDBOX) return { top_terms: [{ term: 'برجر', count: 412 }, { term: 'قهوة', count: 388 }, { term: 'بيتزا', count: 301 }, { term: 'شاورما', count: 277 }, { term: 'كبسة', count: 190 }], zero_result: [{ term: 'سوشي', count: 22 }, { term: 'ستيك', count: 14 }] };
     const { data } = await supabase.rpc('search_term_stats');
     return data ?? { top_terms: [], zero_result: [] };
   },
