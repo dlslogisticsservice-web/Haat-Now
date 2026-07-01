@@ -127,4 +127,96 @@ charge is made.
 - **Standing merge candidate:** growth/growthb (deferred, non-blocking).
 - **No new service** may be added in Phase 0.2+ without the governance header + a registry entry in the same commit.
 
-**Registry generated. STOP — Phase 0.2 not started.**
+---
+
+## 1. Service Categories
+| Category | Members |
+|---|---|
+| **Application Services** (domain business logic) | auth, account, cart, checkout, coupon, customer, cx, driver, finance, growth, growthb, inventory, loyalty, merchant, merchant-settings, notification, onboarding, order, payment, payment-orchestrator, product, subscription, tenant, tracking, wallet, admin, analytics, campaign, release · ops/{command, dispatch, payout, performance, shift, vehicle, zone, ops-execution} |
+| **Platform Services** (cross-cutting engines) | platform.service (registry + Integration Center), rbac.service (permissions), admin-crud.service (CRUD engine) |
+| **Experience Engines** | experience.service (CMS), assets.service (media library), design/designSystem (theme engine) |
+| **Infrastructure** | sandboxStore (demo store), demoSeed (seeder), storage.service (object storage), monitoring.service (observability), country-detection.service (locale) |
+| **Hooks** | useRbac (`<Can>` + permission checks) |
+| **Types** | services/types, platform/platformModel, experience/experienceTypes |
+| **Utilities** | location.service (distance/ETA/geo helpers) |
+
+## 2. Dependency Graph (hierarchy)
+```
+  UI  (src/features/*, src/components/*)
+   │        (may use ↓ Hooks and ↓ Application/Platform services)
+   ▼
+  HOOKS  (useRbac)
+   │
+   ▼
+  APPLICATION SERVICES  (order, finance, merchant, subscription, tenant, cx, ops/*, …)
+   │   ├─ sibling composition (acyclic): payment-orchestrator → payment→wallet→notification ;
+   │   │                                  order→notification ; subscription→tenant→(designSystem)
+   ▼
+  PLATFORM SERVICES  (platform.service, rbac.service, admin-crud.service)  + EXPERIENCE ENGINES (experience, assets, designSystem)
+   │
+   ▼
+  INFRASTRUCTURE / STORAGE  (sandboxStore, localStorage `haat_*`, Supabase, storage.service)
+   ▲
+   └── TYPES (leaf, imported by any layer; import nothing)
+```
+
+## 3. Layer Rules
+Allowed direction is **downward only**: `UI → Hooks → Application Services → Platform/Experience → Storage`.
+- **UI** may import Hooks + Application/Platform services (never Storage directly — go through a service).
+- **Hooks** may import Services; **must not** be imported by Services.
+- **Application Services** may import Platform, Experience engines, Storage, Types, and **sibling** application
+  services **only if acyclic** (orchestrators compose siblings; e.g. `payment-orchestrator`).
+- **Platform/Experience** may import Storage + Types only.
+- **Storage/Infrastructure + Types** are leaves — import nothing upward.
+
+## 4. Forbidden Dependencies (never)
+- ❌ **Services → UI** · ❌ **Services → Hooks** (lower layers never reference higher).
+- ❌ **Platform/Experience → Application Services** (platform is *below* app; it must not know about domains).
+- ❌ **Storage/Infrastructure → Services/Platform/UI** (leaves stay leaves).
+- ❌ **Types → anything** (pure).
+- ❌ **Any circular import** (A→B→A), including sibling app-service cycles.
+- ⚠ **UI → Storage directly** — discouraged (route through a service) though not fatal.
+
+## 5. Circular Dependency Report
+**Status: 0 circular imports** (confirmed in the Operational Readiness audit). The only bidirectional-looking
+pair, `payment.service ↔ payment-orchestrator.service`, is **one-directional** (orchestrator → service). All
+sibling application-service edges (`order→notification`, `wallet→notification`, `payment→wallet`,
+`payment-orchestrator→{payment,checkout,wallet,finance,auth}`, `subscription→tenant`) form a **DAG**.
+
+## 6. Service Health
+| Health | Services |
+|---|---|
+| **Stable** | auth, account, admin-crud, admin, cart, checkout, coupon, country-detection, customer, cx, driver, finance, inventory, location, merchant, merchant-settings, notification, onboarding, order, payment, payment-orchestrator, product, rbac, release, storage, subscription, tenant, tracking, wallet, growthb, campaign, platform.service, experience.service, assets.service, designSystem · ops/{command, dispatch, payout, performance, shift, vehicle, zone} |
+| **Experimental** | monitoring.service (thin observability seam), ops-execution.service (thin console backing) — live but minimal |
+| **Legacy** | growth.service (Growth *Engine* — superseded UI; pending merge into growthb) |
+| **Deprecated** | *(none)* |
+
+## 7. Service Ownership (owner domain)
+| Domain | Services owned |
+|---|---|
+| **Identity** | auth, account, rbac |
+| **Commerce** | cart, checkout, coupon, product, inventory, order, merchant, merchant-settings, customer |
+| **Finance** | finance, payment, payment-orchestrator, wallet, ops/payout |
+| **Operations** | driver, tracking, onboarding, analytics, admin, ops/{command, dispatch, performance, shift, vehicle, zone, ops-execution} |
+| **Growth** | growth, growthb, loyalty, campaign |
+| **Experience** | cx, experience.service, assets.service, designSystem, notification |
+| **Platform** | platform.service, admin-crud, tenant, subscription, release, storage, monitoring, country-detection, location |
+Every new service must declare its owner domain in the governance header (`Purpose:` scoped to one domain).
+
+## 8. Future Merge Roadmap (priority order)
+1. **`growth` + `growthb` → one `growth.service`** — real duplication; UI already consolidated. *Highest.*
+2. **`storage.service` + `assets.service` → unified asset layer** — aligns with Phase 0.3 Brand Asset Manager.
+3. **`loyalty.service` → loyalty core** — fold basic points into the growth loyalty engine (keep the WalletScreen
+   API stable). *Medium.*
+4. **`coupon.service` ↔ `growthb` coupons** — keep customer-side validation; unify admin coupon management.
+5. **`analytics.service` → `admin.service`** — watch; fold if surfaces converge. *Lowest.*
+> Each merge is its own governed cleanup sprint (header + registry update + full gate). None are blocking.
+
+---
+
+## GOVERNANCE FROZEN
+This registry + the governance standard, payment rule, layer rules, forbidden-dependency rules, health,
+ownership, and merge roadmap are **frozen**. No further governance documentation. Every new service in Phase
+0.2+ ships with the mandatory header + a registry entry + an owner domain, respecting the layer/forbidden rules.
+
+**Phase 0.2 (Theme Presets) is the next implementation sprint. STOP — no implementation in this turn.**
