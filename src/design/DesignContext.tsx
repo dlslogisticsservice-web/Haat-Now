@@ -32,6 +32,8 @@ interface DesignCtx {
   resetDraftSection: () => void;
   saveDraft: () => void;
   publish: () => void;
+  /** Atomically set the base config AND publish it (Phase 0.2 Theme Presets — avoids patch+publish staleness). */
+  applyPreset: (config: DesignConfig) => void;
   discardDraft: () => void;
   rollback: (versionId: string) => void;
   previewing: boolean;
@@ -80,10 +82,19 @@ export function DesignProvider({ children }: { children: ReactNode }) {
     if (!v) return;
     commit({ ...store, published: structuredClone(v.data), draft: structuredClone(v.data) });
   };
+  const applyPreset = (config: DesignConfig) => {
+    setStore(s => {
+      const layer: Layer = { base: structuredClone(config), byCountry: {} };
+      const version: Version = { id: `v-${++seq.current}`, at: new Date().toISOString(), data: structuredClone(s.published) };
+      const next: Store = { published: structuredClone(layer), draft: structuredClone(layer), versions: [version, ...s.versions].slice(0, 20) };
+      saveStore(next); return next;
+    });
+    setPreviewing(false);
+  };
 
   const value: DesignCtx = {
     country, publishedConfig, draftConfig, versions: store.versions,
-    patchDraft, resetDraftSection, saveDraft, publish, discardDraft, rollback, previewing, setPreviewing,
+    patchDraft, resetDraftSection, saveDraft, publish, applyPreset, discardDraft, rollback, previewing, setPreviewing,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
