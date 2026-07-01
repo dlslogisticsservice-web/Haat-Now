@@ -22,6 +22,22 @@ export interface AssetItem {
   created_at: string;
 }
 
+// ── Brand Asset slots (Phase 0.3) — the BRAND domain only (independent of Theme Presets). ──
+// Each slot maps to a tenant brand field; uploads reuse assetsService.upload (the ONE pipeline).
+export interface BrandSlot { key: string; ar: string; en: string; field: string; category: AssetCategory }
+export const BRAND_SLOTS: BrandSlot[] = [
+  { key: 'logo', ar: 'الشعار', en: 'Logo', field: 'logo_url', category: 'logo' },
+  { key: 'svg', ar: 'شعار SVG', en: 'SVG', field: 'svg_url', category: 'image' },
+  { key: 'png', ar: 'شعار PNG', en: 'PNG', field: 'png_url', category: 'image' },
+  { key: 'favicon', ar: 'أيقونة الموقع', en: 'Favicon', field: 'favicon_url', category: 'image' },
+  { key: 'app_icon', ar: 'أيقونة التطبيق', en: 'App Icon', field: 'app_icon_url', category: 'image' },
+  { key: 'splash', ar: 'شاشة البداية', en: 'Splash', field: 'splash_url', category: 'splash' },
+  { key: 'invoice_logo', ar: 'شعار الفاتورة', en: 'Invoice Logo', field: 'invoice_logo_url', category: 'image' },
+  { key: 'email_header', ar: 'ترويسة البريد', en: 'Email Header', field: 'email_header_url', category: 'image' },
+  { key: 'social_banner', ar: 'بانر اجتماعي', en: 'Social Banner', field: 'social_banner_url', category: 'image' },
+  { key: 'brand_image', ar: 'صورة العلامة', en: 'Brand Image', field: 'brand_image_url', category: 'image' },
+];
+
 const readIndex = (): AssetItem[] => { try { return JSON.parse(localStorage.getItem(INDEX_KEY) || '[]'); } catch { return []; } };
 const writeIndex = (a: AssetItem[]) => { try { localStorage.setItem(INDEX_KEY, JSON.stringify(a)); } catch { /* ignore */ } };
 
