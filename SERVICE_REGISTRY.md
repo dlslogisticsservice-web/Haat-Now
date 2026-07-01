@@ -94,6 +94,7 @@ charge is made.
 | `experience.service` | CMS: screen experiences (draft/publish/version/rollback) | ExperienceBuilder, ExperienceProvider, (future website) | No | No | No | One CMS — website content extends it |
 | `assets.service` | Media/asset library (Supabase Storage) | AssetsManager, MediaPicker | ⚠ vs storage.service | Watch | No | Media lib vs raw image upload |
 | `themePresets.service` | Reusable theme presets — DesignConfig snapshots (save/apply/duplicate/export/import/assign) | ThemePresetsPanel (Design Center), tenant.service | No (reuses DesignConfig/applyDesign/mergeDesign) | No | No | **Phase 0.2** · owner Platform/Experience · Stable · persists `haat_crud_theme_presets` · tenant stores only preset id + overrides |
+| `provisioning.service` | **Orchestrator-only** tenant provisioning engine (transactional/idempotent/resumable/retryable/rollback) | ProvisioningConsole, future TenantOnboardingWizard | No (delegates every step to existing services) | No | No | **Phase 0.4** · owner Platform · Stable · reuses tenant/subscription/rbac/themePreset/brand + `operation_events` audit + monitoring · run-state in `haat_sb_provision_runs` |
 
 ## Engines / stores / types (not "services" — listed for completeness)
 | File | Role | Notes |
@@ -123,8 +124,8 @@ charge is made.
   (`loyalty`/`location`/`monitoring`/`ops-execution`) were disproven (all have live consumers).
 
 ## Governance status
-- Total service-like files: **53** (36 services + 8 ops + platform/design/experience + engines/types).
-- New services this program: `rbac.service` (Phase 1), `subscription.service` (Phase 0.1), `themePresets.service` (Phase 0.2).
+- Total service-like files: **54** (37 services + 8 ops + platform/design/experience + engines/types).
+- New services this program: `rbac.service` (Phase 1), `subscription.service` (Phase 0.1), `themePresets.service` (Phase 0.2), `provisioning.service` (Phase 0.4).
 - **Standing merge candidate:** growth/growthb (deferred, non-blocking).
 - **No new service** may be added in Phase 0.2+ without the governance header + a registry entry in the same commit.
 

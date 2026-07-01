@@ -26,6 +26,7 @@ import { NotificationCenter } from './NotificationCenter';
 import { SystemLogs } from './SystemLogs';
 import { RbacCenter } from './RbacCenter';
 import { IntegrationCenter } from './IntegrationCenter';
+import { ProvisioningConsole } from './ProvisioningConsole';
 import { GlobalSearch } from './GlobalSearch';
 import { CrudManager } from '../../components/admin/CrudManager';
 import { DriverWorkspace } from './workspaces/DriverWorkspace';
@@ -55,7 +56,7 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants' | 'rbac' | 'integrations';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants' | 'rbac' | 'integrations' | 'provisioning';
 type CatTab = 'categories' | 'zones';
 type MgmtTab = 'drivers' | 'vehicles' | 'merchants' | 'branches' | 'orders' | 'customers';
 
@@ -461,6 +462,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         {activeTab === 'logs' && isSuper && <SystemLogs lang={lang} />}
         {activeTab === 'rbac' && isSuper && <RbacCenter lang={lang} />}
         {activeTab === 'integrations' && isSuper && <IntegrationCenter lang={lang} />}
+        {activeTab === 'provisioning' && isSuper && <ProvisioningConsole lang={lang} />}
 
         {activeTab === 'design' && isSuper && <DesignCenter />}
 
