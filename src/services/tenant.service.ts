@@ -6,27 +6,31 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { adminCrud } from './admin-crud.service';
 import { applyDesign, mergeDesign, DEFAULT_DESIGN, type DesignConfig } from '../design/designSystem';
+import { themePresetsService } from './themePresets.service';
 
 const tenants = adminCrud('tenants');
 const events = adminCrud('operation_events');
 
 export type TenantStatus = 'draft' | 'active' | 'suspended' | 'archived';
 
-/** Build a DesignConfig from a tenant's flat brand fields — reuses the ONE theming engine. */
+/** Build a DesignConfig for a tenant — reuses the ONE theming engine. Base = the tenant's assigned
+ *  theme preset (theme_preset_id, Phase 0.2) or the default; the tenant's flat brand fields are overrides
+ *  on top (tenant stores only a preset id + overrides — never a full preset copy). */
 export function tenantTheme(t: Record<string, any>): DesignConfig {
   const n = (v: any, d: number) => (v === undefined || v === null || v === '' || isNaN(Number(v)) ? d : Number(v));
-  return mergeDesign(DEFAULT_DESIGN, {
+  const base = t.theme_preset_id ? themePresetsService.getConfig(t.theme_preset_id) : DEFAULT_DESIGN;
+  return mergeDesign(base, {
     colors: {
-      ...DEFAULT_DESIGN.colors,
-      primary: t.primary_color || DEFAULT_DESIGN.colors.primary,
-      secondary: t.secondary_color || DEFAULT_DESIGN.colors.secondary,
-      accent: t.accent_color || t.primary_color || DEFAULT_DESIGN.colors.accent,
+      ...base.colors,
+      primary: t.primary_color || base.colors.primary,
+      secondary: t.secondary_color || base.colors.secondary,
+      accent: t.accent_color || t.primary_color || base.colors.accent,
     },
-    typography: { ...DEFAULT_DESIGN.typography, fontFamily: t.font_family || DEFAULT_DESIGN.typography.fontFamily },
-    cards: { ...DEFAULT_DESIGN.cards, radius: n(t.card_radius, DEFAULT_DESIGN.cards.radius) },
-    buttons: { ...DEFAULT_DESIGN.buttons, radius: n(t.button_radius, DEFAULT_DESIGN.buttons.radius) },
-    glass: { ...DEFAULT_DESIGN.glass, intensity: n(t.glass_intensity, DEFAULT_DESIGN.glass.intensity) },
-    branding: { ...DEFAULT_DESIGN.branding, favicon: t.favicon_url || DEFAULT_DESIGN.branding.favicon, appLogo: t.logo_url || '', darkLogo: t.dark_logo_url || '', lightLogo: t.light_logo_url || '', splashLogo: t.splash_url || '' },
+    typography: { ...base.typography, fontFamily: t.font_family || base.typography.fontFamily },
+    cards: { ...base.cards, radius: n(t.card_radius, base.cards.radius) },
+    buttons: { ...base.buttons, radius: n(t.button_radius, base.buttons.radius) },
+    glass: { ...base.glass, intensity: n(t.glass_intensity, base.glass.intensity) },
+    branding: { ...base.branding, favicon: t.favicon_url || base.branding.favicon, appLogo: t.logo_url || '', darkLogo: t.dark_logo_url || '', lightLogo: t.light_logo_url || '', splashLogo: t.splash_url || '' },
   });
 }
 
