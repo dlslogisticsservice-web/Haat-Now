@@ -3,12 +3,12 @@ import {
   LayoutDashboard, Map, Route, MapPin, UserRound, Truck, Wallet, Banknote, TicketPercent,
   Headset, ShieldCheck, LifeBuoy, Target, Megaphone, Palette, Settings2, ChevronDown, LogOut,
   Languages, RefreshCw, LucideIcon, Layers, Bell, ScrollText, Search,
-  Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen, Plug,
+  Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen, Plug, Rocket,
 } from 'lucide-react';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 
 export type NavKey =
-  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac' | 'integrations'
+  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac' | 'integrations' | 'provisioning'
   | 'catalog:categories' | 'catalog:zones'
   | 'mgmt:drivers' | 'mgmt:vehicles' | 'mgmt:merchants' | 'mgmt:branches' | 'mgmt:orders' | 'mgmt:customers'
   | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles'
@@ -61,6 +61,7 @@ const GROUPS: Group[] = [
   { ar: 'المنصّة', en: 'Platform', items: [
     { key: 'design', ar: 'مركز التصميم', en: 'Design', Icon: Palette, super: true },
     { key: 'tenants', ar: 'العلامة البيضاء', en: 'White Label', Icon: Building2, super: true },
+    { key: 'provisioning', ar: 'محرّك التزويد', en: 'Provisioning', Icon: Rocket, super: true },
     { key: 'integrations', ar: 'مركز التكاملات', en: 'Integrations', Icon: Plug, super: true },
   ] },
   { ar: 'النظام', en: 'System', items: [
