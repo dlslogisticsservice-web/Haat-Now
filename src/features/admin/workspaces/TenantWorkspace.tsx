@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Building2, Palette, Globe, CreditCard, BarChart3, Power, PauseCircle, Archive, Save, RotateCcw, Eye, ToggleRight, Image, MessageSquare, Check, Crown } from 'lucide-react';
+import { Building2, Palette, Globe, CreditCard, BarChart3, Power, PauseCircle, Archive, Save, RotateCcw, Eye, ToggleRight, Image, MessageSquare, Check, Crown, ImagePlus } from 'lucide-react';
 import { Drawer } from '../../../components/ui/Modal';
 import { MetricCard, EmptyStateBox, StatusBadge } from '../../../components/admin/EnterpriseUI';
 import { toast } from '../../../components/ui/feedback';
@@ -8,9 +8,11 @@ import { tenantService } from '../../../services/tenant.service';
 import { adminCrud } from '../../../services/admin-crud.service';
 import { subscriptionService, PLAN_CATALOG, type PlanKey, type SubStatus } from '../../../services/subscription.service';
 import { Can } from '../../../hooks/useRbac';
+import { BrandAssetsPanel } from '../BrandAssetsPanel';
 
 const TABS: WsTab[] = [
   { k: 'brand', ar: 'الهوية', en: 'Brand', Icon: Palette },
+  { k: 'assets', ar: 'أصول العلامة', en: 'Brand Assets', Icon: ImagePlus },
   { k: 'theme', ar: 'السمة', en: 'Theme', Icon: Image },
   { k: 'subscription', ar: 'الاشتراك', en: 'Subscription', Icon: CreditCard },
   { k: 'apps', ar: 'التطبيقات والنطاق', en: 'Apps & Domain', Icon: Globe },
@@ -143,6 +145,8 @@ export const TenantWorkspace: React.FC<{ tenant: any; lang: 'ar' | 'en'; onClose
             <Field k="app_icon_url" label={L('أيقونة التطبيق', 'App icon')} ph="https://…/icon-512.png" />
           </div>
         )}
+
+        {tab === 'assets' && <BrandAssetsPanel tenant={tenant} lang={lang} onChanged={onChanged} />}
 
         {tab === 'theme' && (
           <div className="space-y-3">
