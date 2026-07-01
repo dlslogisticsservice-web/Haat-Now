@@ -5,6 +5,7 @@ import {
   Languages, RefreshCw, LucideIcon, Layers, Bell, ScrollText, Search,
   Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen, Plug,
 } from 'lucide-react';
+import { BrandLogo } from '../../components/brand/BrandLogo';
 
 export type NavKey =
   | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac' | 'integrations'
@@ -94,8 +95,8 @@ export const AdminSidebar: React.FC<{
       style={{ background: 'var(--color-surface-container-lowest, #0a0f14)', borderInlineEnd: '1px solid var(--color-outline-variant)' }}>
       {/* Brand + desktop rail toggle */}
       <div className={`px-4 py-5 flex items-center gap-2.5 ${r ? 'md:justify-center md:px-0' : ''}`} style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
-        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'var(--color-primary-fixed)' }}>
-          <Layers size={18} color="var(--color-on-primary-fixed)" />
+        <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: 'var(--color-primary-fixed)' }}>
+          <BrandLogo size={24} fallback={<Layers size={18} color="var(--color-on-primary-fixed)" />} />
         </span>
         <div className={hideText}>
           <p className="font-extrabold text-sm tracking-tight" style={{ color: 'var(--color-on-surface)' }}>HAAT NOW</p>
