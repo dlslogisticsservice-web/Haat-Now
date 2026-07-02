@@ -6,6 +6,7 @@ guide and **[CHANGELOG_DOCS.md](CHANGELOG_DOCS.md)** for the full move log.
 ## Start here
 | I want to… | Go to |
 |---|---|
+| **Onboard as a developer** (run, understand, extend) | **[developer/INDEX.md](developer/INDEX.md)** |
 | Understand the frozen architecture | [plans/PRODUCTIZATION_MASTER_PLAN_V2.md](plans/PRODUCTIZATION_MASTER_PLAN_V2.md) |
 | See the system dependency map | [architecture/SYSTEM_DEPENDENCY_MAP.md](architecture/SYSTEM_DEPENDENCY_MAP.md) |
 | Know the engineering rules (Definition of Done) | [governance/IMPLEMENTATION_STANDARD.md](governance/IMPLEMENTATION_STANDARD.md) |
@@ -15,6 +16,7 @@ guide and **[CHANGELOG_DOCS.md](CHANGELOG_DOCS.md)** for the full move log.
 | Ship / deploy | [deployment/](deployment/) · [operations/](operations/) |
 
 ## By area
+- **Developer Platform** — [developer/](developer/): the complete guide to understand, extend & maintain HAAT NOW — [developer/INDEX.md](developer/INDEX.md) (getting started, architecture, every engine, how-to guides).
 - **Architecture** — [architecture/](architecture/): dependency map, platform inventory, data model, demo accounts.
 - **Governance** — [governance/](governance/): [SERVICE_REGISTRY.md](governance/SERVICE_REGISTRY.md), [IMPLEMENTATION_STANDARD.md](governance/IMPLEMENTATION_STANDARD.md).
 - **Plans** — [plans/](plans/): master plans (V1, [V2 frozen](plans/PRODUCTIZATION_MASTER_PLAN_V2.md)), priorities, roadmaps.
