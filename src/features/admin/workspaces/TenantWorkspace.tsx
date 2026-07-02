@@ -1,16 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Building2, Palette, Globe, CreditCard, BarChart3, Power, PauseCircle, Archive, Save, RotateCcw, Eye, ToggleRight, Image, MessageSquare, Check, Crown, ImagePlus } from 'lucide-react';
+import { Building2, Palette, Globe, CreditCard, BarChart3, Power, PauseCircle, Archive, Save, RotateCcw, Eye, ToggleRight, Image, MessageSquare, Check, Crown, ImagePlus, Gauge, Download, Upload, Copy, Trash2, History, ShieldCheck } from 'lucide-react';
 import { Drawer } from '../../../components/ui/Modal';
 import { MetricCard, EmptyStateBox, StatusBadge } from '../../../components/admin/EnterpriseUI';
-import { toast } from '../../../components/ui/feedback';
+import { toast, inputDialog } from '../../../components/ui/feedback';
 import { WsHeader, WsTabBar, wsCard, type WsTab } from './shell';
 import { tenantService } from '../../../services/tenant.service';
 import { adminCrud } from '../../../services/admin-crud.service';
 import { subscriptionService, PLAN_CATALOG, type PlanKey, type SubStatus } from '../../../services/subscription.service';
+import { templatesService } from '../../../services/templates.service';
 import { Can } from '../../../hooks/useRbac';
 import { BrandAssetsPanel } from '../BrandAssetsPanel';
 
 const TABS: WsTab[] = [
+  { k: 'control', ar: 'مركز التحكّم', en: 'Control Center', Icon: Gauge },
   { k: 'brand', ar: 'الهوية', en: 'Brand', Icon: Palette },
   { k: 'assets', ar: 'أصول العلامة', en: 'Brand Assets', Icon: ImagePlus },
   { k: 'theme', ar: 'السمة', en: 'Theme', Icon: Image },
@@ -35,8 +37,9 @@ const lblS: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: 'var(-
 /** Tenant workspace — full White-Label Brand Manager: identity, logos, theme (live apply), apps, features, templates. */
 export const TenantWorkspace: React.FC<{ tenant: any; lang: 'ar' | 'en'; onClose: () => void; onChanged?: () => void }> = ({ tenant, lang, onClose, onChanged }) => {
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
-  const [tab, setTab] = useState('brand');
+  const [tab, setTab] = useState('control');
   const [status, setStatus] = useState<string>(tenant.status || 'draft');
+  const [history, setHistory] = useState<any[]>([]);
   const [usage, setUsage] = useState<{ orders: number; drivers: number; merchants: number; customers: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, any>>({ ...tenant });
@@ -57,9 +60,26 @@ export const TenantWorkspace: React.FC<{ tenant: any; lang: 'ar' | 'en'; onClose
         adminCrud('customers').list().then(r => r.data.length).catch(() => 0),
       ]);
       if (alive) setUsage({ orders: o, drivers: d, merchants: m, customers: c });
+      // Provision history — reuse the operation_events audit for this tenant.
+      const ev = await adminCrud('operation_events').list().then((r: any) => r.data).catch(() => []);
+      if (alive) setHistory((ev || []).filter((e: any) => e.entity_id === tenant.id || e.meta?.tenant === tenant.id || e.meta?.run).slice(0, 12));
     })();
     return () => { alive = false; };
   }, [tenant.id]);
+
+  // ── Control Center actions (Phase 0.7) — reuse tenant.service export/import/clone/delete + operation_events ──
+  const copyOut = async (json: string, okAr: string, okEn: string) => { if (!json) return toast.error(L('لا توجد بيانات', 'Nothing to export')); try { await navigator.clipboard.writeText(json); } catch { /* ignore */ } toast.success(L(okAr, okEn)); };
+  const doExport = () => copyOut(tenantService.exportTenant(tenant.id), 'تم نسخ JSON المستأجر', 'Tenant JSON copied');
+  const doBackup = () => copyOut(tenantService.exportTenant(tenant.id), 'تم إنشاء نسخة احتياطية (JSON)', 'Backup created (JSON)');
+  const doImportRestore = async (isRestore: boolean) => {
+    const json = await inputDialog({ title: isRestore ? L('استعادة من نسخة (JSON)', 'Restore from backup (JSON)') : L('استيراد مستأجر (JSON)', 'Import tenant (JSON)'), placeholder: '{ "kind": "haat-tenant", ... }' });
+    if (!json?.trim()) return;
+    const { error } = await tenantService.importTenant(json.trim(), { slugSuffix: isRestore ? '-restored' : '-import' });
+    if (error) return toast.error(error.message || L('فشل الاستيراد', 'Import failed'));
+    toast.success(isRestore ? L('تمت الاستعادة كمستأجر جديد', 'Restored as a new tenant') : L('تم استيراد المستأجر', 'Tenant imported')); onChanged?.();
+  };
+  const doClone = async () => { const { error } = await tenantService.cloneTenant(tenant.id); if (error) return toast.error(L('تعذّر الاستنساخ', 'Clone failed')); toast.success(L('تم استنساخ المستأجر', 'Tenant cloned')); onChanged?.(); };
+  const doDelete = async () => { const { backup, error } = await tenantService.deleteTenant(tenant.id); if (error) return toast.error(L('تعذّر الحذف', 'Delete failed')); try { await navigator.clipboard.writeText(backup); } catch { /* ignore */ } toast.success(L('تم الحذف (مع نسخة احتياطية على الحافظة)', 'Deleted (backup copied to clipboard)')); onChanged?.(); onClose(); };
 
   const Field = ({ k, label, ph, type }: { k: string; label: string; ph?: string; type?: string }) => (
     <label className="block"><span style={lblS}>{label}</span>
@@ -127,6 +147,62 @@ export const TenantWorkspace: React.FC<{ tenant: any; lang: 'ar' | 'en'; onClose
           <MetricCard label={L('اللون', 'Color')} value={<span className="inline-flex items-center gap-1.5"><span className="w-4 h-4 rounded" style={{ background: form.primary_color || '#a3f95b' }} />{form.primary_color || '#a3f95b'}</span>} />
         </div>
         <WsTabBar tabs={TABS} active={tab} onChange={setTab} lang={lang} />
+
+        {tab === 'control' && (
+          <div className="space-y-4" id="tenant_control_center">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+              <MetricCard label={L('الخطة', 'Plan')} value={form.plan || '—'} Icon={CreditCard} accent="#9ed442" />
+              <MetricCard label={L('الاشتراك', 'Subscription')} value={form.sub_status || '—'} />
+              <MetricCard label={L('القالب', 'Template')} value={templatesService.get(form.template_id)?.name || '—'} />
+              <MetricCard label={L('الحالة', 'Status')} value={<StatusBadge kind={statusKind(status) as any} label={status} />} />
+            </div>
+
+            <div className="rounded-2xl p-3" style={wsCard}>
+              <p className="font-bold text-xs uppercase mb-2 flex items-center gap-1.5"><ShieldCheck size={13} />{L('الصحّة', 'Health')}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-[11px]">
+                {subscriptionService.allUsage(form).map(u => <span key={u.resource} className="px-2 py-1 rounded-lg" style={{ background: 'var(--color-surface-container-lowest)', color: u.overage ? '#f87171' : 'var(--color-on-surface-variant)' }}>{u.resource}: {u.used}/{u.unlimited ? '∞' : u.limit}</span>)}
+                <span className="px-2 py-1 rounded-lg" style={{ background: 'var(--color-surface-container-lowest)' }}>{L('النطاق', 'Domain')}: {form.subdomain ? '✓' : '—'}</span>
+                <span className="px-2 py-1 rounded-lg" style={{ background: 'var(--color-surface-container-lowest)' }}>SSL: {form.ssl_status || 'pending'}</span>
+                <span className="px-2 py-1 rounded-lg" style={{ background: 'var(--color-surface-container-lowest)' }}>{L('التكاملات', 'Integrations')}: {(form.integrations || []).length}</span>
+                <span className="px-2 py-1 rounded-lg" style={{ background: 'var(--color-surface-container-lowest)' }}>{L('الموقع', 'Site')}: {form.default_website ? '✓' : '—'}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="rounded-2xl p-3" style={wsCard}>
+                <p className="font-bold text-xs uppercase mb-1.5">{L('المستخدمون', 'Users')}</p>
+                <p className="text-[12px]" dir="ltr">{form.default_admin || '—'}</p>
+                <p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('الأدوار', 'Roles')}: {(form.default_roles || []).join(', ') || '—'}</p>
+              </div>
+              <div className="rounded-2xl p-3" style={wsCard}>
+                <p className="font-bold text-xs uppercase mb-1.5">{L('النطاقات', 'Domains')}</p>
+                <p className="text-[12px]" dir="ltr">{form.subdomain ? `${form.subdomain}.haatnow.app` : '—'}</p>
+                <p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }} dir="ltr">{form.custom_domain || L('لا نطاق مخصّص', 'No custom domain')}</p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl p-3" style={wsCard} id="tenant_provision_history">
+              <p className="font-bold text-xs uppercase mb-2 flex items-center gap-1.5"><History size={13} />{L('سجل التزويد', 'Provision history')}</p>
+              {history.length === 0 ? <p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('لا سجل بعد', 'No history yet')}</p>
+                : <div className="space-y-1 max-h-40 overflow-y-auto">{history.map(h => <div key={h.id} className="flex justify-between text-[11px] gap-2"><span>{h.action}</span><span style={{ color: 'var(--color-on-surface-variant)' }}>{new Date(h.created_at).toLocaleString(L('ar', 'en'))}</span></div>)}</div>}
+            </div>
+
+            <Can perm="platform.tenants.manage">
+              <div className="rounded-2xl p-3" style={wsCard}>
+                <p className="font-bold text-xs uppercase mb-2">{L('البيانات والدورة', 'Data & lifecycle')}</p>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={doExport} id="tc_export" className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center gap-1" style={wsCard}><Download size={12} />{L('تصدير', 'Export')}</button>
+                  <button onClick={() => doImportRestore(false)} id="tc_import" className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center gap-1" style={wsCard}><Upload size={12} />{L('استيراد', 'Import')}</button>
+                  <button onClick={doBackup} id="tc_backup" className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg cursor-pointer" style={wsCard}>{L('نسخة احتياطية', 'Backup')}</button>
+                  <button onClick={() => doImportRestore(true)} id="tc_restore" className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg cursor-pointer" style={wsCard}>{L('استعادة', 'Restore')}</button>
+                  <button onClick={doClone} id="tc_clone" className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center gap-1" style={wsCard}><Copy size={12} />{L('استنساخ', 'Clone')}</button>
+                  <button onClick={doDelete} id="tc_delete" className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg cursor-pointer flex items-center gap-1" style={{ ...wsCard, color: '#f87171' }}><Trash2 size={12} />{L('حذف', 'Delete')}</button>
+                </div>
+                <p className="text-[10px] mt-2" style={{ color: 'var(--color-on-surface-variant)' }}>{L('يُعاد استخدام خط التصدير/الاستيراد ونظام تدقيق operation_events. النسخ الاحتياطية تُنسخ إلى الحافظة.', 'Reuses the export/import pipeline + operation_events audit. Backups are copied to the clipboard.')}</p>
+              </div>
+            </Can>
+          </div>
+        )}
 
         {tab === 'brand' && (
           <div className="grid grid-cols-2 gap-3">

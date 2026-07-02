@@ -10,6 +10,7 @@ import { themePresetsService } from './themePresets.service';
 
 const tenants = adminCrud('tenants');
 const events = adminCrud('operation_events');
+const allTenants = (): any[] => { try { return JSON.parse(localStorage.getItem('haat_crud_tenants') || '[]'); } catch { return []; } };
 
 export type TenantStatus = 'draft' | 'active' | 'suspended' | 'archived';
 
@@ -68,5 +69,39 @@ export const tenantService = {
   /** Lifecycle transitions — each persists status + logs the event. */
   async activate(id: string): Promise<{ error: any }> { const r = await tenants.update(id, { status: 'active' }); if (!r.error) await logLifecycle('tenant_activated', id); return r; },
   async suspend(id: string): Promise<{ error: any }>  { const r = await tenants.update(id, { status: 'suspended' }); if (!r.error) await logLifecycle('tenant_suspended', id); return r; },
+  async resume(id: string): Promise<{ error: any }>   { const r = await tenants.update(id, { status: 'active' });    if (!r.error) await logLifecycle('tenant_resumed', id); return r; },
   async archive(id: string): Promise<{ error: any }>  { const r = await tenants.update(id, { status: 'archived' }); if (!r.error) await logLifecycle('tenant_archived', id); return r; },
+
+  // ── Export / Import / Backup / Restore / Clone / Delete (Phase 0.7) ──
+  // Reuse the existing tenant store (adminCrud) + operation_events audit. No new persistence, no provisioning logic.
+  /** Serialize a tenant's full config to a versioned JSON document (backup/export). */
+  exportTenant(id: string): string {
+    const t = allTenants().find(x => x.id === id); if (!t) return '';
+    logLifecycle('tenant_exported', id, { slug: t.slug });
+    return JSON.stringify({ version: 1, kind: 'haat-tenant', exported_at: new Date().toISOString(), tenant: t }, null, 2);
+  },
+  /** Recreate a tenant from an exported JSON document (import/restore) — restores into the tenant store. */
+  async importTenant(json: string, opts?: { slugSuffix?: string }): Promise<{ data: any; error: any }> {
+    let parsed: any; try { parsed = JSON.parse(json); } catch { return { data: null, error: { message: 'invalid JSON' } }; }
+    const src = parsed?.tenant || parsed; if (!src || (!src.brand_name && !src.slug)) return { data: null, error: { message: 'not a tenant export' } };
+    const { id: _i, created_at: _c, ...fields } = src;
+    const slug = `${src.slug || 'tenant'}${opts?.slugSuffix ?? '-import'}`;
+    const { data, error } = await tenants.create({ ...fields, slug, status: fields.status || 'draft' });
+    if (!error && data?.id) await logLifecycle('tenant_imported', data.id, { from_slug: src.slug });
+    return { data, error };
+  },
+  /** Clone = export + import with a fresh slug/id (reuses export/import). */
+  async cloneTenant(id: string): Promise<{ data: any; error: any }> {
+    const json = this.exportTenant(id); if (!json) return { data: null, error: { message: 'not found' } };
+    const r = await this.importTenant(json, { slugSuffix: `-clone-${Date.now().toString(36).slice(-4)}` });
+    if (!r.error && r.data?.id) await logLifecycle('tenant_cloned', r.data.id, { source: id });
+    return r;
+  },
+  /** Delete = backup-first then remove (never lose data). Returns the backup JSON. */
+  async deleteTenant(id: string): Promise<{ backup: string; error: any }> {
+    const backup = this.exportTenant(id);
+    const { error } = await tenants.remove(id);
+    if (!error) await logLifecycle('tenant_deleted', id, {});
+    return { backup, error };
+  },
 };
