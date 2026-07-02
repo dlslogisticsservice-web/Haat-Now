@@ -18,3 +18,12 @@ View your app in AI Studio: https://ai.studio/apps/4a98860d-6b03-46b9-ac37-07440
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Documentation
+
+All project documentation — architecture, governance, plans, phase/QA/deployment reports and runbooks —
+lives under [`docs/`](docs/), organized by purpose. Start at the documentation entry point:
+
+- **[docs/INDEX.md](docs/INDEX.md)** — entry point (links to everything)
+- **[docs/README.md](docs/README.md)** — the folder-hierarchy guide
+- **[docs/CHANGELOG_DOCS.md](docs/CHANGELOG_DOCS.md)** — document move log (old path → new path)
