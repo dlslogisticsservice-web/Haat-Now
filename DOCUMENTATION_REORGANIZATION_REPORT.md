@@ -125,12 +125,12 @@ Runtime-safety gate — proves the doc move changed no application behavior:
 
 | Gate | Command | Result |
 |---|---|---|
-| Typecheck | `npm run lint` (`tsc --noEmit`) | _see §8_ |
-| Build | `npm run build` (`vite build` + `gen-version.cjs`) | _see §8_ |
-| E2E | `node docs/testing/e2e_runner.cjs` | _see §8_ |
+| Typecheck | `npm run lint` (`tsc --noEmit`) | ✅ **0 errors** |
+| Build | `npm run build` (`vite build` + `gen-version.cjs`) | ✅ **built in 17.47s**, version stamped `152d452` |
+| E2E | `node docs/testing/e2e_runner.cjs` | ✅ **24/24 pass, 0 fail** |
 
-*(Results recorded in the commit/deploy log, §8. A documentation-only move cannot affect the TypeScript program
-or bundle — no `.md` is imported by `src/` — so these gates are confirmatory.)*
+*(A documentation-only move cannot affect the TypeScript program or bundle — no `.md` is imported by `src/` — so
+these gates are confirmatory. All three passed unchanged.)*
 
 ---
 
@@ -151,8 +151,11 @@ Entry point → **[docs/INDEX.md](docs/INDEX.md)**. Hierarchy guide → **[docs/
 
 ## 8. Commit / Deploy / Verify
 
-- **Commit:** _recorded on commit._
-- **Merge to `main` (`--no-ff`) + push:** _recorded on merge._
-- **Production verification:** `https://haat-now.vercel.app/version.json` short SHA == `main` HEAD.
+- **Commit (feature branch `feat/auth-recovery-frontend-sprint`):** `9d3ba9e` — 72 renames + 3 new nav docs
+  + 2 updated READMEs; E2E screenshot artifacts intentionally excluded.
+- **Merge to `main` (`--no-ff`) + push:** merge commit `1536497`; all 72 file moves reported by Git at
+  **100% similarity** (full history preserved).
+- **Production verification:** `https://haat-now.vercel.app/version.json` short SHA == `main` HEAD `1536497`
+  ✅ (polled with a browser User-Agent; production flipped from `5ed34be` → `1536497`).
 
-> This section is finalized in the same sprint commit once the gate passes and the deploy is verified.
+**Sprint status: COMPLETE.** Stopping here as instructed — Phase 0.8 not started.
