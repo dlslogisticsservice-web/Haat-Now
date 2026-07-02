@@ -113,8 +113,11 @@ Documentation-only; the runtime-safety gate is confirmatory (no `.md` is importe
 - **Typecheck** (`npm run lint`): ✅ **0 errors**.
 - **Build** (`npm run build`): ✅ **built in 7.22s**, `version.json` + `sw.js` stamped.
 - **E2E** (`node docs/testing/e2e_runner.cjs`): ✅ **24/24 pass, 0 fail**.
-- **Commit / merge / push / production verify:** finalized below once the deploy is verified.
+- **Commit (feature branch `docs/developer-platform`):** `e9e058b` — 27 developer docs + report; E2E screenshot
+  artifacts intentionally excluded.
+- **Merge to `main` (`--no-ff`) + push:** merge commit `308ba26`.
+- **Production verification:** `https://haat-now.vercel.app/version.json` short SHA == `main` HEAD `308ba26` ✅
+  (polled with a browser User-Agent).
 
-_(Deploy details — commit SHA, merge SHA, production `version.json` match — appended in the finalize commit.)_
-
-**Sprint status:** documentation complete; gate green; deploying next. Phase 0.8 NOT started.
+**Sprint status: COMPLETE.** Documentation delivered, gate green, deployed and verified. Stopping here as
+instructed — Phase 0.8 NOT started.
