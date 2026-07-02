@@ -16,7 +16,11 @@ const events = adminCrud('operation_events');
 const tenants = adminCrud('tenants');
 const RUNS_KEY = 'haat_sb_provision_runs';
 
-export interface ProvisionSpec { brand_name: string; slug?: string; plan?: PlanKey; theme_preset_id?: string; country_code?: string; vertical?: string; primary_color?: string; logo_url?: string; support_email?: string }
+export interface ProvisionSpec {
+  brand_name: string; slug?: string; plan?: PlanKey; theme_preset_id?: string; country_code?: string; vertical?: string; primary_color?: string; logo_url?: string; support_email?: string;
+  // Declarative manifest fields (Phase 0.5) — the engine applies these generically; it holds NO business logic.
+  trial_days?: number; features?: Record<string, boolean>; integrations?: string[]; roles?: string[]; permissions?: string[]; cms_structure?: any; navigation?: any; demo_data_profile?: string; template_id?: string;
+}
 export type StepStatus = 'pending' | 'ok' | 'skipped' | 'failed';
 export interface StepState { key: string; ar: string; en: string; status: StepStatus; error?: string; at?: string }
 export interface ProvisionRun { id: string; slug: string; spec: ProvisionSpec; tenantId: string | null; status: 'running' | 'completed' | 'failed' | 'rolled_back'; steps: StepState[]; created_at: string; updated_at: string }
@@ -36,19 +40,19 @@ const saveRun = (run: ProvisionRun) => { const runs = readRuns(); run.updated_at
 interface Step { key: string; ar: string; en: string; done: (c: Ctx) => boolean; run: (c: Ctx) => Promise<void> }
 const STEPS: Step[] = [
   { key: 'tenant', ar: 'إنشاء المستأجر', en: 'Create tenant', done: c => !!c.tenantId,
-    run: async c => { const ex = bySlug(c.slug); if (ex) { c.tenantId = ex.id; return; } const { data, error } = await tenantService.provision({ brand_name: c.spec.brand_name, slug: c.slug, country_code: c.spec.country_code || 'SA', vertical: c.spec.vertical || 'food', primary_color: c.spec.primary_color || '#A3F95B' }); if (error || !data?.id) throw new Error('tenant create failed'); c.tenantId = data.id; } },
+    run: async c => { const ex = bySlug(c.slug); if (ex) { c.tenantId = ex.id; return; } const { data, error } = await tenantService.provision({ brand_name: c.spec.brand_name, slug: c.slug, country_code: c.spec.country_code || 'SA', vertical: c.spec.vertical || 'food', primary_color: c.spec.primary_color || '#A3F95B', template_id: c.spec.template_id || null }); if (error || !data?.id) throw new Error('tenant create failed'); c.tenantId = data.id; } },
   { key: 'theme', ar: 'تعيين قالب السمة', en: 'Assign theme preset', done: c => !!byId(c.tenantId)?.theme_preset_id,
     run: async c => { const { error } = await tenantService.update(c.tenantId!, { theme_preset_id: c.spec.theme_preset_id || 'preset-default' }); if (error) throw new Error('theme assign failed'); } },
   { key: 'brand', ar: 'الهوية وأصول العلامة', en: 'Brand & assets', done: c => !!byId(c.tenantId)?.brand_seeded,
     run: async c => { const { error } = await tenantService.saveBranding(c.tenantId!, { app_name: c.spec.brand_name, support_email: c.spec.support_email || `support@${c.slug}.com`, logo_url: c.spec.logo_url || '', brand_seeded: true }); if (error) throw new Error('brand save failed'); } },
   { key: 'subscription', ar: 'الاشتراك والتجربة', en: 'Subscription & trial', done: c => !!byId(c.tenantId)?.sub_status,
-    run: async c => { const { error } = await subscriptionService.startTrial(c.tenantId!, c.spec.plan || 'starter'); if (error) throw new Error('subscription failed'); } },
+    run: async c => { const { error } = await subscriptionService.startTrial(c.tenantId!, c.spec.plan || 'starter'); if (error) throw new Error('subscription failed'); if (c.spec.features) await tenantService.update(c.tenantId!, { features_json: JSON.stringify(c.spec.features) }); } },
   { key: 'roles', ar: 'الأدوار والمدير الافتراضي', en: 'Roles & default admin', done: c => !!byId(c.tenantId)?.roles_seeded,
-    run: async c => { rbacService.listRoles(); const { error } = await tenantService.update(c.tenantId!, { default_admin: c.spec.support_email || `admin@${c.slug}.com`, roles_seeded: true }); if (error) throw new Error('roles seed failed'); } },
+    run: async c => { rbacService.listRoles(); const { error } = await tenantService.update(c.tenantId!, { default_admin: c.spec.support_email || `admin@${c.slug}.com`, roles_seeded: true, default_roles: c.spec.roles || [], default_permissions: c.spec.permissions || [] }); if (error) throw new Error('roles seed failed'); } },
   { key: 'integrations', ar: 'التكاملات الافتراضية', en: 'Default integrations', done: c => !!byId(c.tenantId)?.integrations_seeded,
-    run: async c => { const { error } = await tenantService.update(c.tenantId!, { integrations_seeded: true, analytics_enabled: true, storage_provider: 'supabase_storage' }); if (error) throw new Error('integrations seed failed'); } },
+    run: async c => { const { error } = await tenantService.update(c.tenantId!, { integrations_seeded: true, analytics_enabled: true, storage_provider: 'supabase_storage', integrations: c.spec.integrations || [] }); if (error) throw new Error('integrations seed failed'); } },
   { key: 'cms', ar: 'الموقع والصفحات الافتراضية', en: 'Default site & pages', done: c => !!byId(c.tenantId)?.default_website,
-    run: async c => { const { error } = await tenantService.update(c.tenantId!, { default_website: true, site_name: c.spec.brand_name }); if (error) throw new Error('cms seed failed'); } },
+    run: async c => { const { error } = await tenantService.update(c.tenantId!, { default_website: true, site_name: c.spec.brand_name, cms_structure: c.spec.cms_structure || null, navigation: c.spec.navigation || null, demo_data_profile: c.spec.demo_data_profile || null }); if (error) throw new Error('cms seed failed'); } },
   { key: 'activate', ar: 'التفعيل', en: 'Activate', done: c => byId(c.tenantId)?.status === 'active',
     run: async c => { const { error } = await tenantService.activate(c.tenantId!); if (error) throw new Error('activate failed'); } },
 ];
