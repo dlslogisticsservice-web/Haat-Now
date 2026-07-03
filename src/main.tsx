@@ -9,6 +9,17 @@ import { ExperienceProvider } from './experience/ExperienceContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MISSING_SUPABASE_VARS } from './lib/supabase';
 import { APP_VERSION } from './config/version';
+import { PublicSiteApp } from './features/website/PublicSiteApp';
+import { resolvePublicRequest } from './features/website/runtime';
+
+// Website Runtime: when the request targets a tenant website (?site=<slug> in sandbox/dev, or a
+// subdomain / custom domain in production) render the public site instead of the role apps. Additive —
+// the default host/path is unchanged, so the existing apps and the E2E suite are untouched.
+const publicReq = resolvePublicRequest(window.location);
+// In sandbox, ensure demo tenants exist so a slug resolves to a real branded tenant (idempotent).
+if (publicReq.isPublicSite && import.meta.env.VITE_AUTH_MODE === 'sandbox') {
+  import('./services/demoSeed').then(m => { try { m.seedDemoData(); } catch { /* best-effort */ } });
+}
 
 function MissingConfigScreen({ vars }: { vars: string[] }) {
   return (
@@ -43,9 +54,13 @@ createRoot(document.getElementById('root')!).render(
       <ErrorBoundary>
         <AppConfigProvider>
           <DesignProvider>
-            <ExperienceProvider>
-              <App />
-            </ExperienceProvider>
+            {publicReq.isPublicSite ? (
+              <PublicSiteApp />
+            ) : (
+              <ExperienceProvider>
+                <App />
+              </ExperienceProvider>
+            )}
           </DesignProvider>
         </AppConfigProvider>
       </ErrorBoundary>
