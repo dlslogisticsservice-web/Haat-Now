@@ -3,12 +3,12 @@ import {
   LayoutDashboard, Map, Route, MapPin, UserRound, Truck, Wallet, Banknote, TicketPercent,
   Headset, ShieldCheck, LifeBuoy, Target, Megaphone, Palette, Settings2, ChevronDown, LogOut,
   Languages, RefreshCw, LucideIcon, Layers, Bell, ScrollText, Search,
-  Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen, Plug, Rocket, LayoutGrid, Sparkles,
+  Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen, Plug, Rocket, LayoutGrid, Sparkles, Boxes,
 } from 'lucide-react';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 
 export type NavKey =
-  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding'
+  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry'
   | 'catalog:categories' | 'catalog:zones'
   | 'mgmt:drivers' | 'mgmt:vehicles' | 'mgmt:merchants' | 'mgmt:branches' | 'mgmt:orders' | 'mgmt:customers'
   | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles'
@@ -65,6 +65,7 @@ const GROUPS: Group[] = [
     { key: 'templates', ar: 'سوق القوالب', en: 'Templates', Icon: LayoutGrid, super: true },
     { key: 'onboarding', ar: 'تهيئة مستأجر', en: 'Onboarding', Icon: Sparkles, super: true },
     { key: 'integrations', ar: 'مركز التكاملات', en: 'Integrations', Icon: Plug, super: true },
+    { key: 'registry', ar: 'سجل المنصّة', en: 'Platform Registry', Icon: Boxes, super: true },
   ] },
   { ar: 'النظام', en: 'System', items: [
     { key: 'notifications', ar: 'الإشعارات', en: 'Notifications', Icon: Bell },
