@@ -9,6 +9,8 @@ import { Icon } from '../../components/ui/Icon';
 import { sandboxStore, SbProduct } from '../../services/sandboxStore';
 import { inventoryService } from '../../services/inventory.service';
 import { analyticsService } from '../../services/analytics.service';
+import { isActiveOrderStatus } from '../../services/types';
+import { DEFAULT_DELIVERY_FEE } from '../../config/fees';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -251,7 +253,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
       const { data: ordData } = await merchantService.getBranchOrders(bId);
       if (ordData) {
         setOrders(ordData as unknown as Order[]);
-        const total = ordData.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total_amount - 10), 0);
+        const total = ordData.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total_amount - DEFAULT_DELIVERY_FEE), 0);
         setEarnings(Math.max(0, total));
       }
       const { data: prodData } = await supabase
@@ -455,11 +457,11 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
   };
 
   // ── Computed ─────────────────────────────────────────────────────────────
-  const activeOrdersList = orders.filter(o => ['pending', 'accepted', 'preparing', 'on_the_way'].includes(o.status));
+  const activeOrdersList = orders.filter(o => isActiveOrderStatus(o.status));
   const archOrdersList   = orders.filter(o => ['delivered', 'cancelled'].includes(o.status));
   const deliveredCount   = archOrdersList.filter(o => o.status === 'delivered').length;
   const avgBasket        = deliveredCount > 0
-    ? archOrdersList.filter(o => o.status === 'delivered').reduce((s, o) => s + (o.total_amount - 10), 0) / deliveredCount
+    ? archOrdersList.filter(o => o.status === 'delivered').reduce((s, o) => s + (o.total_amount - DEFAULT_DELIVERY_FEE), 0) / deliveredCount
     : 0;
   const currentBranch = branches.find(b => b.id === selectedBranchId);
 
@@ -691,7 +693,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                           ))}
                         </div>
                         <div className="flex items-center justify-between pt-3 border-t border-[rgba(255,255,255,0.06)]">
-                          <span className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>{money(ord.total_amount - 10)}</span>
+                          <span className="text-headline-sm font-bold" style={{ color: 'var(--color-primary-container)' }}>{money(ord.total_amount - DEFAULT_DELIVERY_FEE)}</span>
                           <span className="text-label-md text-[var(--color-on-surface-variant)]">{D('صافي الفرع','Branch net')}</span>
                         </div>
                         <div className="flex flex-wrap gap-2 justify-end pt-1" id="merch_order_actions">
@@ -728,7 +730,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
                       <div key={o.id} className="p-3 rounded-[var(--radius-lg)] space-y-2 surface-z2" id={`arch_card_${o.id}`}>
                         <div className="flex items-center justify-between">
                           <Badge variant={cfg.variant} dot>{D(cfg.labelAr, cfg.labelEn)}</Badge>
-                          <span className="text-label-sm font-semibold" style={{ color: 'var(--color-primary-container)', textTransform: 'none' }}>{money(o.total_amount - 10)}</span>
+                          <span className="text-label-sm font-semibold" style={{ color: 'var(--color-primary-container)', textTransform: 'none' }}>{money(o.total_amount - DEFAULT_DELIVERY_FEE)}</span>
                         </div>
                         <p className="text-label-md text-[var(--color-on-surface)] text-end" style={{ textTransform: 'none' }}>{o.customers?.full_name || D('عميل','Customer')}</p>
                         <p className="text-label-sm text-[var(--color-on-surface-variant)] text-end" style={{ textTransform: 'none', letterSpacing: 0 }}>#{o.id.slice(-6).toUpperCase()}</p>

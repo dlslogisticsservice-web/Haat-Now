@@ -5,6 +5,8 @@
 // notifications → history → admin) works without a real backend.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { DEFAULT_DELIVERY_FEE } from '../config/fees';
+
 export type SbStatus = 'pending' | 'accepted' | 'preparing' | 'on_the_way' | 'delivered' | 'cancelled';
 
 export interface SbOrderItem { name: string; qty: number; price: number }
@@ -100,7 +102,7 @@ export const sandboxStore = {
       driver_id: null,
       status: 'pending',
       total_amount: input.total_amount,
-      delivery_fee: input.delivery_fee ?? 10,
+      delivery_fee: input.delivery_fee ?? DEFAULT_DELIVERY_FEE,
       items: input.items,
       created_at: nowISO(),
       history: [{ status: 'pending', at: nowISO() }],
@@ -165,9 +167,9 @@ export const sandboxStore = {
   completeDelivery(id: string, driverId: string): { order?: SbOrder; newBalance: number } {
     const o = this.setStatus(id, 'delivered');
     const key = `driver:${driverId}`;
-    const newBalance = this.getWallet('driver', driverId) + (o?.delivery_fee ?? 10);
+    const newBalance = this.getWallet('driver', driverId) + (o?.delivery_fee ?? DEFAULT_DELIVERY_FEE);
     setWallet(key, newBalance);
-    pushNotif(driverId, `تمت إضافة ${o?.delivery_fee ?? 10} لمحفظتك من توصيل #${o?.id.toUpperCase()} 💰`);
+    pushNotif(driverId, `تمت إضافة ${o?.delivery_fee ?? DEFAULT_DELIVERY_FEE} لمحفظتك من توصيل #${o?.id.toUpperCase()} 💰`);
     // Loyalty: customer earns 1 point per currency unit of order value on delivery.
     if (o) {
       const pts = Math.round(o.total_amount);

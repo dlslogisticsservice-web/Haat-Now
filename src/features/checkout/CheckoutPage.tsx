@@ -7,6 +7,7 @@ import { adminService } from '../../services/admin.service';
 import { authService } from '../../services/auth.service';
 import { paymentOrchestrator } from '../../services/payment-orchestrator.service';
 import { sandboxStore } from '../../services/sandboxStore';
+import { DEFAULT_DELIVERY_FEE } from '../../config/fees';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useTranslation } from 'react-i18next';
 import { getCategoryThumb } from '../../utils/categoryImages';
@@ -85,7 +86,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const [paymentError,  setPaymentError]  = useState('');
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const [deliveryFee, setDeliveryFee] = useState(10.00);
+  const [deliveryFee, setDeliveryFee] = useState(DEFAULT_DELIVERY_FEE);
   const luxuryFee    = 5.00;
 
   // EF2-14: Poll payment-verify every 5s (max 12 attempts).

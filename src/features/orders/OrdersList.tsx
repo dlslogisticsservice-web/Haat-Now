@@ -10,6 +10,7 @@ import { cartService } from '../../services/cart.service';
 import { sandboxStore } from '../../services/sandboxStore';
 import { trackingService } from '../../services/tracking.service';
 import { calculateDistanceKm, calculateEtaMinutes } from '../../services/location.service';
+import { ORDER_LIFECYCLE } from '../../services/types';
 import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useTranslation } from 'react-i18next';
@@ -66,17 +67,11 @@ const STATUS_CONFIG: Record<OrderStatus, { labelKey: string; color: string; Icon
   cancelled:  { labelKey: 'orders.stCancelled',           color: '#f87171', Icon: XCircle     },
 };
 
-const STATUS_STEPS: { key: OrderStatus; labelKey: string }[] = [
-  { key: 'pending',    labelKey: 'orders.tlConfirmed'     },
-  { key: 'accepted',   labelKey: 'orders.tlPreparing'    },
-  { key: 'on_the_way', labelKey: 'orders.tlPicked' },
-  { key: 'delivered',  labelKey: 'orders.stDelivered'          },
-];
-
 // ── Category-specific order workflows (TASK C) ──────────────────────────────
 // Each display step maps to an underlying order status. `reached` is computed
 // from the order's REAL status so future stages can never appear completed.
-const CANON: OrderStatus[] = ['pending', 'accepted', 'preparing', 'on_the_way', 'delivered'];
+// Lifecycle ordering is the canonical ORDER_LIFECYCLE (src/services/types.ts).
+const CANON = ORDER_LIFECYCLE as readonly OrderStatus[];
 type FlowStep = { labelKey: string; key: OrderStatus };
 const STEP_FLOWS: Record<'restaurant' | 'pharmacy' | 'flowers' | 'electronics' | 'market', FlowStep[]> = {
   market: [

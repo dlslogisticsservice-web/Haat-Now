@@ -21,6 +21,7 @@ const MerchantApp = React.lazy(() => import('./features/merchant/MerchantApp').t
 const DriverApp = React.lazy(() => import('./features/driver/DriverApp').then(m => ({ default: m.DriverApp })));
 const AdminDashboard = React.lazy(() => import('./features/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 import { authService } from './services/auth.service';
+import { rbacService } from './services/rbac.service';
 import { getCategoryThumb } from './utils/categoryImages';
 import { useAppConfig } from './contexts/AppConfigContext';
 import { useTranslation } from 'react-i18next';
@@ -177,18 +178,27 @@ export default function App() {
     };
   }, [session?.id]);
 
+  // Push the authenticated identity into the RBAC guard so production permissions reflect
+  // the REAL user (never the localStorage acting-role default). No-op in sandbox mode.
+  async function syncRbacIdentity(user: { id: string; role: string } | null): Promise<void> {
+    if (import.meta.env.VITE_AUTH_MODE === 'sandbox') return;
+    if (!user) { rbacService.clearLiveIdentity(); return; }
+    const scope = user.role === 'admin' ? await authService.getAdminScope(user.id) : null;
+    rbacService.setLiveIdentity(user.role, scope);
+  }
+
   // ── Session restore ─────────────────────────────────────────────────────────
   // Works for both modes: getCurrentUser() reads the sandbox session (sandbox mode)
   // or the real Supabase session (supabase mode).
   useEffect(() => {
     let active = true;
     authService.getCurrentUser()
-      .then(user => { if (active) setSession(user); })
+      .then(user => { if (active) { setSession(user); syncRbacIdentity(user); } })
       .catch(console.error)
       .finally(() => { if (active) setSessionValidating(false); });
 
     // All auth-change subscription lives in authService (no-op in sandbox mode).
-    const unsubscribe = authService.subscribeToAuthChanges(user => setSession(user));
+    const unsubscribe = authService.subscribeToAuthChanges(user => { setSession(user); syncRbacIdentity(user); });
     return () => { active = false; unsubscribe(); };
   }, []);
 
@@ -197,10 +207,12 @@ export default function App() {
   // The onAuthStateChange listener keeps it authoritative — no fake session is stored.
   const handleLoginSuccess = (user: { id: string; phone_number: string; role: string }) => {
     setSession(user);
+    syncRbacIdentity(user);
   };
 
   const handleLogout = async () => {
     await authService.signOut();
+    rbacService.clearLiveIdentity();
     setSession(null);
     setIsSideMenuOpen(false);
   };

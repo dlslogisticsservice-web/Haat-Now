@@ -6,6 +6,8 @@ import { driverService } from '../../services/driver.service';
 import { orderService } from '../../services/order.service';
 import { trackingService } from '../../services/tracking.service';
 import { walletService } from '../../services/wallet.service';
+import { performanceService, type DriverPerformance } from '../../services/ops/performance.service';
+import { calculateDistanceKm, calculateEtaMinutes } from '../../services/location.service';
 import { sandboxStore } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Icon } from '../../components/ui/Icon';
@@ -168,6 +170,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   const [activeJobs,              setActiveJobs]              = useState<ActiveOrder[]>([]);
   const [availableFeed,           setAvailableFeed]           = useState<OrdersFeed[]>([]);
   const [earnings,                setEarnings]                = useState<any[]>([]);
+  const [livePerf,                setLivePerf]                = useState<DriverPerformance | null>(null);
   const [loading,                 setLoading]                 = useState(true);
   const [actionLoading,           setActionLoading]           = useState(false);
   const [tab,                     setTab]                     = useState<'home' | 'trip' | 'earnings' | 'profile'>('home');
@@ -229,6 +232,15 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
     if (hasOnTheWayJob) startGPSTracking(driverProfile.id);
     else stopGPSTracking();
   }, [activeJobs, driverProfile]);
+
+  // Production: load REAL performance metrics (acceptance/completion/avg-time/rating) from
+  // driver_performance. Sandbox keeps its self-contained demo figures (below).
+  useEffect(() => {
+    if (SANDBOX || !driverProfile?.id) return;
+    let active = true;
+    performanceService.get(driverProfile.id).then(({ data }) => { if (active) setLivePerf(data); }).catch(() => {});
+    return () => { active = false; };
+  }, [driverProfile?.id]);
 
   // Stop GPS and clean up channel on unmount.
   useEffect(() => {
@@ -340,14 +352,34 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   const device = useDeviceLive();
   const shift = useShift(isOnline);
   const rating = Number(driverProfile?.rating) || 4.8;
-  const acceptanceRate = Math.round(hashNum(driverId + 'acc', 88, 99));
-  const completionRate = Math.round(hashNum(driverId + 'comp', 92, 100));
-  const avgDelivery    = Math.round(hashNum(driverId + 'avg', 18, 30));
-  const rank           = Math.round(hashNum(driverId + 'rank', 3, 38));
-  const weekEarn       = totalEarned + hashNum(driverId + 'w', 240, 980);
-  const monthEarn      = weekEarn * 3 + hashNum(driverId + 'm', 800, 2600);
-  const cashCollected  = totalEarned * 4 + hashNum(driverId + 'cash', 120, 600);
-  const bonus          = Math.round(hashNum(driverId + 'bonus', 0, 3)) * 15;
+  // KPIs. SANDBOX: stable self-contained demo figures (unchanged). PRODUCTION: REAL metrics
+  // from driver_performance + real earnings — NO fabricated analytics; metrics with no loaded
+  // source resolve to 0 (honest) rather than a synthesized value.
+  let acceptanceRate: number, completionRate: number, avgDelivery: number, rank: number;
+  let weekEarn: number, monthEarn: number, cashCollected: number, bonus: number;
+  if (SANDBOX) {
+    acceptanceRate = Math.round(hashNum(driverId + 'acc', 88, 99));
+    completionRate = Math.round(hashNum(driverId + 'comp', 92, 100));
+    avgDelivery    = Math.round(hashNum(driverId + 'avg', 18, 30));
+    rank           = Math.round(hashNum(driverId + 'rank', 3, 38));
+    weekEarn       = totalEarned + hashNum(driverId + 'w', 240, 980);
+    monthEarn      = weekEarn * 3 + hashNum(driverId + 'm', 800, 2600);
+    cashCollected  = totalEarned * 4 + hashNum(driverId + 'cash', 120, 600);
+    bonus          = Math.round(hashNum(driverId + 'bonus', 0, 3)) * 15;
+  } else {
+    const now = Date.now();
+    const earnedSince = (days: number) => earnings
+      .filter(e => now - new Date(e.created_at).getTime() <= days * 864e5)
+      .reduce((s, e) => s + Number(e.delivery_fee_earned || 0), 0);
+    acceptanceRate = Math.round((livePerf?.acceptance_rate ?? 0) * 100);
+    completionRate = Math.round((livePerf?.completion_rate ?? 0) * 100);
+    avgDelivery    = Math.round(livePerf?.avg_delivery_minutes ?? 0);
+    rank           = 0;                       // per-driver rank not loaded here (leaderboard is a separate view)
+    weekEarn       = earnedSince(7);
+    monthEarn      = earnedSince(30);
+    cashCollected  = 0;                        // COD-collected is not tracked in the loaded earnings set
+    bonus          = 0;                        // bonus_earned is not loaded in this view
+  }
   const todayAnim      = useCountUp(totalEarned);
   const weekAnim       = useCountUp(weekEarn);
 
@@ -551,7 +583,22 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
               ) : (
                 <div className="space-y-3">
                   {availableFeed.map(f => {
-                    const id = f.id; const dist = hashNum(id + 'd', 0.8, 5.4); const fee = 10 + Math.round(hashNum(id + 'f', 0, 12)); const pETA = Math.round(hashNum(id + 'p', 4, 12)); const dETA = pETA + Math.round(hashNum(id + 'q', 6, 16)); const rRate = (4 + hashNum(id + 'r', 0, 1)).toFixed(1); const val = Math.round(hashNum(id + 'v', 40, 180));
+                    const id = f.id;
+                    // SANDBOX: demo figures (unchanged). PRODUCTION: real order fields + real
+                    // distance/ETA from location.service; unknown-without-driver-GPS values → 0.
+                    let dist: number, fee: number, pETA: number, dETA: number, rRate: string, val: number;
+                    if (SANDBOX) {
+                      dist = hashNum(id + 'd', 0.8, 5.4); fee = 10 + Math.round(hashNum(id + 'f', 0, 12)); pETA = Math.round(hashNum(id + 'p', 4, 12)); dETA = pETA + Math.round(hashNum(id + 'q', 6, 16)); rRate = (4 + hashNum(id + 'r', 0, 1)).toFixed(1); val = Math.round(hashNum(id + 'v', 40, 180));
+                    } else {
+                      const o = f as any;
+                      fee = Number(o.delivery_fee ?? 0);
+                      val = Number(o.total_amount ?? 0);
+                      const hasCoords = o.branch_lat_snapshot != null && o.delivery_lat != null;
+                      dist = hasCoords ? calculateDistanceKm(Number(o.branch_lat_snapshot), Number(o.branch_lng_snapshot), Number(o.delivery_lat), Number(o.delivery_lng)) : 0;
+                      dETA = dist ? calculateEtaMinutes(dist) : 0;
+                      pETA = 0;               // to-pickup ETA needs the driver's live GPS (not known at list time)
+                      rRate = '0.0';          // per-branch rating is not part of the orders feed
+                    }
                     return (
                       <div key={id} className="rounded-[20px] overflow-hidden active:scale-[0.99] transition" id={`available_f_job_${id}`} style={{ background: 'rgba(255,255,255,0.045)', border: '1px solid rgba(255,255,255,0.08)' }}>
                         <div className="p-4 space-y-3">

@@ -86,7 +86,33 @@ export function templatePermissions(key: string): string[] {
   return t.permissions === '*' ? [...ALL_KEYS] : [...t.permissions];
 }
 
-// ── Persistence (sandbox store; real backend uses role_permissions) ───────────
+// ── Environment gate ─────────────────────────────────────────────────────────
+// Sandbox = demo/testing (localStorage acting-role preview). Live (staging/production)
+// = the effective permission set is derived from the AUTHENTICATED identity, never from
+// localStorage — and never defaults to super. Server-side enforcement is Supabase RLS.
+const IS_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+
+// ── Live effective identity (production) ──────────────────────────────────────
+// Pushed in from the auth boot flow (App.tsx) — rbac must not import auth.service
+// (platform → application is a forbidden dependency). Null until identity is known
+// ⇒ fail-closed (no permissions granted).
+let liveRoleKey: string | null = null;
+
+/** Map the authenticated coarse role + admin scope → a canonical RBAC template key. */
+function deriveRbacRole(appRole: string, scope: 'super' | 'country' | null): string {
+  if (appRole === 'admin') return scope === 'super' ? 'super_admin' : 'country_manager';
+  if (appRole === 'merchant') return 'merchant_owner';
+  if (appRole === 'driver') return 'driver';
+  return ''; // customer / unknown → no admin permissions
+}
+
+/** Resolve a role's scope + permissions from the CANONICAL static templates (no storage). */
+function templateRole(roleKey: string): { scope: Role['scope']; permissions: string[] } | undefined {
+  const t = ROLE_TEMPLATES.find(r => r.key === roleKey);
+  return t ? { scope: t.scope, permissions: templatePermissions(roleKey) } : undefined;
+}
+
+// ── Persistence (sandbox store; real backend uses role_permissions + RLS) ─────
 const RBAC_KEY = 'haat_sb_rbac_roles', ACTING_KEY = 'haat_sb_rbac_acting';
 const read = (): Role[] => { try { const r = localStorage.getItem(RBAC_KEY); if (r) return JSON.parse(r); } catch { /* reseed */ } return seed(); };
 const write = (roles: Role[]) => { try { localStorage.setItem(RBAC_KEY, JSON.stringify(roles)); } catch { /* ignore */ } };
@@ -122,14 +148,40 @@ export const rbacService = {
   },
   deleteRole(roleId: string) { const roles = read(); const r = roles.find(x => x.id === roleId); if (r?.system) return; write(roles.filter(x => x.id !== roleId)); },
 
-  /** Does a role grant a permission? Super scope ⇒ all. */
+  /** Does a role grant a permission? Super scope ⇒ all.
+   *  Live (production): resolved from the canonical static templates only — no localStorage.
+   *  Sandbox: resolved from the editable localStorage role store (demo/preview). */
   hasPermission(roleId: string, permKey: string): boolean {
-    const r = read().find(x => x.id === roleId); if (!r) return false;
+    if (!roleId) return false;
+    const r = IS_SANDBOX ? read().find(x => x.id === roleId) : templateRole(roleId);
+    if (!r) return false;
     return r.scope === 'super' || r.permissions.includes(permKey);
   },
 
-  // Acting role (drives the live guard demo; defaults to super_admin).
-  getActingRole: (): string => { try { return localStorage.getItem(ACTING_KEY) || 'super_admin'; } catch { return 'super_admin'; } },
-  setActingRole: (roleId: string) => { try { localStorage.setItem(ACTING_KEY, roleId); window.dispatchEvent(new Event('rbac-acting-changed')); } catch { /* ignore */ } },
+  // ── Live (production) identity — pushed from the auth boot flow ──────────────
+  /** Set the effective role from the AUTHENTICATED identity (live only; no-op in sandbox). */
+  setLiveIdentity(appRole: string, scope: 'super' | 'country' | null) {
+    if (IS_SANDBOX) return;
+    liveRoleKey = deriveRbacRole(appRole, scope);
+    try { window.dispatchEvent(new Event('rbac-acting-changed')); } catch { /* ignore */ }
+  },
+  /** Clear the effective identity on logout (live only). */
+  clearLiveIdentity() {
+    if (IS_SANDBOX) return;
+    liveRoleKey = null;
+    try { window.dispatchEvent(new Event('rbac-acting-changed')); } catch { /* ignore */ }
+  },
+
+  // Acting role. Sandbox: editable preview (defaults super_admin) for the demo. Live: the
+  // authenticated identity is authoritative (fail-closed to '' until resolved) — the manual
+  // acting-role override is disabled so a client cannot self-escalate.
+  getActingRole: (): string => {
+    if (!IS_SANDBOX) return liveRoleKey ?? '';
+    try { return localStorage.getItem(ACTING_KEY) || 'super_admin'; } catch { return 'super_admin'; }
+  },
+  setActingRole: (roleId: string) => {
+    if (!IS_SANDBOX) return; // production identity is authoritative — no manual override
+    try { localStorage.setItem(ACTING_KEY, roleId); window.dispatchEvent(new Event('rbac-acting-changed')); } catch { /* ignore */ }
+  },
   can(permKey: string): boolean { return this.hasPermission(this.getActingRole(), permKey); },
 };

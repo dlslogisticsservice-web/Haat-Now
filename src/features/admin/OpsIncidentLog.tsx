@@ -2,7 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AlertOctagon, RefreshCw, Store, Bike, UserX, PackageX, ShieldAlert } from 'lucide-react';
 import { MetricCard, EmptyStateBox, SectionHeader } from '../../components/admin/EnterpriseUI';
 import { sandboxStore } from '../../services/sandboxStore';
+import { adminCrud } from '../../services/admin-crud.service';
 import { useAppConfig } from '../../contexts/AppConfigContext';
+
+// Sandbox = demo failed-order store. Production = real cancelled orders from the orders table
+// (never read the sandbox store in live runtime).
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 
 const card: React.CSSProperties = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)' };
 
@@ -25,7 +30,23 @@ export const OpsIncidentLog: React.FC = () => {
   const { lang } = useAppConfig();
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const [failed, setFailed] = useState<any[]>([]);
-  const load = useCallback(() => { try { setFailed(sandboxStore.getFailedOrders()); } catch { setFailed([]); } }, []);
+  const load = useCallback(async () => {
+    if (SANDBOX) { try { setFailed(sandboxStore.getFailedOrders()); } catch { setFailed([]); } return; }
+    // Production: real failed/cancelled orders from the orders table (defensive column mapping).
+    try {
+      const { data: rows } = await adminCrud('orders').list();
+      setFailed(((rows as any[]) || [])
+        .filter(o => o.status === 'cancelled')
+        .map(o => ({
+          id: o.id,
+          failureReason: o.failure_reason ?? o.failureReason ?? o.cancellation_reason ?? '',
+          failedBy: o.failed_by ?? o.failedBy ?? '—',
+          customer_name: o.customer_name,
+          total_amount: o.total_amount,
+          history: o.history,
+        })));
+    } catch { setFailed([]); }
+  }, []);
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
 
   const byReason = (r: string) => failed.filter(o => o.failureReason === r).length;

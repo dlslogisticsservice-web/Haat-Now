@@ -26,10 +26,6 @@ export const growthService = {
     const { data } = await supabase.rpc('cashback_balance', { p_customer: customerId });
     return Number(data ?? 0);
   },
-  async myTier(customerId: string): Promise<{ data: LoyaltyTier | null; error: any }> {
-    const { data, error } = await supabase.rpc('resolve_loyalty_tier', { p_customer: customerId });
-    return { data: (data as LoyaltyTier) ?? null, error };
-  },
   async tiers(): Promise<{ data: LoyaltyTier[]; error: any }> {
     const { data, error } = await supabase.from('loyalty_tiers').select('*').order('level', { ascending: true });
     return { data: (data as LoyaltyTier[]) || [], error };

@@ -19,6 +19,35 @@ export const MERCHANT_ACTIVE_STATUSES = [ORDER_STATUSES.PENDING, ORDER_STATUSES.
 // Terminal statuses — order is no longer actionable
 export const ARCHIVED_STATUSES = [ORDER_STATUSES.DELIVERED, ORDER_STATUSES.CANCELLED] as const;
 
+// Canonical forward lifecycle (non-terminal → delivered), in progression order.
+// Single source of truth for order-status ordering + transitions; surfaces derive their
+// steppers / active-sets from these helpers instead of redeclaring the sequence.
+export const ORDER_LIFECYCLE = [
+  ORDER_STATUSES.PENDING, ORDER_STATUSES.ACCEPTED, ORDER_STATUSES.PREPARING,
+  ORDER_STATUSES.ON_THE_WAY, ORDER_STATUSES.DELIVERED,
+] as const;
+
+/** The next status in the forward lifecycle, or null at the end / for terminal states. */
+export function nextOrderStatus(s: OrderStatusValue): OrderStatusValue | null {
+  const i = (ORDER_LIFECYCLE as readonly string[]).indexOf(s);
+  return i >= 0 && i < ORDER_LIFECYCLE.length - 1 ? (ORDER_LIFECYCLE[i + 1] as OrderStatusValue) : null;
+}
+
+/** Index of a status within the forward lifecycle; -1 for cancelled/unknown. */
+export function orderLifecycleIndex(s: string): number {
+  return (ORDER_LIFECYCLE as readonly string[]).indexOf(s);
+}
+
+/** Whether the order is still actionable / in-progress for the merchant. */
+export function isActiveOrderStatus(s: string): boolean {
+  return (MERCHANT_ACTIVE_STATUSES as readonly string[]).includes(s);
+}
+
+/** Whether the order has reached a terminal state (delivered / cancelled). */
+export function isTerminalOrderStatus(s: string): boolean {
+  return (ARCHIVED_STATUSES as readonly string[]).includes(s);
+}
+
 export interface Country {
   id: string;
   name: string;

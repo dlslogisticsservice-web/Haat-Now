@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { loyaltyService } from './loyalty.service';
 
 // Demo growth: derive figures from seeded data so the Growth Center is usable on the demo backend.
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
@@ -175,8 +176,8 @@ export const growthbService = {
 
   // ── customer self-view ──────────────────────────────────────────────────────
   async myPoints(customerId: string): Promise<number> {
-    const { data } = await supabase.rpc('loyalty_balance', { p_customer_id: customerId });
-    return Number(data ?? 0);
+    // Canonical loyalty-balance source is loyalty.service (same RPC `loyalty_balance`).
+    return Number((await loyaltyService.getPoints(customerId)).points);
   },
   async myTier(customerId: string): Promise<any> {
     const { data } = await supabase.rpc('resolve_loyalty_tier', { p_customer: customerId });
