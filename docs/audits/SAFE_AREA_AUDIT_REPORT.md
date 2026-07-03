@@ -12,7 +12,7 @@ The reported bug — *Product Details / Menu Item modal CTA hidden behind the bo
 
 ## 2. Global token introduced
 
-Added to [src/index.css](../src/index.css):
+Added to [src/index.css](../../src/index.css):
 
 ```css
 :root {

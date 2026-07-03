@@ -17,7 +17,7 @@ sandbox demo identity is a separate path behind `VITE_AUTH_MODE`.
 Staging and production share **one** live code path; they differ only by which Supabase project
 (`VITE_SUPABASE_URL`/`ANON_KEY`) is built in (`HAAT_LIVE_BACKEND=1`).
 
-## Live auth surface — code-verified ([`src/services/auth.service.ts`](src/services/auth.service.ts))
+## Live auth surface — code-verified ([`src/services/auth.service.ts`](../../src/services/auth.service.ts))
 | Concern | Live implementation | Verified |
 |---|---|---|
 | Request OTP | `supabase.auth.signInWithOtp({ phone })` | ✅ code |

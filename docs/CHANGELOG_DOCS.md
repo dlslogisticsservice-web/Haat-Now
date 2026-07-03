@@ -67,3 +67,41 @@ DRIVER_APP_IMPROVEMENT_REPORT.md · MERCHANT_PORTAL_IMPROVEMENT_REPORT.md
 ## Integrity
 No document was renamed or deleted. No source code imports Markdown, so no runtime reference changed. There
 were **zero cross-document Markdown links** among the moved files, so no link required updating.
+
+---
+
+## Sprint-report reorganization (audit → consolidation → production activation → website)
+Reports produced by the Audit, Platform Consolidation, Production Activation, and Website Platform sprints were
+relocated from the repository root into their semantic `docs/` folders (history-preserving `git mv`). Cross-linked
+sprint sets were co-located so internal links stay valid; `src/`/`supabase/` links were re-pathed. **No document
+renamed or deleted; no duplicates created.**
+
+### → `docs/architecture/` (Website Platform architecture)
+WEBSITE_PLATFORM_ARCHITECTURE.md · WEBSITE_RUNTIME.md · WEBSITE_DATABASE.md · WEBSITE_PERMISSION_MODEL.md ·
+WEBSITE_DEPLOYMENT_PLAN.md
+
+### → `docs/implementation/` (Platform Consolidation)
+CANONICAL_ARCHITECTURE.md · CONSOLIDATION_REPORT.md · MIGRATION_REPORT.md · CODE_REMOVAL_REPORT.md
+
+### → `docs/production/` (Production Activation)
+PRODUCTION_RUNTIME_REGISTRY.md · PRODUCTION_READINESS_REPORT.md
+
+### → `docs/verification/` (Production Activation — auth/RBAC validation)
+AUTH_VALIDATION_REPORT.md · RBAC_VALIDATION_REPORT.md
+
+### → `docs/migrations/`
+SUPABASE_MIGRATION_REPORT.md
+
+### → `docs/audits/`
+CODEBASE_AUDIT_MASTER_REPORT.md
+
+### → `docs/deployment/`
+RELEASE_REPORT.md
+
+### → `docs/reports/`
+DEVELOPER_PLATFORM_REPORT.md · DOCUMENTATION_REORGANIZATION_REPORT.md
+
+**Result:** the repository root again holds **only `README.md`** among Markdown files. Broken-link scan across
+`docs/**` after re-pathing: 0 real broken links (pre-existing `src/`/`supabase/` relative-path slips in older docs
+were corrected in the same pass; the only remaining matches are intentional prose placeholders `FILE.md`/`OTHER.md`
+and the `.env.local` setup reference in the root README).

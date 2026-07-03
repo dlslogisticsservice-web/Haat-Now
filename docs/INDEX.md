@@ -17,20 +17,22 @@ guide and **[CHANGELOG_DOCS.md](CHANGELOG_DOCS.md)** for the full move log.
 
 ## By area
 - **Developer Platform** — [developer/](developer/): the complete guide to understand, extend & maintain HAAT NOW — [developer/INDEX.md](developer/INDEX.md) (getting started, architecture, every engine, how-to guides).
-- **Architecture** — [architecture/](architecture/): dependency map, platform inventory, data model, demo accounts.
+- **Architecture** — [architecture/](architecture/): dependency map, platform inventory, data model, demo accounts, and the **Website Platform** ([WEBSITE_PLATFORM_ARCHITECTURE.md](architecture/WEBSITE_PLATFORM_ARCHITECTURE.md) · [runtime](architecture/WEBSITE_RUNTIME.md) · [database](architecture/WEBSITE_DATABASE.md) · [permissions](architecture/WEBSITE_PERMISSION_MODEL.md) · [deployment](architecture/WEBSITE_DEPLOYMENT_PLAN.md)).
 - **Governance** — [governance/](governance/): [SERVICE_REGISTRY.md](governance/SERVICE_REGISTRY.md), [IMPLEMENTATION_STANDARD.md](governance/IMPLEMENTATION_STANDARD.md).
 - **Plans** — [plans/](plans/): master plans (V1, [V2 frozen](plans/PRODUCTIZATION_MASTER_PLAN_V2.md)), priorities, roadmaps.
 - **Phases (SaaS foundation)** — [phases/](phases/): Phase 0.1–0.7 implementation + integration reports.
-- **Implementation** — [implementation/](implementation/): feature/module completion reports.
+- **Implementation** — [implementation/](implementation/): feature/module completion reports + Platform Consolidation ([CANONICAL_ARCHITECTURE.md](implementation/CANONICAL_ARCHITECTURE.md), [CONSOLIDATION_REPORT.md](implementation/CONSOLIDATION_REPORT.md), [MIGRATION_REPORT.md](implementation/MIGRATION_REPORT.md), [CODE_REMOVAL_REPORT.md](implementation/CODE_REMOVAL_REPORT.md)).
 - **QA & Validation** — [qa/](qa/): production validation, operational readiness, simulations, gap analyses.
 - **Deployment** — [deployment/](deployment/): releases, certifications, native/store, backend recovery.
-- **Production** — [production/](production/): launch checklist, handover, ops certification, blockers.
+- **Production** — [production/](production/): launch checklist, handover, ops certification, blockers, + Production Activation ([PRODUCTION_RUNTIME_REGISTRY.md](production/PRODUCTION_RUNTIME_REGISTRY.md), [PRODUCTION_READINESS_REPORT.md](production/PRODUCTION_READINESS_REPORT.md)).
 - **Founder** — [founder/](founder/): acceptance reports.
 - **Apps** — [apps/](apps/): Captain/Customer/Driver/Merchant improvement reports.
 - **Operations** — [operations/](operations/): runbooks, recovery, execution guides.
-- **Audits** — [audits/](audits/): blockers, impact, MCP/DB audits, cutover, safe-area.
-- **Reports** — [reports/](reports/): auth/RBAC verifications, readiness, status, structure/move logs.
-- **Verification** — [verification/](verification/) · **Migrations** — [migrations/](migrations/) · **Mobile** — [mobile/](mobile/) · **Testing** — [testing/](testing/) · **Archive** — [archive/](archive/).
+- **Audits** — [audits/](audits/): blockers, impact, MCP/DB audits, cutover, safe-area, + [CODEBASE_AUDIT_MASTER_REPORT.md](audits/CODEBASE_AUDIT_MASTER_REPORT.md).
+- **Deployment (releases)** — [deployment/](deployment/): incl. [RELEASE_REPORT.md](deployment/RELEASE_REPORT.md).
+- **Verification** — [verification/](verification/): incl. [AUTH_VALIDATION_REPORT.md](verification/AUTH_VALIDATION_REPORT.md), [RBAC_VALIDATION_REPORT.md](verification/RBAC_VALIDATION_REPORT.md).
+- **Reports** — [reports/](reports/): auth/RBAC verifications, readiness, status, structure/move logs, developer-platform + doc-reorg reports.
+- **Migrations** — [migrations/](migrations/): incl. [SUPABASE_MIGRATION_REPORT.md](migrations/SUPABASE_MIGRATION_REPORT.md) · **Mobile** — [mobile/](mobile/) · **Testing** — [testing/](testing/) · **Archive** — [archive/](archive/).
 
 ## Phase 0 SaaS foundation — quick links
 - [Phase 0.1 — Subscription Foundation](phases/PHASE_0_1_IMPLEMENTATION_REPORT.md)

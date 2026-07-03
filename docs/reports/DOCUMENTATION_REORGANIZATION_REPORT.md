@@ -54,7 +54,7 @@ repository root
 ## 3. Files moved
 
 **72 documents relocated** — all with `git mv` (history preserved). **No file was renamed** (folder changed only).
-Full old-path → new-path mapping: [docs/CHANGELOG_DOCS.md](docs/CHANGELOG_DOCS.md).
+Full old-path → new-path mapping: [docs/CHANGELOG_DOCS.md](../CHANGELOG_DOCS.md).
 
 | Destination | Count | Source |
 |---|---|---|
@@ -136,7 +136,7 @@ these gates are confirmatory. All three passed unchanged.)*
 
 ## 7. Final documentation map
 
-Entry point → **[docs/INDEX.md](docs/INDEX.md)**. Hierarchy guide → **[docs/README.md](docs/README.md)**.
+Entry point → **[docs/INDEX.md](../INDEX.md)**. Hierarchy guide → **[docs/README.md](../README.md)**.
 
 - **Architecture & Governance** (the frozen spine): `docs/architecture/`, `docs/governance/`
 - **Planning**: `docs/plans/` (incl. `PRODUCTIZATION_MASTER_PLAN_V2.md` — frozen)

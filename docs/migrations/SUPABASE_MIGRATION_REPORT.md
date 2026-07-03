@@ -25,9 +25,9 @@ sandbox read (`OpsIncidentLog`, see §Data) so no live path touches `sandboxStor
 - **RBAC guard** — now identity-driven from `user_roles`/`admin_users` + RLS enforcement (this sprint).
 
 ## Schema inventory (existing; unchanged this sprint)
-- **48 migrations** in [`supabase/migrations/`](supabase/migrations/), **~110 tables** (all `IF NOT EXISTS`),
+- **48 migrations** in [`supabase/migrations/`](../../supabase/migrations/), **~110 tables** (all `IF NOT EXISTS`),
   including dedicated `security_hardening` (×2), `rls_recovery`, `admin_rls_policies`, and scale/index migrations.
-- **4 edge functions** ([`supabase/functions/`](supabase/functions/)): `payment-initiate`, `payment-verify`,
+- **4 edge functions** ([`supabase/functions/`](../../supabase/functions/)): `payment-initiate`, `payment-verify`,
   `payment-refund`, `payment-webhook` (Deno; service-role vs RLS-scoped clients; HMAC + idempotency).
 - **Seeds**: `seed.sql` (idempotent demo content), `seed_demo_accounts.sql` (6 demo accounts — **requires a manual
   `auth.users` creation step** + UUID substitution).

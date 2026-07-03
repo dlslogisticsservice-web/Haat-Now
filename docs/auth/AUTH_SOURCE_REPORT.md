@@ -8,9 +8,9 @@ _Diagnostic: where is the working `123456` login coming from. Every line below i
 
 ## Decisive proof (two independent facts, either alone is conclusive)
 1. **Supabase cannot issue or verify any OTP.** Live: `POST /auth/v1/otp` → `{"error_code":"phone_provider_disabled","msg":"Unsupported phone provider"}`. A Supabase "Test OTP" (incl. `123456`) **requires the Phone provider enabled** — it is not. So `123456` cannot originate from Supabase.
-2. **`123456` is honored in exactly one place in the code:** [auth.service.ts:76](src/services/auth.service.ts#L76) — `if (token !== SANDBOX_OTP)` — inside the `if (IS_SANDBOX)` branch of `verifyOtp`. `SANDBOX_OTP = '123456'`. Supabase's `verifyOtp` does not hardcode any code. ⇒ a successful `123456` login **is** the sandbox path.
+2. **`123456` is honored in exactly one place in the code:** [auth.service.ts:76](../../src/services/auth.service.ts#L76) — `if (token !== SANDBOX_OTP)` — inside the `if (IS_SANDBOX)` branch of `verifyOtp`. `SANDBOX_OTP = '123456'`. Supabase's `verifyOtp` does not hardcode any code. ⇒ a successful `123456` login **is** the sandbox path.
 
-**Why it's active in the running app:** `const IS_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' && import.meta.env.DEV` ([auth.service.ts:14](src/services/auth.service.ts#L14)). `.env` has `VITE_AUTH_MODE=sandbox`. `IS_SANDBOX` is true only when **`import.meta.env.DEV` is true** — i.e. the app is being served as a **development build** (`npm run dev`/`vite` dev) **or** a stale bundle built before the fix (commit `cb8d7ad`). A current production build (`npm run build`, `DEV=false`) returns 0/6 (already proven).
+**Why it's active in the running app:** `const IS_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' && import.meta.env.DEV` ([auth.service.ts:14](../../src/services/auth.service.ts#L14)). `.env` has `VITE_AUTH_MODE=sandbox`. `IS_SANDBOX` is true only when **`import.meta.env.DEV` is true** — i.e. the app is being served as a **development build** (`npm run dev`/`vite` dev) **or** a stale bundle built before the fix (commit `cb8d7ad`). A current production build (`npm run build`, `DEV=false`) returns 0/6 (already proven).
 
 ## Required checks
 | # | Check | Result | Evidence |

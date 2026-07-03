@@ -3,7 +3,7 @@
 Maps the **current runtime demo identities** to real database entities. Source of truth = the live auth path (dev/sandbox build where OTP `123456` works) + code + a runtime network trace. No DB changes.
 
 ## The runtime auth path (identical for all 6 roles)
-1. `verifyOtp(phone, '123456')` → `IS_SANDBOX` branch ([auth.service.ts:73](src/services/auth.service.ts#L73)): checks `DEMO_ACCOUNTS[phone]`, requires token `=== '123456'`, **writes `localStorage['haat_sandbox_session'] = {id, phone_number, role}`**. **Zero Supabase auth calls** (runtime-confirmed: `Supabase AUTH calls during login: NONE`).
+1. `verifyOtp(phone, '123456')` → `IS_SANDBOX` branch ([auth.service.ts:73](../../src/services/auth.service.ts#L73)): checks `DEMO_ACCOUNTS[phone]`, requires token `=== '123456'`, **writes `localStorage['haat_sandbox_session'] = {id, phone_number, role}`**. **Zero Supabase auth calls** (runtime-confirmed: `Supabase AUTH calls during login: NONE`).
 2. `getCurrentUser()` → returns that localStorage blob. **Role comes from `DEMO_ACCOUNTS`, not from `user_roles`.**
 3. Portals read **`sandboxStore`** (localStorage) for orders/wallet/earnings/analytics; only the **shared anon catalog** is read from the real DB.
 
@@ -28,21 +28,21 @@ Maps the **current runtime demo identities** to real database entities. Source o
 - **Auth Source:** SANDBOX (localStorage; `123456`)
 - **Loaded User Record:** `DEMO_ACCOUNTS['+201000000002']` → `{id: 22222222-…-000000000001, role: merchant, country: EG}` — not a `merchants` row (demo merchant `متجر تجريبي` **confirmed absent** in DB)
 - **Loaded Role Record:** hardcoded `merchant` — no `user_roles` row
-- **Database Tables Used:** `sandboxStore` for orders/products/revenue ([MerchantApp.tsx:183,232](src/features/merchant/MerchantApp.tsx#L183)); no identity/`merchants` DB row read
+- **Database Tables Used:** `sandboxStore` for orders/products/revenue ([MerchantApp.tsx:183,232](../../src/features/merchant/MerchantApp.tsx#L183)); no identity/`merchants` DB row read
 - **Can Reuse Existing Data = NO** (no `merchants` row for `22222222-…`; the 5 real catalog merchants are `00000000-…-40…44`, unowned by any auth user)
 
 ### Driver — `+201000000003`
 - **Auth Source:** SANDBOX (localStorage; `123456`)
 - **Loaded User Record:** `DEMO_ACCOUNTS['+201000000003']` → `{id: 33333333-…-000000000001, role: driver, country: EG}` — not a `drivers` row
 - **Loaded Role Record:** hardcoded `driver` — no `user_roles` row
-- **Database Tables Used:** `sandboxStore` for available/active jobs + earnings ([DriverApp.tsx:109-111](src/features/driver/DriverApp.tsx#L109)); no identity/`drivers` DB row read
+- **Database Tables Used:** `sandboxStore` for available/active jobs + earnings ([DriverApp.tsx:109-111](../../src/features/driver/DriverApp.tsx#L109)); no identity/`drivers` DB row read
 - **Can Reuse Existing Data = NO** (no `drivers` row for `33333333-…`)
 
 ### Egypt Admin — `+201000000004`
 - **Auth Source:** SANDBOX (localStorage; `123456`)
 - **Loaded User Record:** `DEMO_ACCOUNTS['+201000000004']` → `{id: 44444444-…-000000000001, role: admin, country: EG, scope: country}` — not an `admin_users` row
 - **Loaded Role Record:** hardcoded `admin` + `scope:'country'` from `DEMO_ACCOUNTS` — **no `admin_users`/`user_roles` row read**
-- **Database Tables Used:** `sandboxStore` analytics/orders ([AdminDashboard.tsx:68](src/features/admin/AdminDashboard.tsx#L68)); no `admin_users` DB row read
+- **Database Tables Used:** `sandboxStore` analytics/orders ([AdminDashboard.tsx:68](../../src/features/admin/AdminDashboard.tsx#L68)); no `admin_users` DB row read
 - **Can Reuse Existing Data = NO** (no `admin_users` row for `44444444-…-001`)
 
 ### Saudi Admin — `+966500000004`

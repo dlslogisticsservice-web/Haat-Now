@@ -5,7 +5,7 @@ Before this sprint, `rbac.service` was **localStorage-only in every mode**, and 
 **defaulted to `super_admin`** — meaning in a live build **every user would be treated as super admin**. This was
 the single biggest production security hole (per the audit).
 
-## What was implemented ([`src/services/rbac.service.ts`](src/services/rbac.service.ts), [`src/App.tsx`](src/App.tsx))
+## What was implemented ([`src/services/rbac.service.ts`](../../src/services/rbac.service.ts), [`src/App.tsx`](../../src/App.tsx))
 A production permission path that derives the effective role from the **authenticated identity**, with **zero
 localStorage** and **fail-closed** defaults — while the sandbox demo's acting-role preview is unchanged.
 

@@ -54,7 +54,7 @@ Catalog: [`src/platform/platformModel.ts`](../../src/platform/platformModel.ts).
 - [`src/platform/platformModel.ts`](../../src/platform/platformModel.ts) ·
   [`src/platform/platform.service.ts`](../../src/platform/platform.service.ts) ·
   [`src/features/admin/IntegrationCenter.tsx`](../../src/features/admin/IntegrationCenter.tsx) ·
-  [`src/services/payment.service.ts`](../../src/services/payment.service.ts) (payment adapters, config-only).
+  [`src/services/payment-orchestrator.service.ts`](../../src/services/payment-orchestrator.service.ts) (canonical payment path → `payment-initiate` edge function; config-only, no client gateway).
 
 ## Do's
 - ✅ Add to the catalog + keep reads merge-friendly. ✅ Gate management with a permission. ✅ Let the runtime

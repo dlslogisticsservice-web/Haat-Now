@@ -3,7 +3,7 @@
 > The app uses **real Supabase phone-OTP auth**. To make these usable you must:
 > 1. Supabase → **Auth → Providers → Phone** → enable, and add each number below as a **Test OTP** number (fixed code, no real SMS).
 > 2. Create the 6 auth users (Auth → Users → Add user) and note each `auth.users.id`.
-> 3. Run [`supabase/seed_demo_accounts.sql`](supabase/seed_demo_accounts.sql) with the real uuids (assigns roles, admin scope, driver/merchant/wallet rows).
+> 3. Run [`supabase/seed_demo_accounts.sql`](../../supabase/seed_demo_accounts.sql) with the real uuids (assigns roles, admin scope, driver/merchant/wallet rows).
 >
 > I cannot perform steps 1–3 (no dashboard / service-role access). The table is the intended credential set.
 

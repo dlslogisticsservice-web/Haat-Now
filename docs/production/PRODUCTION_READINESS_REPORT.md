@@ -53,7 +53,7 @@ sign-off is scoped to a staging project (documented per phase). No UI/UX change;
 - **Behavior preserved:** every live change is gated by `VITE_AUTH_MODE`; the sandbox demo is unchanged.
 
 ## Remaining before production launch (requires a staging Supabase project)
-1. Run the full [Supabase runbook](SUPABASE_MIGRATION_REPORT.md#operator-runbook-to-stand-up-stagingproduction);
+1. Run the full [Supabase runbook](../migrations/SUPABASE_MIGRATION_REPORT.md#operator-runbook-to-stand-up-stagingproduction);
    apply migrations, deploy edge fns + secrets, seed `auth.users`/roles/`admin_users`, configure SMS OTP.
 2. Live auth validation (real OTP) and RBAC validation for all 5 roles (allowed **and** denied), including RLS
    enforcement server-side.
