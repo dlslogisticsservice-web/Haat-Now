@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { adminCrud } from './admin-crud.service';
 import { tenantService } from './tenant.service';
+import { kv } from '../lib/kv';
 
 export type PlanKey = 'free' | 'starter' | 'business' | 'enterprise';
 export type SubStatus = 'trialing' | 'active' | 'past_due' | 'canceled';
@@ -23,7 +24,7 @@ export const PLAN_CATALOG: Plan[] = [
   { key: 'enterprise', ar: 'مؤسسي', en: 'Enterprise', priceMonthly: 0, custom: true, trialDays: 30, limits: { orders: -1, drivers: -1, merchants: -1, branches: -1 }, features: ['wallet', 'ratings', 'loyalty', 'scheduling', 'tips', 'live_tracking', 'referrals', 'subscriptions'] },
 ];
 const planOf = (k?: string): Plan => PLAN_CATALOG.find(p => p.key === k) || PLAN_CATALOG[1];
-const ls = (t: string): any[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+const ls = (t: string): any[] => kv.list(t);
 
 export type UsageResource = keyof PlanLimits;
 export interface UsageGuard { resource: UsageResource; used: number; limit: number; unlimited: boolean; remaining: number; allowed: boolean; overage: boolean; pct: number }
@@ -103,7 +104,7 @@ export const subscriptionService = {
       const cur = ls('memberships'); const i = cur.findIndex((x: any) => x.tenant_id === tenantId);
       const row = { id: i >= 0 ? cur[i].id : `mem-${tenantId}`, tenant_id: tenantId, plan, status, updated_at: new Date().toISOString() };
       if (i >= 0) cur[i] = { ...cur[i], ...row }; else cur.unshift(row);
-      localStorage.setItem('haat_crud_memberships', JSON.stringify(cur));
+      kv.set('memberships', cur);
     } catch { /* best-effort */ }
   },
 };

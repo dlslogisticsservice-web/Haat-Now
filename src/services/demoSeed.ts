@@ -4,9 +4,11 @@
 // with a realistic, interconnected dataset so NO admin page appears empty in demo.
 // Sandbox-only, idempotent (seeds once). Real shapes — not placeholders.
 // ─────────────────────────────────────────────────────────────────────────────
+import { kv } from '../lib/kv';
+
 const SEED_FLAG = 'haat_demo_seeded_v2';
-const put = (table: string, rows: any[]) => { try { localStorage.setItem(`haat_crud_${table}`, JSON.stringify(rows)); } catch { /* quota */ } };
-const has = (table: string) => { try { return JSON.parse(localStorage.getItem(`haat_crud_${table}`) || '[]').length > 0; } catch { return false; } };
+const put = (table: string, rows: any[]) => kv.set(table, rows);
+const has = (table: string) => kv.has(table);
 const rnd = (n: number) => Math.floor(Math.random() * n);
 const pick = <T,>(a: T[]) => a[rnd(a.length)];
 const iso = (minsAgo: number) => new Date(Date.now() - minsAgo * 60000).toISOString();

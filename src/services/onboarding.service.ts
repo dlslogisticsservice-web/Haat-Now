@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { kv } from '../lib/kv';
 
 export type EntityType = 'merchant' | 'driver';
 export type AccountStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'suspended' | 'banned';
@@ -30,7 +31,7 @@ export interface HistoryRow {
 // backend. Base statuses are derived deterministically (same distribution as before),
 // then per-entity overrides are applied. Queue universe = first 16 drivers / 10 merchants.
 const KYC_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
-const kls = (t: string): any[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+const kls = (t: string): any[] => kv.list(t);
 const KYC_OVR_KEY = 'haat_sb_kyc';
 const kycOvr = (): Record<string, { status: string; reviewed_at: string | null; decision_notes: string | null }> => { try { return JSON.parse(localStorage.getItem(KYC_OVR_KEY) || '{}'); } catch { return {}; } };
 const kycOvrWrite = (o: Record<string, any>) => { try { localStorage.setItem(KYC_OVR_KEY, JSON.stringify(o)); } catch { /* ignore */ } };

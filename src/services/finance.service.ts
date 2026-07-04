@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { kv } from '../lib/kv';
 
 export interface CommissionRow { id: string; order_id: string; merchant_id: string; gross_amount: number; commission_amount: number; net_to_merchant: number; settled: boolean; created_at: string; }
 export interface SettlementRun { id: string; run_type: 'merchant' | 'driver'; period_start: string; period_end: string; status: string; entity_count: number; total_amount: number; created_at: string; }
@@ -10,7 +11,7 @@ export interface RevenueDashboard { platform_revenue: number; platform_cash: num
 // Demo finance: compute real figures from the seeded orders so the Finance Center is fully
 // usable on the demo backend (no live ledger). Commission modelled at 15%, captain fee 10.
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
-const ls = <T,>(t: string): T[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+const ls = <T,>(t: string): T[] => kv.list<T>(t);
 const COMMISSION = 0.15, CAPTAIN_FEE = 10;
 const finStats = () => {
   const delivered = ls<any>('orders').filter(o => o.status === 'delivered');

@@ -1,8 +1,9 @@
 import { supabase } from '../lib/supabase';
+import { kv } from '../lib/kv';
 
 // Demo CX: derive support tickets/SLA from seeded data so Customer Care is usable offline.
 const CX_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
-const cxls = <T,>(t: string): T[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+const cxls = <T,>(t: string): T[] => kv.list<T>(t);
 
 // ── Demo support-ticket store (persisted) ─────────────────────────────────────
 // Makes Customer Care actions (reply / internal note / status change / create) survive

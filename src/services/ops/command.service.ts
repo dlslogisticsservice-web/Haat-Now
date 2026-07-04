@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { kv } from '../../lib/kv';
 
 export interface LiveDriver { id: string; full_name: string | null; lat: number; lng: number; status: string; is_online: boolean; }
 export interface LiveOrder { id: string; status: string; lat: number; lng: number; driver_id: string | null; total_amount: number; }
@@ -16,7 +17,7 @@ export interface ZoneAnalytics {
 const ACTIVE_ORDER = ['pending', 'accepted', 'preparing', 'on_the_way'];
 // Demo runs entirely client-side — never touch the network in sandbox (avoids 403/401 + realtime errors).
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
-const ls = <T,>(table: string): T[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${table}`) || '[]'); } catch { return []; } };
+const ls = <T,>(table: string): T[] => kv.list<T>(table);
 
 /** Operations Command Center — live map data, realtime, ops/zone analytics, batch dispatch. */
 export const commandService = {

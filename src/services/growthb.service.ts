@@ -1,9 +1,10 @@
 import { supabase } from '../lib/supabase';
 import { loyaltyService } from './loyalty.service';
+import { kv } from '../lib/kv';
 
 // Demo growth: derive figures from seeded data so the Growth Center is usable on the demo backend.
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
-const gls = <T,>(t: string): T[] => { try { return JSON.parse(localStorage.getItem(`haat_crud_${t}`) || '[]'); } catch { return []; } };
+const gls = <T,>(t: string): T[] => kv.list<T>(t);
 
 /** Enterprise-B growth/loyalty/retention service (advanced coupons, loyalty rules/rewards,
  *  segments, promotions, banners, merchant growth, retention, analytics, templates). */
