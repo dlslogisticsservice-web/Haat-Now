@@ -29,4 +29,17 @@ export const catalogRepository = {
       .lte('start_date', nowIso)
       .gte('end_date', nowIso);
   },
+
+  /** A branch's menu for the customer restaurant screen (products + images + variants). */
+  listBranchMenu(branchId: string) {
+    return supabase
+      .from('products')
+      .select('id,name,description,price,product_images(url),product_variants(id,name,price_modifier)')
+      .eq('branch_id', branchId);
+  },
+
+  /** A branch's products for the merchant portal (full row + images). */
+  listBranchProducts(branchId: string) {
+    return supabase.from('products').select('*, product_images(*)').eq('branch_id', branchId);
+  },
 };

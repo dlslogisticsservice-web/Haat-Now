@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabase';
+import { catalogRepository } from '../../repositories/catalog.repository';
 import { Heart, ChevronLeft, Star, Loader2, UtensilsCrossed, Plus, X, ShoppingCart } from 'lucide-react';
 import { resolveCategory, getCategoryCover, getProductFallback } from '../../utils/categoryImages';
 import { useAppConfig } from '../../contexts/AppConfigContext';
@@ -140,10 +140,7 @@ export const RestaurantScreen = ({
         setProducts([]);
         return;
       }
-      const { data, error } = await supabase
-        .from('products')
-        .select('id,name,description,price,product_images(url),product_variants(id,name,price_modifier)')
-        .eq('branch_id', branchId);
+      const { data, error } = await catalogRepository.listBranchMenu(branchId);
       if (error) console.error('fetchBranchMenu:', error);
       else setProducts(data || []);
     } catch (e) {

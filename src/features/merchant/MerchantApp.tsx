@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { toast, confirmDialog } from '../../components/ui/feedback';
 import { accountService } from '../../services/account.service';
-import { supabase } from '../../lib/supabase';
+import { merchantRepository } from '../../repositories/merchant.repository';
+import { catalogRepository } from '../../repositories/catalog.repository';
 import { merchantService } from '../../services/merchant.service';
 import { orderService } from '../../services/order.service';
 import { storageService } from '../../services/storage.service';
@@ -189,24 +190,16 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     if (!selectedBranchId) return;
 
     if (ordersChannelRef.current) {
-      supabase.removeChannel(ordersChannelRef.current);
+      merchantRepository.unsubscribe(ordersChannelRef.current);
       ordersChannelRef.current = null;
     }
 
-    const channel = supabase
-      .channel(`merchant-orders-${selectedBranchId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders', filter: `branch_id=eq.${selectedBranchId}` }, () => {
-        reloadBranchData(selectedBranchId);
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `branch_id=eq.${selectedBranchId}` }, () => {
-        reloadBranchData(selectedBranchId);
-      })
-      .subscribe();
+    const channel = merchantRepository.subscribeBranchOrders(selectedBranchId, () => reloadBranchData(selectedBranchId));
 
     ordersChannelRef.current = channel;
 
     return () => {
-      supabase.removeChannel(channel);
+      merchantRepository.unsubscribe(channel);
       ordersChannelRef.current = null;
     };
   }, [selectedBranchId]);
@@ -233,14 +226,14 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         return;
       }
       const [bRes, mRes] = await Promise.all([
-        supabase.from('merchant_branches').select('*').eq('merchant_id', merchantId),
-        supabase.from('merchants').select('id, business_name, logo_url').eq('id', merchantId).maybeSingle(),
+        merchantRepository.listBranches(merchantId),
+        merchantRepository.getMerchant(merchantId),
       ]);
       if (mRes.data) setMerchantData(mRes.data);
       if (bRes.data && bRes.data.length > 0) {
         setBranches(bRes.data);
         setSelectedBranchId(bRes.data[0].id);
-        const { data: catData } = await supabase.from('categories').select('*');
+        const { data: catData } = await merchantRepository.listCategories();
         if (catData) { setCategories(catData); if (catData.length > 0) setSelectedCategoryId(catData[0].id); }
         await reloadBranchData(bRes.data[0].id);
       }
@@ -256,10 +249,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
         const total = ordData.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total_amount - DEFAULT_DELIVERY_FEE), 0);
         setEarnings(Math.max(0, total));
       }
-      const { data: prodData } = await supabase
-        .from('products')
-        .select('*, product_images(*)')
-        .eq('branch_id', bId);
+      const { data: prodData } = await catalogRepository.listBranchProducts(bId);
       if (prodData) setProducts(prodData as Product[]);
       // Inventory (C1) + merchant analytics (H2) from real services.
       const { data: invData } = await inventoryService.getInventory(bId);
@@ -408,7 +398,7 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     try {
       const { url, error: upErr } = await storageService.uploadMerchantLogo(merchantId, pendingLogoFile);
       if (upErr || !url) { setLogoError(D('فشل رفع الشعار. تحقق من اتصالك وحاول مرة أخرى.','Failed to upload the logo. Check your connection and try again.')); return; }
-      const { error: dbErr } = await supabase.from('merchants').upsert({
+      const { error: dbErr } = await merchantRepository.upsertMerchant({
         id: merchantId,
         business_name: merchantData?.business_name || branches[0]?.name || D('المتجر','Store'),
         logo_url: url,
