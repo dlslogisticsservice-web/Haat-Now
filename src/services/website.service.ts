@@ -19,14 +19,25 @@ const TENANTS_KEY = 'haat_crud_tenants';
 
 // ── Content model ─────────────────────────────────────────────────────────────
 export type WebsitePageKind = 'landing' | 'about' | 'contact' | 'blog_index' | 'help_index' | 'legal' | 'custom';
-export type WebsiteBlock =
-  | { type: 'hero'; title: string; subtitle?: string; cta?: { label: string; href: string }; image?: string }
+export interface BlockVisibility { desktop?: boolean; tablet?: boolean; mobile?: boolean }
+export interface WebsiteCta { label: string; href: string; style?: 'primary' | 'secondary' }
+// Every section carries per-section controls: enable/disable + responsive visibility.
+interface BlockBase { enabled?: boolean; visibility?: BlockVisibility }
+export type WebsiteBlock = BlockBase & (
+  | { type: 'hero'; title: string; subtitle?: string; cta?: { label: string; href: string }; ctas?: WebsiteCta[]; bgImage?: string; bgVideo?: string; overlay?: number; layout?: 'center' | 'left' }
   | { type: 'richtext'; heading?: string; body: string }
   | { type: 'features'; heading?: string; items: { title: string; body: string }[] }
+  | { type: 'cards'; heading?: string; items: { title: string; body: string; image?: string; href?: string }[] }
+  | { type: 'stats'; heading?: string; items: { value: string; label: string }[] }
+  | { type: 'testimonials'; heading?: string; items: { quote: string; author: string; role?: string; avatar?: string }[] }
+  | { type: 'partners'; heading?: string; logos: string[] }
   | { type: 'cta'; title: string; subtitle?: string; button: { label: string; href: string } }
   | { type: 'gallery'; heading?: string; images: string[] }
+  | { type: 'app_download'; heading: string; subtitle?: string; iosUrl?: string; androidUrl?: string; image?: string }
   | { type: 'faq'; heading?: string; items: { q: string; a: string }[] }
-  | { type: 'contact'; heading?: string; email?: string; phone?: string; address?: string };
+  | { type: 'contact'; heading?: string; email?: string; phone?: string; address?: string }
+);
+export type WebsiteBlockType = WebsiteBlock['type'];
 
 export interface WebsiteSeo { title?: string; description?: string; ogImage?: string; canonical?: string; noindex?: boolean }
 export interface WebsiteLink { label: string; path: string }

@@ -4,6 +4,11 @@ import {
 } from './runtime';
 import { BlockRenderer } from './blocks';
 
+// Per-section responsive visibility rules — injected once into the public site.
+const RESP_CSS = `@media(min-width:1024px){.hd{display:none!important}}@media(min-width:641px) and (max-width:1023px){.ht{display:none!important}}@media(max-width:640px){.hm{display:none!important}}`;
+const visClass = (v?: { desktop?: boolean; tablet?: boolean; mobile?: boolean }): string =>
+  !v ? '' : [v.desktop === false ? 'hd' : '', v.tablet === false ? 'ht' : '', v.mobile === false ? 'hm' : ''].filter(Boolean).join(' ');
+
 /**
  * Public Website Runtime — renders a tenant's published website inside the existing SPA.
  * Mounted (from main.tsx) only when the request targets a tenant site (?site=<slug> in sandbox/dev,
@@ -79,6 +84,7 @@ export const PublicSiteApp: React.FC = () => {
 
   return (
     <div id="public_site" style={bg}>
+      <style>{RESP_CSS}</style>
       {req.preview && (
         <div id="preview_banner" style={{ background: '#fbbf24', color: '#1a1400', textAlign: 'center', fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>
           PREVIEW — showing the unpublished draft. Publish in the Website Center to go live.
@@ -139,7 +145,9 @@ export const PublicSiteApp: React.FC = () => {
         )}
 
         {resolved.page && resolved.page.kind !== 'blog_index' && (
-          <div>{resolved.page.sections.map((b, i) => <BlockRenderer key={i} block={b} onNav={navigate} />)}</div>
+          <div>{resolved.page.sections.filter(s => s.enabled !== false).map((b, i) => (
+            <div key={i} className={visClass(b.visibility)}><BlockRenderer block={b} onNav={navigate} /></div>
+          ))}</div>
         )}
       </main>
 
