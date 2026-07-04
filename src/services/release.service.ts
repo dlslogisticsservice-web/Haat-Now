@@ -5,9 +5,9 @@
 //   maintenance     : { "enabled": true, "message_ar": "...", "message_en": "..." }
 // Sandbox / missing rows → permissive (no gate), so nothing breaks before rows exist.
 // ─────────────────────────────────────────────────────────────────────────────
-import { supabase } from '../lib/supabase';
+import { settingsRepository } from '../repositories/settings.repository';
 
-const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 
 export interface ReleaseGate {
   minVersion: string | null;
@@ -29,7 +29,7 @@ export const releaseService = {
   async getGate(): Promise<ReleaseGate> {
     if (SANDBOX) return DEFAULT_GATE;
     try {
-      const { data } = await supabase.from('settings').select('key, value').in('key', ['min_app_version', 'maintenance', 'store_urls']);
+      const { data } = await settingsRepository.getReleaseKeys();
       const map: Record<string, any> = {};
       (data || []).forEach((r: any) => { map[r.key] = r.value; });
       return {
