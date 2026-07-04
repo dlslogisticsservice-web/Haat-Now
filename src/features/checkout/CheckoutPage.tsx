@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { toast } from '../../components/ui/feedback';
-import { supabase } from '../../lib/supabase';
 import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
 import { adminService } from '../../services/admin.service';
@@ -95,8 +94,6 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const startVerifyPolling = (attemptId: string, orderId: string | null) => {
     let attempts = 0;
     const MAX    = 12;
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-    const anonKey     = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
     const stop = () => {
       if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
@@ -105,20 +102,9 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
     const poll = async () => {
       attempts++;
       try {
-        const accessToken = await authService.getAccessToken();
-        const res = await fetch(`${supabaseUrl}/functions/v1/payment-verify`, {
-          method: 'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-            'apikey':        anonKey,
-          },
-          body: JSON.stringify({ paymentAttemptId: attemptId }),
-        });
+        const data = await checkoutService.verifyPaymentStatus(attemptId);
 
-        if (!res.ok) return; // Network or 5xx — keep polling
-
-        const data = await res.json() as Record<string, unknown>;
+        if (!data) return; // Network or 5xx — keep polling
 
         if (data['orderPaymentStatus'] === 'paid' || data['status'] === 'captured') {
           stop();
@@ -217,9 +203,9 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         setLoading(false);
         return;
       }
-      const { data: zoneData }    = await supabase.from('zones').select('*');
+      const { data: zoneData }    = await checkoutService.getZones();
       if (zoneData) { setZones(zoneData); if (zoneData.length > 0) setSelectedZoneId(zoneData[0].id); }
-      const { data: addressData } = await supabase.from('addresses').select('*').eq('customer_id', customerId).order('is_default', { ascending: false });
+      const { data: addressData } = await checkoutService.listAddresses(customerId);
       if (addressData) {
         setAddresses(addressData);
         if (addressData.length > 0) {
@@ -238,16 +224,12 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         if (!isNaN(parsed) && parsed > 0) setDeliveryFee(parsed);
       }
 
-      const { data: branchData } = await supabase
-        .from('merchant_branches')
-        .select('latitude,longitude')
-        .eq('id', branchId)
-        .maybeSingle();
+      const { data: branchData } = await checkoutService.getBranchCoords(branchId);
       if (branchData) setBranchCoords({ latitude: branchData.latitude ?? null, longitude: branchData.longitude ?? null });
 
       const ids = cartItems.map(i => i.product.id);
       if (ids.length > 0) {
-        const { data: imgData } = await supabase.from('product_images').select('product_id,url').in('product_id', ids);
+        const { data: imgData } = await checkoutService.getProductImages(ids);
         if (imgData) {
           const m: Record<string, string> = {};
           imgData.forEach(img => { m[img.product_id] = img.url; });
@@ -268,9 +250,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         setAddresses([a as any, ...addresses]); setSelectedAddress(a.id); setNewAddressText(''); setIsAddingAddress(false);
         setActionLoading(false); return;
       }
-      const { data, error } = await supabase.from('addresses')
-        .insert({ customer_id: customerId, zone_id: selectedZoneId, address_line: newAddressText, label: t('checkout.customLocation') })
-        .select().single();
+      const { data, error } = await checkoutService.addAddress({ customer_id: customerId, zone_id: selectedZoneId, address_line: newAddressText, label: t('checkout.customLocation') });
       if (error) toast.error(`${t('checkout.addAddressError')}: ${error.message}`);
       else { setAddresses([data, ...addresses]); setSelectedAddress(data.id); setNewAddressText(''); setIsAddingAddress(false); }
     } catch (err) { console.error(err); }
@@ -340,12 +320,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
       for (const item of cartItems) {
         let variantId = item.variant?.id;
         if (!variantId) {
-          const { data: variants } = await supabase.from('product_variants').select('id').eq('product_id', item.product.id).limit(1);
-          if (variants && variants.length > 0) variantId = variants[0].id;
-          else {
-            const { data: newV } = await supabase.from('product_variants').insert({ product_id: item.product.id, name: 'الافتراضي', price_modifier: 0.00 }).select().single();
-            if (newV) variantId = newV.id;
-          }
+          variantId = (await checkoutService.resolveVariantId(item.product.id)) ?? undefined;
         }
         resolvedItems.push({ variantId: variantId || '', quantity: item.quantity, price: item.product.price + (item.variant?.price_modifier ?? 0) });
       }
