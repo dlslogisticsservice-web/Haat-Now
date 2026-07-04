@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { User } from '../features/auth/types';
+import { User } from './types';
 import { toE164 } from '../utils/phone';
 
 // ─────────────────────────────────────────────────────────────────────────────

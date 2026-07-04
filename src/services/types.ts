@@ -1,5 +1,19 @@
 // Database types and API payloads for Haat Now Enterprise Platform
 
+// ── Identity (Phase-2: relocated from features/auth/types so the service layer no
+//    longer depends on a feature folder; features/auth/types re-exports for compat) ──
+export interface User {
+  id: string;
+  phone_number: string;
+  role: 'customer' | 'merchant' | 'driver' | 'admin';
+}
+
+export interface AuthState {
+  user: User | null;
+  loading: boolean;
+  error: string | null;
+}
+
 // ── Order status machine — single source of truth ──────────────────────────
 export const ORDER_STATUSES = {
   PENDING:    'pending',
