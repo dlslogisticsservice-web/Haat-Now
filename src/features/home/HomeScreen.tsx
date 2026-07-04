@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useHomeFeed } from '../../hooks/useHomeFeed';
+import type { BranchWithMerchant, DBOffer } from '../../services/home.service';
 import {
   Star, Clock, SearchX, Search, X, Zap, Bike, Shield, Tag,
   UtensilsCrossed, ShoppingCart, Pill, Coffee, CakeSlice, Gift, Flower2, Smartphone,
@@ -18,13 +19,7 @@ const CAT_KEY_TO_ID: Record<CategoryKey, string> = {
   sweets: 'cat-sweets', gifts: 'cat-perfume', perfume: 'cat-perfume', flowers: 'cat-flowers', electronics: 'cat-electronics',
 };
 
-/* ─── Types ─────────────────────────────────────────────────── */
-interface BranchWithMerchant {
-  id: string; name: string; merchant_id: string; zone_id: string; is_active: boolean;
-  merchants: { business_name: string; logo_url?: string | null };
-  zones: { name: string };
-}
-interface DBOffer { id: string; title: string; description: string | null; discount_percent: number | null; }
+/* ─── Types (BranchWithMerchant + DBOffer now owned by home.service) ─────────── */
 interface Category { id: string; name: string; cat: CategoryKey; Icon: LucideIcon; tintFrom: string; tintTo: string; patterns: string[]; }
 
 /* ─── Category Data — §5 Lovable ────────────────────────────── */
@@ -113,33 +108,13 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
   }, [country.code]);
   const { t } = useTranslation();
   const cur = country.currency.symbolAr;
-  const [branches,       setBranches]       = useState<BranchWithMerchant[]>([]);
-  const [offers,         setOffers]         = useState<DBOffer[]>([]);
-  const [loading,        setLoading]        = useState(true);
+  // Home feed (branches + active offers) via the hook → service → repository chain.
+  const { branches, offers, loading } = useHomeFeed();
   const [selectedCat,    setSelectedCat]    = useState<string | null>(null);
   const [searchQuery,    setSearchQuery]    = useState('');
   const [viewMode,       setViewMode]       = useState<'large' | 'compact'>(() => (typeof localStorage !== 'undefined' && localStorage.getItem('haat_view_mode') === 'large') ? 'large' : 'compact');
   const toggleViewMode = () => setViewMode(m => { const next = m === 'large' ? 'compact' : 'large'; try { localStorage.setItem('haat_view_mode', next); } catch { /* ignore */ } return next; });
   const [activeOfferIdx, setActiveOfferIdx] = useState(0);
-
-  useEffect(() => { fetchAllData(); }, []);
-
-  const fetchAllData = async () => {
-    setLoading(true);
-    try {
-      const now = new Date().toISOString();
-      const [branchRes, offerRes] = await Promise.all([
-        supabase.from('merchant_branches').select('id,name,merchant_id,zone_id,is_active,merchants(business_name,logo_url),zones(name)'),
-        supabase.from('offers').select('id,title,description,discount_percent').eq('is_active', true).lte('start_date', now).gte('end_date', now),
-      ]);
-      // Surface query errors instead of silently falling back to mock cards.
-      if (branchRes.error) console.error('HomeScreen merchant_branches:', branchRes.error);
-      if (offerRes.error)  console.error('HomeScreen offers:', offerRes.error);
-      if (branchRes.data) setBranches(branchRes.data as unknown as BranchWithMerchant[]);
-      if (offerRes.data)  setOffers(offerRes.data);
-    } catch (e) { console.error('HomeScreen fetch:', e); }
-    finally { setLoading(false); }
-  };
 
   const filteredBranches = useMemo(() => {
     return branches.filter(branch => {
