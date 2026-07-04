@@ -1,67 +1,86 @@
-# Release Report — Platform Validation (end-to-end)
+# Release Report — Website Experience Builder
 
 > Rolling release report — reflects the most recent sprint. Prior sprint releases are in git history +
 > [docs/CHANGELOG_DOCS.md](../CHANGELOG_DOCS.md).
 
 ## Sprint
-**Complete end-to-end Platform Validation** — HAAT NOW validated as a finished SaaS platform across 8 scenarios.
-No new features; two real white-label defects were found and fixed during validation.
+**Transform the Website Center into a true visual Website Experience Builder** — a WYSIWYG page builder with
+12 section types, drag/drop, enable/duplicate/delete, per-device visibility, live device preview, section
+templates, and layout import/export. **No JSON editing.** Everything reuses existing modules — no new Website
+Engine, CMS, Media, or Theme system. Full detail:
+[docs/implementation/WEBSITE_EXPERIENCE_BUILDER_REPORT.md](../implementation/WEBSITE_EXPERIENCE_BUILDER_REPORT.md).
 
 ## Release gate — all checks PASSED ✅
 | Check | Command | Result |
 |---|---|---|
 | TypeScript | `npm run lint` (`tsc --noEmit`) | ✅ **0 errors** |
-| Production build | `npm run build` | ✅ built (~10s), `version.json`/`sw.js` stamped |
+| Production build | `npm run build` | ✅ built (~16s), `version.json` / `sw.js` stamped `@187bab2` |
 | E2E (sandbox) | `node docs/testing/e2e_runner.cjs` | ✅ **24/24 pass, 0 fail** |
-| **Platform Validation** | 8-scenario Puppeteer harness (UI + DEV hooks) | ✅ **21/21 checks pass, 0 console errors** |
+| **Experience Builder runtime probe** | Puppeteer (super admin → Website Center → Pages) | ✅ **10/10 checks, 0 console errors** |
 
-## Scenarios (all pass)
-White Label tenant creation (+10-surface verify) · Merchant (category/product/inventory/order) · Customer
-(wallet/coupon/loyalty/track) · Dispatch (assign→deliver→earnings→rating) · Finance (earnings/settlement data) ·
-Website (create/preview/publish/rollback/public) · White Label theme+brand propagation · Operations
-(analytics/notifications/audit). Full detail: [docs/qa/PLATFORM_VALIDATION_REPORT.md](../qa/PLATFORM_VALIDATION_REPORT.md).
+### Runtime probe — 10/10 (0 console errors)
+Builder renders · **Add section** · **Instant preview** (new content appears immediately) · **Disable hides** in
+preview · **Re-enable shows** · **Duplicate + Delete** (count deltas correct) · **Media Library picker opens**
+(reuses `assets.service`) · **Section templates** insert · **Device preview** toggles · **0 console errors**.
 
-## Defects found & fixed (2)
-1. Website renderer used `--color-primary` (pinned white in `index.css`) instead of the brand token
-   `--color-primary-fixed` → the site never adopted the tenant brand color. **Fixed** in `blocks.tsx` /
-   `PublicSiteApp.tsx`.
-2. `PublicSiteApp` mounted inside `DesignProvider` → the platform's published design overrode the tenant theme.
-   **Fixed** in `main.tsx` (public site mounted outside `DesignProvider`; it owns the tenant theme).
-No new business logic.
+## What shipped
+- **12 section types**: Hero (bg image/video, overlay, multi-CTA, layout), Features, Cards, Statistics,
+  Testimonials, Partners, Gallery, App Download, FAQ, Contact, CTA banner, Rich text.
+- **Per section**: enable/disable, drag & drop reorder, duplicate, delete, Desktop/Tablet/Mobile visibility,
+  inline visual editor.
+- **Builder**: live device preview (rendered by the same public `BlockRenderer`), section templates,
+  page-layout import/export, instant preview on every edit.
+- **Media**: images/videos come **only** from the existing Media Library (`assets.service`) via a new
+  `MediaPicker` UI wrapper — no new media system.
+- **Publish**: unchanged existing **Draft → Preview → Publish** workflow (`website.service`).
+
+## Reuse — nothing new created
+| Requirement | Reused module |
+|---|---|
+| Media (images/video) | `src/experience/assets.service.ts` (via `MediaPicker` UI wrapper) |
+| Content / draft-publish / versioning / rollback | `src/services/website.service.ts` (extended, backward-compatible) |
+| Public rendering | `src/features/website/blocks.tsx` + `PublicSiteApp.tsx` |
+| Theming / brand tokens | Theme Engine (`--color-primary-fixed` / `--color-on-primary-fixed`) |
+| Editor host | `src/features/admin/WebsiteCenter.tsx` (upgraded in place) |
+
+## Defect found & fixed (1, during probe)
+- An `<svg>` icon was rendered inside an `<option>` element (invalid HTML → React console error). **Removed** —
+  console is now clean (0 errors).
 
 ## Files changed
-- `src/features/website/blocks.tsx`, `src/features/website/PublicSiteApp.tsx`, `src/main.tsx` (defect fixes).
-- `docs/qa/PLATFORM_VALIDATION_REPORT.md` (new) · this report (updated).
+- `src/services/website.service.ts` — extended `WebsiteBlock` union (backward compatible).
+- `src/features/website/MediaPicker.tsx` — **new** (UI wrapper over existing `assets.service`).
+- `src/features/website/blocks.tsx` — render new section types + enhanced hero.
+- `src/features/website/PublicSiteApp.tsx` — honor `enabled` + responsive `visibility`.
+- `src/features/admin/WebsiteCenter.tsx` — Experience Builder editor.
+- `docs/implementation/WEBSITE_EXPERIENCE_BUILDER_REPORT.md` (new) · this report (updated).
 
 ## Commit / branch
 | Item | Value |
 |---|---|
 | Branch | `feat/website-platform-architecture` (pushed to `origin`) |
-| Fix commit | `b94402c` — `fix(website): brand/theme now propagates to tenant sites (2 defects found in validation)` |
-| Merged to `main`? | **No** (per gate: no automatic production merge) |
-
-## Production readiness score
-**Sandbox/demo: 100%** (21/21 validated, E2E 24/24, 0 console errors). **Overall: ~85/100** — feature-complete and
-fully validated in the shipped environment; the remaining ~15% is live-backend runtime sign-off on a staging
-Supabase project (auth OTP, RLS, payments, seeding, custom-domain DNS/SSL) — infrastructure-gated, not a code gap.
+| Commit | `c5144ef` — `feat(website): visual Experience Builder in Website Center (reuses runtime, media, theme)` |
 
 ## Deployment status
 - **Branch pushed to origin** ✅ — Vercel builds branch pushes as **Preview Deployments** (production = `main`,
   untouched).
 - **Preview Deployment URL — could not be verified/returned from this environment** (no `vercel`/`gh` CLI, no
   `VERCEL_TOKEN`, rate-limited API). The preview is generated by the Vercel Git integration on push.
-- **How to obtain it:** the branch PR — `https://github.com/dlslogisticsservice-web/Haat-Now/pull/new/feat/website-platform-architecture`
-  — or Vercel → Deployments for `b94402c`. Tenant sites render at `?site=<slug>` (sandbox) / subdomain (production).
+- **How to obtain it:** the branch PR —
+  `https://github.com/dlslogisticsservice-web/Haat-Now/pull/new/feat/website-platform-architecture` — or
+  Vercel → Deployments for `c5144ef`. The builder is at Website Center → Pages; tenant sites render at
+  `?site=<slug>` (sandbox) / subdomain (production), `?preview=1` for draft.
 - **Build status:** succeeded locally (identical toolchain to Vercel). **Deployment status: pending external
   verification.**
 
 ## Rollback strategy
 - **Production/main unchanged** — sprint lives on `feat/website-platform-architecture`.
-- **Feature-level:** revert `b94402c` — restores the prior website token usage / provider tree (the app is
-  unaffected either way; only the tenant-website theming changes).
+- **Feature-level:** revert `c5144ef` — the `WebsiteBlock` extension is additive/backward-compatible, so existing
+  published content is unaffected either way.
 - **Preview teardown:** Vercel removes the preview when the branch is deleted.
 
 ## Outcome
-Gate **green**; all 8 validation scenarios **pass (21/21)**; 2 defects **fixed**; work **committed and pushed**;
-a **Preview Deployment is triggered** via the Vercel Git integration (URL from the dashboard/PR, not resolvable
-here). Production (`main`) intentionally untouched. **Stopping — all validation scenarios pass.**
+Gate **green**; Experience Builder runtime probe **10/10, 0 console errors**; 1 defect **fixed**; work
+**committed** (`c5144ef`) **and pushed**; a **Preview Deployment is triggered** via the Vercel Git integration
+(URL from the dashboard/PR, not resolvable here). Production (`main`) intentionally untouched.
+**Stopping after successful preview push.**
