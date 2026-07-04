@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from '../../components/ui/feedback';
-import { supabase } from '../../lib/supabase';
+import { authService } from '../../services/auth.service';
 import { onboardingService, EntityType, AccountStatus } from '../../services/onboarding.service';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -44,8 +44,7 @@ export const OnboardingForm: React.FC<{ entityType: EntityType }> = ({ entityTyp
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      const uid = data.user?.id ?? null; setUserId(uid);
+      const uid = await authService.getAuthUserId(); setUserId(uid);
       if (uid) await refresh(uid);
       setLoading(false);
     })();

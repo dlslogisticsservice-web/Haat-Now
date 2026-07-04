@@ -129,6 +129,12 @@ export const authService = {
     return { data: { user: { id: sbUser.id, phone_number: sbUser.phone || phone, role } }, error: null };
   },
 
+  // ── Raw auth user id (lightweight — no role resolution) ─────────────────────
+  async getAuthUserId(): Promise<string | null> {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  },
+
   // ── Resolve current user (session recovery after refresh) ───────────────────
   async getCurrentUser(): Promise<User | null> {
     if (IS_SANDBOX) return readSandboxSession();

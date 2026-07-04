@@ -13,4 +13,8 @@ export const supportRepository = {
   addMessage(row: { ticket_id: string; sender_type: string; sender_id: string; message_text: string }) {
     return supabase.from('support_messages').insert(row);
   },
+
+  getTicketMessages(ticketId: string) {
+    return supabase.from('support_messages').select('*').eq('ticket_id', ticketId).order('created_at', { ascending: true });
+  },
 };

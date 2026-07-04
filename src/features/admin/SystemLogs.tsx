@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ScrollText, RefreshCw, ShieldAlert } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { auditRepository } from '../../repositories/audit.repository';
 import { adminService, AuditLogRow } from '../../services/admin.service';
 import { WorkspaceHeader } from '../../components/admin/EnterpriseUI';
 import { AdminDataTable, Column } from '../../components/admin/AdminDataTable';
@@ -22,8 +22,8 @@ export const SystemLogs: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
 
   useEffect(() => {
     load();
-    const ch = supabase.channel('audit:live').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, () => load()).subscribe();
-    return () => { supabase.removeChannel(ch); };
+    const ch = auditRepository.subscribeInserts(() => load());
+    return () => { auditRepository.unsubscribe(ch); };
   }, [load]);
 
   const fmt = (d: string) => new Date(d).toLocaleString(L('ar', 'en'), { dateStyle: 'medium', timeStyle: 'medium' });

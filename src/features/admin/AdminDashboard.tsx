@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from '../../components/ui/feedback';
-import { supabase } from '../../lib/supabase';
+import { supportRepository } from '../../repositories/support.repository';
 import { adminService } from '../../services/admin.service';
 import { Icon } from '../../components/ui/Icon';
 import { Card, StatCard } from '../../components/ui/Card';
@@ -207,7 +207,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
   const handleSelectTicket = async (tktId: string) => {
     setSelectedTicketId(tktId); setReplyText(''); setPayoutLoading(true);
     try {
-      const { data } = await supabase.from('support_messages').select('*').eq('ticket_id', tktId).order('created_at', { ascending: true });
+      const { data } = await supportRepository.getTicketMessages(tktId);
       if (data) setTicketMessages(data);
     } catch (e) { console.error(e); }
     finally { setPayoutLoading(false); }
