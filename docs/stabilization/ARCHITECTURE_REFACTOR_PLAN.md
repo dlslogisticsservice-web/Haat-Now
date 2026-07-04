@@ -75,18 +75,26 @@ The repo currently lints with `tsc --noEmit` only (no ESLint). Add a **lightweig
 - (Optional later) adopt ESLint with `no-restricted-imports` for the same rules.
 Enable the guard **only after** the violations above are migrated, so CI stays green throughout.
 
-## 8. Sequenced execution (each step = its own approval-gated slice, verified tsc+build+E2E)
-1. ✅ **S0 — Pilot (this phase):** repository layer + HomeScreen migrated; RestaurantScreen import restored (it has a real call — deferred to S2).
-2. **S1 — orders/payments repositories:** migrate `OrdersList`, `MultiTargetReview`, `CheckoutPage` (highest call count; E2E covers checkout+orders).
-3. **S2 — catalog repository:** migrate `RestaurantScreen`, `MerchantApp` product/inventory reads.
-4. **S3 — driver/ops repositories:** migrate `DriverApp`, `OperationsCenter`.
-5. **S4 — admin/onboarding repositories:** migrate `AdminDashboard`, `SystemLogs`, `OnboardingForm`.
-6. **S5 — persistence consolidation:** `kv.ts` + migrate the 7 duplicated services.
-7. **S6 — component splits:** decompose the 6 oversized components (§4), adding `React.memo` where it lands.
-8. **S7 — cross-feature import fixes + `User` type relocation (§6).**
-9. **S8 — enable the architecture guard in CI (§7).**
+## 8. Sequenced execution — STATUS (each slice: tsc + build + E2E 24/24 + commit + push)
+Executed as independent, validated slices (commit SHAs):
+1. ✅ **Pilot** — repository layer established + HomeScreen migrated (`a503aa2`).
+2. ✅ **S1 — Orders** — OrdersList → orders/support repositories (`a666dd8`).
+3. ✅ **S2 — Reviews** — MultiTargetReview → reviews repository (`54bb04e`).
+4. ✅ **S3 — Checkout** — CheckoutPage → checkout/payments repositories via checkout.service (`58792fa`).
+5. ✅ **S4 — Catalog** — RestaurantScreen + MerchantApp → catalog/merchant repositories (`f5e9724`).
+6. ✅ **S5 — Driver/Ops** — DriverApp + OperationsCenter → driver repository (`4f0b767`).
+7. ✅ **S6 — Admin/Onboarding** — AdminDashboard + SystemLogs + OnboardingForm → audit/support repositories + auth.service (`fc206c7`).
+8. ✅ **S7 — Persistence consolidation** — `src/lib/kv.ts` + 7 services delegated (`8a085fe`).
+9. ✅ **S8 — CI architecture guard** — `scripts/check-architecture.cjs` wired into `npm run lint` (this slice).
 
-Each slice: small, behaviour-preserving, `tsc` + `npm run build` + `node docs/testing/e2e_runner.cjs` (24/24) before commit. No slice merges to `main`.
+**Result: 0 of 11 feature files import `lib/supabase` (was 11).** The boundary is enforced in CI.
+
+### Remaining Phase-2 items (larger refactors — recommended as their own dedicated, gated passes)
+- **Component splits (§4):** the 6 oversized components (MerchantApp 1220, ProfileScreen 1156, CheckoutPage, OrdersList, DriverApp, AdminDashboard). Data-fetch extraction in S1–S6 already trimmed logic out of several; the remaining structural decomposition (sub-screens, `useX` hooks, `React.memo`) is high-touch on live UI and is best done screen-by-screen with focused manual + E2E verification. **Not done in this pass to avoid UI-regression risk.**
+- **Cross-feature import fixes + `User` type relocation (§6):** move `NotificationCenter`/`OnboardingForm`/website pieces to `src/components/*`; relocate `User` out of `features/auth/types`. Small but touches shared imports — a clean standalone slice.
+- **Deeper service→repository migration:** services still call Supabase directly (allowed by the guard, which targets features). Migrating services behind repositories is the next architectural layer.
+
+Each slice was small, behaviour-preserving, and validated (`tsc` + `npm run build` + `node docs/testing/e2e_runner.cjs` = 24/24) before commit + push. Nothing merged to `main`.
 
 ## 9. Applied in this phase
 | Change | Type | Verified |
