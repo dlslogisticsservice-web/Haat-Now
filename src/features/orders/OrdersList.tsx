@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { toast, confirmDialog } from '../../components/ui/feedback';
-import { supabase } from '../../lib/supabase';
+import { ordersRepository } from '../../repositories/orders.repository';
+import { supportRepository } from '../../repositories/support.repository';
 import { orderService } from '../../services/order.service';
 import { productService } from '../../services/product.service';
 import { OrderTrackingMap } from './OrderTrackingMap';
@@ -186,12 +187,11 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
   useEffect(() => {
     fetchOrders();
     if (SANDBOX) return;   // demo is client-side — no realtime socket (avoids 403/ws errors)
-    const channel = supabase.channel('orders-realtime-customer')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `customer_id=eq.${customerId}` }, () => {
-        fetchOrders();
-        if (selectedOrderId) fetchOrderDetails(selectedOrderId);
-      }).subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const channel = ordersRepository.subscribeCustomerOrders(customerId, () => {
+      fetchOrders();
+      if (selectedOrderId) fetchOrderDetails(selectedOrderId);
+    });
+    return () => { ordersRepository.unsubscribe(channel); };
   }, [customerId, selectedOrderId]);
 
   useEffect(() => {
@@ -263,10 +263,10 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     const activeStatus = orderDetails?.status;
     if (SANDBOX) return;   // demo is client-side — no realtime driver-location socket
     if (!driverId || !['preparing', 'on_the_way'].includes(activeStatus)) {
-      if (driverLocChannelRef.current) { supabase.removeChannel(driverLocChannelRef.current); driverLocChannelRef.current = null; }
+      if (driverLocChannelRef.current) { ordersRepository.unsubscribe(driverLocChannelRef.current); driverLocChannelRef.current = null; }
       return;
     }
-    if (driverLocChannelRef.current) supabase.removeChannel(driverLocChannelRef.current);
+    if (driverLocChannelRef.current) ordersRepository.unsubscribe(driverLocChannelRef.current);
     trackingService.getDriverLocation(driverId).then(({ data }) => {
       if (data) { const parsed = parseDriverCoords(data.coords); if (parsed) setRiderLoc(parsed); }
     });
@@ -274,13 +274,9 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
       const parsed = parseDriverCoords(payload.new?.coords);
       if (parsed) setRiderLoc(parsed);
     };
-    const channel = supabase
-      .channel(`driver-loc-${driverId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'driver_locations', filter: `driver_id=eq.${driverId}` }, handler)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'driver_locations', filter: `driver_id=eq.${driverId}` }, handler)
-      .subscribe();
+    const channel = ordersRepository.subscribeDriverLocation(driverId, handler);
     driverLocChannelRef.current = channel;
-    return () => { supabase.removeChannel(channel); driverLocChannelRef.current = null; };
+    return () => { ordersRepository.unsubscribe(channel); driverLocChannelRef.current = null; };
   }, [orderDetails?.driver_id, orderDetails?.status]);
 
   const fetchOrders = async () => {
@@ -343,11 +339,9 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     if (!ticketSubject || !selectedOrderId) return;
     setTicketLoading(true);
     try {
-      const { data: ticket, error: err } = await supabase.from('support_tickets')
-        .insert({ customer_id: customerId, subject: `${ticketSubject} (طلب: ${selectedOrderId.slice(-6).toUpperCase()})`, status: 'open', priority: 'medium' })
-        .select().single();
+      const { data: ticket, error: err } = await supportRepository.createTicket({ customer_id: customerId, subject: `${ticketSubject} (طلب: ${selectedOrderId.slice(-6).toUpperCase()})`, status: 'open', priority: 'medium' });
       if (ticket) {
-        await supabase.from('support_messages').insert({ ticket_id: ticket.id, sender_type: 'customer', sender_id: customerId, message_text: `أرغب في شكوى بخصوص: ${ticketSubject}.` });
+        await supportRepository.addMessage({ ticket_id: ticket.id, sender_type: 'customer', sender_id: customerId, message_text: `أرغب في شكوى بخصوص: ${ticketSubject}.` });
         toast.error(t('orders.ticketOpened'));
         setTicketSubject(''); setShowTicketInput(false);
       } else console.error(err);
