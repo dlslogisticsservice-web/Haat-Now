@@ -88,7 +88,7 @@ export const PublicSiteApp: React.FC = () => {
       <header style={{ position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(8px)', background: 'color-mix(in srgb, var(--color-background, #0a0f0c) 82%, transparent)', borderBottom: '1px solid var(--color-outline-variant, #2a3330)' }}>
         <div style={{ maxWidth: 1120, margin: '0 auto', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
           <a href="/" onClick={e => { e.preventDefault(); navigate('/'); }} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'inherit' }}>
-            {tenant?.logo_url ? <img src={tenant.logo_url} alt="" style={{ height: 28 }} /> : <span style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--color-primary, #a3f95b)' }} />}
+            {tenant?.logo_url ? <img src={tenant.logo_url} alt="" style={{ height: 28 }} /> : <span style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--color-primary-fixed, #a3f95b)' }} />}
             <strong style={{ fontSize: 17 }}>{site.siteName}</strong>
           </a>
           <nav id="site_nav" style={{ marginInlineStart: 'auto', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -109,7 +109,7 @@ export const PublicSiteApp: React.FC = () => {
           <section style={{ maxWidth: 760, margin: '0 auto', padding: '80px 20px', textAlign: 'center' }}>
             <h1 style={{ fontSize: 40, fontWeight: 800 }}>404</h1>
             <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 8 }}>This page could not be found.</p>
-            <a href="/" onClick={e => { e.preventDefault(); navigate('/'); }} style={{ color: 'var(--color-primary, #a3f95b)', marginTop: 16, display: 'inline-block' }}>← Back home</a>
+            <a href="/" onClick={e => { e.preventDefault(); navigate('/'); }} style={{ color: 'var(--color-primary-fixed, #a3f95b)', marginTop: 16, display: 'inline-block' }}>← Back home</a>
           </section>
         )}
 
@@ -131,7 +131,7 @@ export const PublicSiteApp: React.FC = () => {
                   style={{ textDecoration: 'none', background: 'var(--color-surface-container, #10160f)', border: '1px solid var(--color-outline-variant, #2a3330)', borderRadius: 'var(--card-radius, 16px)', padding: 20, display: 'block' }}>
                   <h2 style={{ fontSize: 19, fontWeight: 700, color: 'var(--color-on-surface, #e8ebe3)', margin: 0 }}>{post.title}</h2>
                   <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 6, fontSize: 14 }}>{post.excerpt}</p>
-                  <span style={{ color: 'var(--color-primary, #a3f95b)', fontSize: 13, marginTop: 8, display: 'inline-block' }}>Read more →</span>
+                  <span style={{ color: 'var(--color-primary-fixed, #a3f95b)', fontSize: 13, marginTop: 8, display: 'inline-block' }}>Read more →</span>
                 </a>
               ))}
             </div>
@@ -180,9 +180,9 @@ const CookieBanner: React.FC<{ slug: string; onPrivacy: () => void }> = ({ slug,
   if (dismissed) return null;
   return (
     <div id="cookie_banner" style={{ position: 'fixed', insetInline: 16, bottom: 16, zIndex: 50, background: 'var(--color-surface-container-high, #141a17)', border: '1px solid var(--color-outline-variant, #2a3330)', borderRadius: 'var(--card-radius, 16px)', padding: 16, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'center', maxWidth: 720, margin: '0 auto' }}>
-      <span style={{ fontSize: 13, color: 'var(--color-on-surface-variant, #a7b0a6)' }}>We use cookies to improve your experience. See our <a href="#" onClick={e => { e.preventDefault(); onPrivacy(); }} style={{ color: 'var(--color-primary, #a3f95b)' }}>privacy policy</a>.</span>
+      <span style={{ fontSize: 13, color: 'var(--color-on-surface-variant, #a7b0a6)' }}>We use cookies to improve your experience. See our <a href="#" onClick={e => { e.preventDefault(); onPrivacy(); }} style={{ color: 'var(--color-primary-fixed, #a3f95b)' }}>privacy policy</a>.</span>
       <button onClick={() => { try { localStorage.setItem(key, '1'); } catch { /* ignore */ } setDismissed(true); }}
-        style={{ padding: '8px 18px', borderRadius: 'var(--button-radius, 12px)', border: 'none', cursor: 'pointer', fontWeight: 700, background: 'var(--color-primary, #a3f95b)', color: 'var(--color-on-primary, #0c2000)' }}>Accept</button>
+        style={{ padding: '8px 18px', borderRadius: 'var(--button-radius, 12px)', border: 'none', cursor: 'pointer', fontWeight: 700, background: 'var(--color-primary-fixed, #a3f95b)', color: 'var(--color-on-primary-fixed, #0c2000)' }}>Accept</button>
     </div>
   );
 };

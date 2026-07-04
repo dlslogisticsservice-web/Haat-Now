@@ -9,8 +9,8 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
     <a href={href} onClick={e => { if (href.startsWith('/')) { e.preventDefault(); onNav(href); } }}
       style={{
         display: 'inline-block', padding: '12px 22px', borderRadius: 'var(--button-radius, 12px)', fontWeight: 700, cursor: 'pointer',
-        background: primary ? 'var(--color-primary, #a3f95b)' : 'transparent',
-        color: primary ? 'var(--color-on-primary, #0c2000)' : 'var(--color-on-surface, #e8ebe3)',
+        background: primary ? 'var(--color-primary-fixed, #a3f95b)' : 'transparent',
+        color: primary ? 'var(--color-on-primary-fixed, #0c2000)' : 'var(--color-on-surface, #e8ebe3)',
         border: primary ? 'none' : '1px solid var(--color-outline-variant, #2a3330)', textDecoration: 'none',
       }}>{label}</a>
   );
@@ -85,7 +85,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
           <div style={{ ...sectionWrap, maxWidth: 620 }}>
             {block.heading && <h2 style={hStyle}>{block.heading}</h2>}
             <div style={{ ...cardStyle, marginTop: 16, display: 'grid', gap: 10 }}>
-              {block.email && <p style={rowStyle}><span style={lblStyle}>Email</span><a href={`mailto:${block.email}`} style={{ color: 'var(--color-primary, #a3f95b)' }}>{block.email}</a></p>}
+              {block.email && <p style={rowStyle}><span style={lblStyle}>Email</span><a href={`mailto:${block.email}`} style={{ color: 'var(--color-primary-fixed, #a3f95b)' }}>{block.email}</a></p>}
               {block.phone && <p style={rowStyle}><span style={lblStyle}>Phone</span><span style={{ color: 'var(--color-on-surface, #e8ebe3)' }}>{block.phone}</span></p>}
               {block.address && <p style={rowStyle}><span style={lblStyle}>Address</span><span style={{ color: 'var(--color-on-surface, #e8ebe3)' }}>{block.address}</span></p>}
             </div>

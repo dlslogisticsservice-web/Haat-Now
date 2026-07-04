@@ -53,15 +53,18 @@ createRoot(document.getElementById('root')!).render(
     ) : (
       <ErrorBoundary>
         <AppConfigProvider>
-          <DesignProvider>
-            {publicReq.isPublicSite ? (
-              <PublicSiteApp />
-            ) : (
+          {publicReq.isPublicSite ? (
+            // The public tenant site owns its own theme (the TENANT's brand, via applyBrand). It is mounted
+            // OUTSIDE DesignProvider so the platform's published design cannot override the tenant brand — this
+            // is what makes brand/theme changes propagate to each tenant website.
+            <PublicSiteApp />
+          ) : (
+            <DesignProvider>
               <ExperienceProvider>
                 <App />
               </ExperienceProvider>
-            )}
-          </DesignProvider>
+            </DesignProvider>
+          )}
         </AppConfigProvider>
       </ErrorBoundary>
     )}
