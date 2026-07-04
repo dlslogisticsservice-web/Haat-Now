@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from '../../components/ui/feedback';
 import { Star } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { reviewsRepository } from '../../repositories/reviews.repository';
 import { cxService } from '../../services/cx.service';
 
 type Target = { type: 'merchant' | 'driver' | 'product'; id: string; label: string };
@@ -25,16 +25,15 @@ export const MultiTargetReview: React.FC<{ orderId: string; customerId: string; 
     (async () => {
       const list: Target[] = [];
       // merchant (resolve from branch)
-      const { data: branch } = await supabase.from('merchant_branches').select('merchant_id, name, merchants(business_name)').eq('id', branchId).maybeSingle();
+      const { data: branch } = await reviewsRepository.getOrderBranch(branchId);
       if (branch?.merchant_id) list.push({ type: 'merchant', id: branch.merchant_id, label: (branch as any).merchants?.business_name ?? branch.name ?? 'المتجر' });
       // driver
       if (driverId) {
-        const { data: drv } = await supabase.from('drivers').select('full_name').eq('id', driverId).maybeSingle();
+        const { data: drv } = await reviewsRepository.getDriver(driverId);
         list.push({ type: 'driver', id: driverId, label: drv?.full_name ?? 'المندوب' });
       }
       // products on the order (distinct)
-      const { data: items } = await supabase.from('order_items')
-        .select('variant_id, product_variants(product_id, products(id, name))').eq('order_id', orderId);
+      const { data: items } = await reviewsRepository.getOrderItems(orderId);
       const seen = new Set<string>();
       (items || []).forEach((it: any) => {
         const p = it.product_variants?.products;
@@ -44,7 +43,7 @@ export const MultiTargetReview: React.FC<{ orderId: string; customerId: string; 
       // mark already-submitted reviews
       const init: Record<string, any> = {};
       for (const tg of list) {
-        const { data: existing } = await supabase.from('reviews').select('rating, comment').eq('order_id', orderId).eq('target_type', tg.type).eq('target_id', tg.id).maybeSingle();
+        const { data: existing } = await reviewsRepository.getExistingReview(orderId, tg.type, tg.id);
         init[tg.type + tg.id] = existing ? { rating: existing.rating, comment: existing.comment ?? '', done: true, skipped: false } : { rating: 0, comment: '', done: false, skipped: false };
       }
       setState(init);
