@@ -27,6 +27,8 @@ import { SystemLogs } from './SystemLogs';
 import { RbacCenter } from './RbacCenter';
 import { IntegrationCenter } from './IntegrationCenter';
 import { PlatformModuleRegistry } from './PlatformModuleRegistry';
+import { WebsiteCenter } from './WebsiteCenter';
+import { Can } from '../../hooks/useRbac';
 import { ProvisioningConsole } from './ProvisioningConsole';
 import { TemplateMarketplace } from './TemplateMarketplace';
 import { TenantOnboardingWizard } from './TenantOnboardingWizard';
@@ -59,7 +61,7 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry' | 'website';
 type CatTab = 'categories' | 'zones';
 type MgmtTab = 'drivers' | 'vehicles' | 'merchants' | 'branches' | 'orders' | 'customers';
 
@@ -466,6 +468,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
         {activeTab === 'rbac' && isSuper && <RbacCenter lang={lang} />}
         {activeTab === 'integrations' && isSuper && <IntegrationCenter lang={lang} />}
         {activeTab === 'registry' && isSuper && <PlatformModuleRegistry lang={lang} />}
+        {activeTab === 'website' && isSuper && <Can perm="platform.whitelabel.manage"><WebsiteCenter lang={lang} /></Can>}
         {activeTab === 'provisioning' && isSuper && <ProvisioningConsole lang={lang} />}
         {activeTab === 'templates' && isSuper && <TemplateMarketplace lang={lang} />}
         {activeTab === 'onboarding' && isSuper && <TenantOnboardingWizard lang={lang} />}

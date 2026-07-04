@@ -170,11 +170,23 @@ export const websiteService = {
     return rec.published;
   },
 
-  /** Draft site for editing. */
-  getDraftSite(tenantId: string): WebsiteSite | null {
-    const tenant = resolveTenantById(tenantId); if (!tenant) return null;
+  /** Draft site for editing / preview (by slug or id; synthesizes a tenant when unseeded). */
+  getDraftSite(slugOrId: string): WebsiteSite | null {
+    if (!slugOrId) return null;
+    const tenant = resolveTenantBySlug(slugOrId) || resolveTenantById(slugOrId)
+      || { id: `site-${slugOrId}`, slug: slugOrId, brand_name: slugOrId };
     const store = readStore(); const rec = ensureRecord(store, tenant); writeStore(store);
     return rec.draft;
+  },
+
+  /** Resolve a tenant by the site's custom domain / subdomain (host resolution priority 1). */
+  resolveTenantByDomain(host: string): any | null {
+    const h = (host || '').toLowerCase();
+    for (const t of allTenants()) {
+      const s = this.getPublishedSite(String(t.id));
+      if (s && ((s.customDomain || '').toLowerCase() === h || (s.domain || '').toLowerCase() === h)) return t;
+    }
+    return null;
   },
 
   listSites(): { tenantId: string; slug: string; siteName: string; status: string }[] {
@@ -193,6 +205,26 @@ export const websiteService = {
     const s = this.getDraftSite(tenantId); if (!s) return;
     const pages = s.pages.some(p => p.id === page.id) ? s.pages.map(p => (p.id === page.id ? page : p)) : [...s.pages, page];
     this.saveDraft(tenantId, { pages });
+  },
+  addPage(tenantId: string, title: string, path: string): WebsitePage | null {
+    const s = this.getDraftSite(tenantId); if (!s) return null;
+    const clean = '/' + String(path || title).toLowerCase().replace(/[^a-z0-9/]+/g, '-').replace(/^-+|-+$/g, '').replace(/^\/*/, '');
+    const page: WebsitePage = { id: `p_${Date.now().toString(36)}`, path: clean || '/page', kind: 'custom', title: title || 'New page', nav: true, navOrder: 50, seo: { title }, sections: [{ type: 'richtext', heading: title, body: 'Edit this page in the Website Center.' }] };
+    this.updatePage(tenantId, page);
+    return page;
+  },
+  removePage(tenantId: string, pageId: string): void {
+    const s = this.getDraftSite(tenantId); if (!s) return;
+    this.saveDraft(tenantId, { pages: s.pages.filter(p => p.id !== pageId) });
+  },
+  upsertPost(tenantId: string, post: BlogPost): void {
+    const s = this.getDraftSite(tenantId); if (!s) return;
+    const blog = s.blog.some(b => b.id === post.id) ? s.blog.map(b => (b.id === post.id ? post : b)) : [post, ...s.blog];
+    this.saveDraft(tenantId, { blog });
+  },
+  removePost(tenantId: string, postId: string): void {
+    const s = this.getDraftSite(tenantId); if (!s) return;
+    this.saveDraft(tenantId, { blog: s.blog.filter(b => b.id !== postId) });
   },
   setStatus(tenantId: string, status: WebsiteSite['status']): void { this.saveDraft(tenantId, { status }); this.publish(tenantId); },
   setMaintenance(tenantId: string, on: boolean): void { this.saveDraft(tenantId, { maintenance: on }); this.publish(tenantId); },

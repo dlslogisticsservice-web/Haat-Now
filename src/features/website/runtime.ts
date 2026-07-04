@@ -7,42 +7,44 @@ import { monitoring } from '../../services/monitoring.service';
 const APP_HOSTS = ['localhost', '127.0.0.1', 'haat-now.vercel.app'];
 const RESERVED_SUB = new Set(['www', 'app', 'admin', 'api', 'haat-now', 'haatnow']);
 
-export interface PublicRequest { isPublicSite: boolean; slug: string | null; path: string; host: string }
+export type PublicVia = 'custom-domain' | 'subdomain' | 'param' | 'none';
+export interface PublicRequest { isPublicSite: boolean; slug: string | null; path: string; host: string; preview: boolean; via: PublicVia }
 
-/** Decide whether this request targets a tenant website, and which tenant + path.
- *  Sandbox/dev: `?site=<slug>` (+ optional `?path=/about`). Live: subdomain or custom domain. */
+/** Decide whether this request targets a tenant website, which tenant, and how it was resolved.
+ *  HOST RESOLUTION PRIORITY (host is always primary; the query param is never primary):
+ *    1. Custom Domain   — any non-app host that is not a haatnow subdomain (→ resolve by stored domain)
+ *    2. Tenant Subdomain — <slug>.haatnow.(app|com)
+ *    3. Development query parameter — `?site=<slug>` (fallback only; consulted last, never primary) */
 export function resolvePublicRequest(loc: Location): PublicRequest {
-  const host = loc.hostname || '';
+  const host = (loc.hostname || '').toLowerCase();
   const params = new URLSearchParams(loc.search);
   const path = params.get('path') || (loc.pathname && loc.pathname !== '/' ? loc.pathname : '/');
-
-  // 1) Explicit sandbox/dev signal.
-  const siteParam = params.get('site');
-  if (siteParam) return { isPublicSite: true, slug: siteParam.toLowerCase(), path, host };
-
-  // 2) Subdomain of a haatnow host: <slug>.haatnow.app / .com
-  const m = host.match(/^([a-z0-9-]+)\.haatnow\.(app|com)$/i);
-  if (m && !RESERVED_SUB.has(m[1].toLowerCase())) return { isPublicSite: true, slug: m[1].toLowerCase(), path, host };
-
-  // 3) A custom domain (any host that is not an app host and not a bare IP): resolve by domain.
+  const preview = params.get('preview') === '1';
+  const base = { path, host, preview };
   const isAppHost = APP_HOSTS.includes(host) || host.endsWith('.vercel.app');
-  if (host && !isAppHost && host.includes('.')) {
-    // Custom-domain resolution is by the tenant's stored domain; the runtime looks it up in website.service.
-    return { isPublicSite: true, slug: null, path, host };
-  }
+  const sub = host.match(/^([a-z0-9-]+)\.haatnow\.(app|com)$/i);
 
-  return { isPublicSite: false, slug: null, path, host };
+  // Priority 1 — Custom domain.
+  if (host && !isAppHost && !sub && host.includes('.')) return { isPublicSite: true, slug: null, via: 'custom-domain', ...base };
+  // Priority 2 — Tenant subdomain.
+  if (sub && !RESERVED_SUB.has(sub[1].toLowerCase())) return { isPublicSite: true, slug: sub[1].toLowerCase(), via: 'subdomain', ...base };
+  // Priority 3 — Development query parameter (NON-primary fallback; only when the host did not resolve).
+  const siteParam = params.get('site');
+  if (siteParam) return { isPublicSite: true, slug: siteParam.toLowerCase(), via: 'param', ...base };
+
+  return { isPublicSite: false, slug: null, via: 'none', ...base };
 }
 
-/** Resolve the tenant (by slug or custom domain host) → the published site. */
+/** Resolve the tenant (by custom-domain host or slug) → the site (published, or draft when preview). */
 export function resolveSite(req: PublicRequest): { tenant: any | null; site: WebsiteSite | null } {
-  let tenant = req.slug ? resolveTenantBySlug(req.slug) : null;
-  let site = req.slug ? websiteService.getPublishedSite(req.slug) : null;
-  if (!site && !req.slug && req.host) {
-    // custom-domain path: find a site whose domain/customDomain matches the host
-    const match = websiteService.listSites().find(() => false); // sandbox has no custom-domain map; live would query website_domains
-    if (match) site = websiteService.getPublishedSite(match.tenantId);
+  let tenant: any | null = null;
+  let key: string | null = req.slug;
+  if (!key && req.via === 'custom-domain' && req.host) {
+    const t = websiteService.resolveTenantByDomain(req.host);
+    if (t) { tenant = t; key = String(t.id); }
   }
+  if (!key) return { tenant: null, site: null };
+  const site = req.preview ? websiteService.getDraftSite(key) : websiteService.getPublishedSite(key);
   if (site && !tenant) tenant = resolveTenantBySlug(site.slug) || { id: site.tenantId, slug: site.slug, brand_name: site.siteName };
   return { tenant, site };
 }

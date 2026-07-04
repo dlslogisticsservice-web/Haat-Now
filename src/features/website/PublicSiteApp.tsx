@@ -32,7 +32,7 @@ export const PublicSiteApp: React.FC = () => {
   // Client-side navigation (reload-safe: keeps ?site= in sandbox).
   const navigate = (to: string) => {
     setPath(to);
-    const url = req.slug ? `?site=${req.slug}&path=${encodeURIComponent(to)}` : to;
+    const url = req.slug ? `?site=${req.slug}&path=${encodeURIComponent(to)}${req.preview ? '&preview=1' : ''}` : to;
     try { window.history.pushState({}, '', url); window.scrollTo(0, 0); } catch { /* ignore */ }
   };
   useEffect(() => {
@@ -79,6 +79,11 @@ export const PublicSiteApp: React.FC = () => {
 
   return (
     <div id="public_site" style={bg}>
+      {req.preview && (
+        <div id="preview_banner" style={{ background: '#fbbf24', color: '#1a1400', textAlign: 'center', fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>
+          PREVIEW — showing the unpublished draft. Publish in the Website Center to go live.
+        </div>
+      )}
       {/* Header / navigation */}
       <header style={{ position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(8px)', background: 'color-mix(in srgb, var(--color-background, #0a0f0c) 82%, transparent)', borderBottom: '1px solid var(--color-outline-variant, #2a3330)' }}>
         <div style={{ maxWidth: 1120, margin: '0 auto', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
