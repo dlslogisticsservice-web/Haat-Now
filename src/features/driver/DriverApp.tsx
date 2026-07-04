@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast, confirmDialog } from '../../components/ui/feedback';
 import { accountService } from '../../services/account.service';
-import { supabase } from '../../lib/supabase';
+import { driverRepository } from '../../repositories/driver.repository';
 import { driverService } from '../../services/driver.service';
 import { orderService } from '../../services/order.service';
 import { trackingService } from '../../services/tracking.service';
@@ -183,15 +183,10 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   // G-02 — Realtime: refresh available feed on any order UPDATE.
   useEffect(() => {
     if (SANDBOX) return;   // demo is client-side — no realtime socket (avoids 403/ws errors)
-    const channel = supabase
-      .channel(`driver-orders-feed-${driverId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, () => {
-        reloadDriverState(driverId);
-      })
-      .subscribe();
+    const channel = driverRepository.subscribeOrderFeed(driverId, () => reloadDriverState(driverId));
     feedChannelRef.current = channel;
     return () => {
-      supabase.removeChannel(channel);
+      driverRepository.unsubscribe(channel);
       feedChannelRef.current = null;
     };
   }, [driverId]);
@@ -265,7 +260,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         loadSandboxDriver();
         return;
       }
-      const { data, error } = await supabase.from('drivers').select('*').eq('id', driverId).maybeSingle();
+      const { data, error } = await driverRepository.getDriver(driverId);
       if (error || !data) {
         setDriverProfile(null);
         return;
@@ -279,7 +274,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
 
   const reloadDriverState = async (drvId: string) => {
     try {
-      const { data: feed } = await supabase.from('orders').select('*, merchant_branches(*, zones(*))').eq('status', 'accepted').is('driver_id', null);
+      const { data: feed } = await driverRepository.listAvailableFeed();
       if (feed) setAvailableFeed(feed as unknown as OrdersFeed[]);
       const { data: active } = await driverService.getActiveJobs(drvId);
       if (active) setActiveJobs(active as unknown as ActiveOrder[]);

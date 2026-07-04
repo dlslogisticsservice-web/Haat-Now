@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { toast, inputDialog } from '../../components/ui/feedback';
-import { supabase } from '../../lib/supabase';
+import { driverRepository } from '../../repositories/driver.repository';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { dispatchService, NearestDriver } from '../../services/ops/dispatch.service';
 import { zoneService, DeliveryZone } from '../../services/ops/zone.service';
@@ -130,7 +130,7 @@ const DispatchPanel: React.FC = () => {
     const { data } = await dispatchService.findNearestDrivers(lat, lng, 5, o.id);
     if (data.length) {
       const ids = data.map(d => d.driver_id);
-      const { data: drv } = await supabase.from('drivers').select('id, full_name').in('id', ids);
+      const { data: drv } = await driverRepository.getDriverNames(ids);
       const names: Record<string, string> = {};
       (drv || []).forEach((d: any) => { names[d.id] = d.full_name; });
       setDriverNames(prev => ({ ...prev, ...names }));
