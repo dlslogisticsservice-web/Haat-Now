@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { customerRepository } from '../repositories/customer.repository';
 
 // ── Enriched types (local to this service) ────────────────────────
 export interface ZoneHierarchy {
@@ -40,11 +40,7 @@ export interface CustomerProfile {
 export const customerService = {
 
   async getProfile(customerId: string): Promise<{ data: CustomerProfile | null; error: any }> {
-    const { data, error } = await supabase
-      .from('customers')
-      .select('id, phone_number, full_name, email, avatar_url, created_at')
-      .eq('id', customerId)
-      .maybeSingle();
+    const { data, error } = await customerRepository.getProfile(customerId);
     return { data: data as CustomerProfile | null, error };
   },
 
@@ -52,27 +48,17 @@ export const customerService = {
     customerId: string,
     payload: Partial<Pick<CustomerProfile, 'full_name' | 'email' | 'avatar_url'>>,
   ): Promise<{ error: any }> {
-    const { error } = await supabase
-      .from('customers')
-      .update(payload)
-      .eq('id', customerId);
+    const { error } = await customerRepository.updateProfile(customerId, payload);
     return { error };
   },
 
   async getAddresses(customerId: string): Promise<{ data: AddressWithZone[]; error: any }> {
-    const { data, error } = await supabase
-      .from('addresses')
-      .select('*, zones(id, name, city_id, cities(id, name, country_id, countries(id, name, code)))')
-      .eq('customer_id', customerId)
-      .order('is_default', { ascending: false });
+    const { data, error } = await customerRepository.getAddresses(customerId);
     return { data: (data as AddressWithZone[]) || [], error };
   },
 
   async getZonesWithHierarchy(): Promise<{ data: ZoneHierarchy[]; error: any }> {
-    const { data, error } = await supabase
-      .from('zones')
-      .select('id, name, city_id, cities(id, name, country_id, countries(id, name, code))')
-      .order('name');
+    const { data, error } = await customerRepository.getZonesWithHierarchy();
     return { data: (data as unknown as ZoneHierarchy[]) || [], error };
   },
 
@@ -81,17 +67,10 @@ export const customerService = {
     payload: { label: string; address_line: string; zone_id: string; latitude?: number | null; longitude?: number | null; label_type?: string; notes?: string | null },
   ): Promise<{ data: AddressWithZone | null; error: any }> {
     // First address for a customer is automatically set as default
-    const { count } = await supabase
-      .from('addresses')
-      .select('id', { count: 'exact', head: true })
-      .eq('customer_id', customerId);
+    const { count } = await customerRepository.countAddresses(customerId);
     const isDefault = (count ?? 0) === 0;
 
-    const { data, error } = await supabase
-      .from('addresses')
-      .insert({ ...payload, customer_id: customerId, is_default: isDefault })
-      .select('*, zones(id, name, city_id, cities(id, name, country_id, countries(id, name, code)))')
-      .single();
+    const { data, error } = await customerRepository.insertAddress({ ...payload, customer_id: customerId, is_default: isDefault });
     return { data: data as AddressWithZone | null, error };
   },
 
@@ -99,18 +78,12 @@ export const customerService = {
     addressId: string,
     payload: Partial<{ label: string; address_line: string; zone_id: string; latitude: number | null; longitude: number | null; label_type: string; notes: string | null }>,
   ): Promise<{ error: any }> {
-    const { error } = await supabase
-      .from('addresses')
-      .update(payload)
-      .eq('id', addressId);
+    const { error } = await customerRepository.updateAddress(addressId, payload);
     return { error };
   },
 
   async deleteAddress(addressId: string): Promise<{ error: any }> {
-    const { error } = await supabase
-      .from('addresses')
-      .delete()
-      .eq('id', addressId);
+    const { error } = await customerRepository.deleteAddress(addressId);
     return { error };
   },
 
@@ -118,17 +91,10 @@ export const customerService = {
   // Both steps are scoped to customer_id so RLS passes.
   // Non-atomic by design (acceptable for client-side address book).
   async setDefaultAddress(customerId: string, addressId: string): Promise<{ error: any }> {
-    const { error: clearErr } = await supabase
-      .from('addresses')
-      .update({ is_default: false })
-      .eq('customer_id', customerId);
+    const { error: clearErr } = await customerRepository.clearDefault(customerId);
     if (clearErr) return { error: clearErr };
 
-    const { error } = await supabase
-      .from('addresses')
-      .update({ is_default: true })
-      .eq('id', addressId)
-      .eq('customer_id', customerId);
+    const { error } = await customerRepository.setDefault(addressId, customerId);
     return { error };
   },
 };
