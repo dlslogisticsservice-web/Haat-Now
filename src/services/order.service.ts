@@ -1,9 +1,9 @@
-import { supabase } from '../lib/supabase';
+import { ordersRepository } from '../repositories/orders.repository';
 import { Order, OrderItem, OrderStatusHistory } from './types';
 import { notificationService } from './notification.service';
 import { sandboxStore } from './sandboxStore';
 
-const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 
 export const orderService = {
   // Place enterprise order with custom shopping list items nested in Supabase transactional flow
@@ -22,9 +22,7 @@ export const orderService = {
     },
   ): Promise<{ data: Order | null; error: any }> {
     // 1. Insert order metadata record
-    const { data: orderData, error: orderError } = await supabase
-      .from('orders')
-      .insert({
+    const { data: orderData, error: orderError } = await ordersRepository.insertOrder({
         customer_id: customerId,
         branch_id: branchId,
         status: 'pending',
@@ -41,9 +39,7 @@ export const orderService = {
             ? { delivery_fee: locationSnapshot.deliveryFee }
             : {}),
         } : {}),
-      })
-      .select()
-      .single();
+    });
 
     if (orderError || !orderData) {
       return { data: null, error: orderError };
@@ -57,29 +53,23 @@ export const orderService = {
       price: item.price,
     }));
 
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItemsPayload);
+    const { error: itemsError } = await ordersRepository.insertOrderItems(orderItemsPayload);
 
     if (itemsError) {
       // Cleanup orphan metadata on failure to ensure data integrity
-      await supabase.from('orders').delete().eq('id', orderData.id);
+      await ordersRepository.deleteOrder(orderData.id);
       return { data: null, error: itemsError };
     }
 
     // 3. Log initial status history record
-    await supabase.from('order_status_history').insert({
+    await ordersRepository.insertStatusHistory({
       order_id: orderData.id,
       status: 'pending',
       notes: 'تم إنشاء الطلب.',
     });
 
     // 4. Notify merchant about new order
-    const { data: branch } = await supabase
-      .from('merchant_branches')
-      .select('merchant_id')
-      .eq('id', branchId)
-      .single();
+    const { data: branch } = await ordersRepository.getBranchMerchant(branchId);
     if (branch?.merchant_id) {
       await notificationService.sendNotification(branch.merchant_id, 'طلب جديد! تحقق من لوحة الطلبات.', 'order');
     }
@@ -89,53 +79,30 @@ export const orderService = {
 
   // Retrieve details of specific order including item variants list
   async getOrderDetails(orderId: string): Promise<{ data: Order | null; error: any }> {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items(*, product_variants(*, products(*))),
-        merchant_branches(*, merchants(*)),
-        drivers(*),
-        order_status_history(*)
-      `)
-      .eq('id', orderId)
-      .single();
-    
+    const { data, error } = await ordersRepository.getOrderDetails(orderId);
     return { data, error };
   },
 
   // Retrieve customer delivery history list
   async getCustomerOrders(customerId: string): Promise<{ data: Order[]; error: any }> {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, merchant_branches(name, merchants(business_name))')
-      .eq('customer_id', customerId)
-      .order('created_at', { ascending: false });
-    
+    const { data, error } = await ordersRepository.getCustomerOrders(customerId);
     return { data: data || [], error };
   },
 
   // Update order status workflow
   async updateOrderStatus(orderId: string, status: string, notes?: string): Promise<{ error: any }> {
     // Fetch current order state for status guard + notification targets
-    const { data: orderRow } = await supabase
-      .from('orders')
-      .select('status, customer_id, driver_id')
-      .eq('id', orderId)
-      .single();
+    const { data: orderRow } = await ordersRepository.getOrderStateForUpdate(orderId);
 
     // Guard: skip if already at the target status (prevents duplicate history + notifications)
     if (orderRow?.status === status) return { error: null };
 
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({ status })
-      .eq('id', orderId);
+    const { error: updateError } = await ordersRepository.updateStatus(orderId, status);
 
     if (updateError) return { error: updateError };
 
     // Record state change log
-    await supabase.from('order_status_history').insert({
+    await ordersRepository.insertStatusHistory({
       order_id: orderId,
       status,
       notes: notes || `تغير حالة الطلب إلى ${status}`,
@@ -173,11 +140,7 @@ export const orderService = {
       sandboxStore.setStatus(orderId, 'cancelled');
       return { success: true, error: null };
     }
-    const { data: order } = await supabase
-      .from('orders')
-      .select('status')
-      .eq('id', orderId)
-      .single();
+    const { data: order } = await ordersRepository.getStatus(orderId);
 
     if (!order || order.status !== 'pending') {
       return { success: false, error: new Error('Order is already in progress and cannot be cancelled.') };
