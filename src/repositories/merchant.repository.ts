@@ -36,4 +36,32 @@ export const merchantRepository = {
   unsubscribe(channel: any): void {
     if (channel) supabase.removeChannel(channel);
   },
+
+  getBranchOrders(branchId: string) {
+    return supabase.from('orders').select('*, customers(*), order_items(*, product_variants(*, products(*)))').eq('branch_id', branchId).order('created_at', { ascending: false });
+  },
+
+  updateBranchInfo(branchId: string, payload: Record<string, any>) {
+    return supabase.from('merchant_branches').update(payload).eq('id', branchId);
+  },
+
+  updateMerchantLogo(merchantId: string, logoUrl: string) {
+    return supabase.from('merchants').update({ logo_url: logoUrl }).eq('id', merchantId);
+  },
+
+  addProductImage(productId: string, url: string) {
+    return supabase.from('product_images').insert({ product_id: productId, url }).select().single();
+  },
+
+  deleteProductImage(imageId: string) {
+    return supabase.from('product_images').delete().eq('id', imageId);
+  },
+
+  upsertProduct(product: Record<string, any>) {
+    return supabase.from('products').upsert(product).select().single();
+  },
+
+  deleteProduct(productId: string) {
+    return supabase.from('products').delete().eq('id', productId);
+  },
 };
