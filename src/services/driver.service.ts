@@ -1,23 +1,16 @@
-import { supabase } from '../lib/supabase';
-import { Driver, Order, DriverEarning, ORDER_STATUSES, DRIVER_ACTIVE_STATUSES } from './types';
+import { driverRepository } from '../repositories/driver.repository';
+import { Order, DriverEarning } from './types';
 
 export const driverService = {
   // Update offline/online delivery status of a courier
   async toggleOnline(driverId: string, isOnline: boolean): Promise<{ error: any }> {
-    const { error } = await supabase
-      .from('drivers')
-      .update({ is_online: isOnline })
-      .eq('id', driverId);
+    const { error } = await driverRepository.setOnline(driverId, isOnline);
     return { error };
   },
 
   // Get list of active orders waiting for drivers within a specific zone ID
   async getZoneDeliveries(zoneId: string): Promise<{ data: Order[]; error: any }> {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, merchant_branches(*, zones(*))')
-      .eq('status', 'accepted') // Only orders accepted by restaurant but pending courier pickup
-      .filter('merchant_branches.zone_id', 'eq', zoneId);
+    const { data, error } = await driverRepository.getZoneDeliveries(zoneId);
     return { data: data || [], error };
   },
 
@@ -26,13 +19,7 @@ export const driverService = {
   // to eliminate the TOCTOU race where two drivers could both read driver_id=null
   // and then both win the subsequent update. Zero affected rows means the job was already taken.
   async acceptDelivery(orderId: string, driverId: string): Promise<{ success: boolean; error: any }> {
-    const { data: updated, error } = await supabase
-      .from('orders')
-      .update({ driver_id: driverId, status: ORDER_STATUSES.PREPARING })
-      .eq('id', orderId)
-      .is('driver_id', null)
-      .eq('status', ORDER_STATUSES.ACCEPTED)
-      .select('id');
+    const { data: updated, error } = await driverRepository.acceptDeliveryAtomic(orderId, driverId);
 
     if (error) return { success: false, error };
     if (!updated || updated.length === 0) {
@@ -40,7 +27,7 @@ export const driverService = {
     }
 
     // Log tracking update
-    await supabase.from('order_status_history').insert({
+    await driverRepository.insertStatusHistory({
       order_id: orderId,
       status: 'preparing',
       notes: 'تم قبول طلب التوصيل وهو في مرحلة التجهيز الآن.',
@@ -51,21 +38,13 @@ export const driverService = {
 
   // Get active driver's assigned orders
   async getActiveJobs(driverId: string): Promise<{ data: Order[]; error: any }> {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*, merchant_branches(*), customers(*)')
-      .eq('driver_id', driverId)
-      .in('status', [...DRIVER_ACTIVE_STATUSES]);
-    
+    const { data, error } = await driverRepository.getActiveJobs(driverId);
     return { data: data || [], error };
   },
 
   // View accrued payout and tips balance report
   async getEarnings(driverId: string): Promise<{ data: DriverEarning[]; error: any }> {
-    const { data, error } = await supabase
-      .from('driver_earnings')
-      .select('*')
-      .eq('driver_id', driverId);
+    const { data, error } = await driverRepository.getEarnings(driverId);
     return { data: data || [], error };
   }
 };

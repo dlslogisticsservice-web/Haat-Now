@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { ORDER_STATUSES, DRIVER_ACTIVE_STATUSES } from '../services/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // driver.repository (Phase-2 architecture stabilization).
@@ -32,5 +33,33 @@ export const driverRepository = {
   /** Resolve driver display names for a set of ids (ops dispatch board). */
   getDriverNames(ids: string[]) {
     return supabase.from('drivers').select('id, full_name').in('id', ids);
+  },
+
+  setOnline(driverId: string, isOnline: boolean) {
+    return supabase.from('drivers').update({ is_online: isOnline }).eq('id', driverId);
+  },
+
+  getZoneDeliveries(zoneId: string) {
+    return supabase.from('orders').select('*, merchant_branches(*, zones(*))').eq('status', 'accepted').filter('merchant_branches.zone_id', 'eq', zoneId);
+  },
+
+  /** Atomic claim: only succeeds while the order is unassigned + accepted (TOCTOU-safe). */
+  acceptDeliveryAtomic(orderId: string, driverId: string) {
+    return supabase.from('orders')
+      .update({ driver_id: driverId, status: ORDER_STATUSES.PREPARING })
+      .eq('id', orderId).is('driver_id', null).eq('status', ORDER_STATUSES.ACCEPTED)
+      .select('id');
+  },
+
+  insertStatusHistory(row: { order_id: string; status: string; notes: string }) {
+    return supabase.from('order_status_history').insert(row);
+  },
+
+  getActiveJobs(driverId: string) {
+    return supabase.from('orders').select('*, merchant_branches(*), customers(*)').eq('driver_id', driverId).in('status', [...DRIVER_ACTIVE_STATUSES]);
+  },
+
+  getEarnings(driverId: string) {
+    return supabase.from('driver_earnings').select('*').eq('driver_id', driverId);
   },
 };
