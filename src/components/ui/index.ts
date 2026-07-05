@@ -20,11 +20,6 @@ export { Card, StatCard } from './Card';
 
 export { Badge, Chip, NotifDot } from './Badge';
 
-export { TopAppBar } from './TopAppBar';
-
-export { BottomNavBar, CUSTOMER_NAV_ITEMS } from './BottomNavBar';
-export type { NavItem } from './BottomNavBar';
-
 export { EnterpriseSidebar } from './EnterpriseSidebar';
 export type { SidebarItem, SidebarSection } from './EnterpriseSidebar';
 
