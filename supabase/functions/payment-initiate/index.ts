@@ -162,10 +162,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
       });
     }
 
-    // ── 5. Idempotency key: reuse from existing orphan attempt or generate fresh
-    // An orphan attempt exists but never reached Moyasar (e.g. crashed mid-flight).
-    // We reuse its idempotency_key and update it in-place rather than creating a duplicate.
-    const idempotencyKey: string = existingAttempt?.idempotency_key ?? crypto.randomUUID();
+    // ── 5. Idempotency key: DETERMINISTIC per order (Phase 9 · P0-9) ───────────
+    // Derive the key from the order id, not a random UUID. Combined with the DB partial
+    // UNIQUE index uq_payment_attempts_active_order (at most one active attempt per order),
+    // this makes server-side double-charge protection independent of the client-side
+    // orchestrator lock — a second concurrent initiate collides on the key / index and is
+    // reused instead of creating a second Moyasar charge. Orphan attempts still reuse their
+    // stored key.
+    const idempotencyKey: string = existingAttempt?.idempotency_key ?? `order:${orderId}`;
     let   attemptId: string;
 
     if (!existingAttempt) {

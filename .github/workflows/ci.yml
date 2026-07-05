@@ -33,6 +33,22 @@ jobs:
           path: dist
           retention-days: 7
 
+  live-build:
+    name: Live backend build (HAAT_LIVE_BACKEND=1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Phase 9 · P0-1 — the live (Supabase-backed) build is the production target and MUST
+      # compile in CI, not only the sandbox demo. tsc (npm run lint) already typechecks both
+      # code paths; this additionally bundles the live build so live-only wiring is verified.
+      - name: Build live bundle
+        run: npm run build:live
+
   edge-functions:
     name: Edge Functions (Deno check)
     runs-on: ubuntu-latest

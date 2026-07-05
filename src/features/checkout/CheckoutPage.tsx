@@ -83,6 +83,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'verifying' | 'failed' | 'cancelled'>('idle');
   const [paymentError,  setPaymentError]  = useState('');
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const orderIdemRef = useRef<string>(''); // Phase 9 · P0-3 idempotency key (per checkout attempt)
 
   const [deliveryFee, setDeliveryFee] = useState(DEFAULT_DELIVERY_FEE);
   const luxuryFee    = 5.00;
@@ -324,6 +325,10 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         resolvedItems.push({ variantId: variantId || '', quantity: item.quantity, price: item.product.price + (item.variant?.price_modifier ?? 0) });
       }
       const selectedAddrObj = addresses.find(a => a.id === selectedAddress);
+      // Phase 9 · P0-3: stable idempotency key per checkout attempt so a retry (network
+      // drop, re-submit) resolves to the SAME order instead of creating a duplicate.
+      // Reset only after a confirmed success (see success handler).
+      if (!orderIdemRef.current) orderIdemRef.current = `co-${customerId}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       const { data: orderData, error: orderErr } = await orderService.createOrder(
         customerId, branchId, grandTotal, resolvedItems,
         {
@@ -334,6 +339,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           branchLngSnapshot: branchCoords?.longitude    ?? null,
           deliveryFee:       deliveryFee,
         },
+        orderIdemRef.current,
       );
       if (orderErr) { paymentTabRef?.close(); toast.error(`${t('checkout.orderError')}: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
       if (orderData) {

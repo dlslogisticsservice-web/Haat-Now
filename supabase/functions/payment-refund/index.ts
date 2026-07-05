@@ -127,148 +127,98 @@ Deno.serve(async (req: Request): Promise<Response> => {
       return errServer('Cannot refund an unpaid order', 409, 'ORDER_UNPAID');
     }
 
-    // ── 5. Calculate total already refunded for this order ────────────────────
-    const { data: existingRefunds } = await supabase
-      .from('refunds')
-      .select('amount')
-      .eq('order_id', orderId)
-      .neq('status', 'failed');  // Exclude failed refund attempts
+    // ── 5. Phase 9 · P0-4: RESERVE atomically (race-safe ceiling + pending row) ─
+    // refund_reserve() locks the attempt, sums prior non-failed refunds under the lock,
+    // enforces the ceiling, and inserts a pending refund — eliminating the TOCTOU
+    // over-refund race. Idempotent on `refund:<orderId>:<attemptId>:<amount>`.
+    const idempotencyKey = `refund:${orderId}:${paymentAttemptId}:${amount}`;
+    const { data: reservedRaw, error: reserveErr } = await supabase.rpc('refund_reserve', {
+      p_order_id:           orderId,
+      p_payment_attempt_id: paymentAttemptId,
+      p_amount:             amount,
+      p_reason:             reason,
+      p_idempotency_key:    idempotencyKey,
+    });
 
-    const totalRefundedSoFar = (existingRefunds ?? []).reduce(
-      (sum, r) => sum + Number(r.amount), 0,
-    );
-
-    const capturedAmount   = Number(attempt.amount);
-    const newTotalRefunded = totalRefundedSoFar + amount;
-
-    // Guard: cannot refund more than was captured
-    if (newTotalRefunded > capturedAmount + 0.001) {
-      log('WARN', FN, 'Refund exceeds captured amount', {
-        capturedAmount, totalRefundedSoFar, requested: amount, newTotal: newTotalRefunded,
-      });
-      return errServer(
-        `Refund amount (${amount}) exceeds available captured amount (${(capturedAmount - totalRefundedSoFar).toFixed(2)})`,
-        409,
-        'EXCEEDS_CAPTURED_AMOUNT',
-      );
+    if (reserveErr) {
+      log('WARN', FN, 'refund_reserve rejected', { error: reserveErr.message });
+      // Ceiling breach / not-captured surface as a 409; everything else as 500.
+      const isBusiness = /exceeds|captured|not found|authorised/i.test(reserveErr.message || '');
+      return errServer(reserveErr.message || 'Refund reservation failed', isBusiness ? 409 : 500,
+        isBusiness ? 'REFUND_REJECTED' : 'REFUND_RESERVE_FAILED');
     }
 
-    // ── 6. Determine new payment_status ───────────────────────────────────────
-    const isFullRefund     = newTotalRefunded >= capturedAmount - 0.01;
-    const newPaymentStatus = isFullRefund ? 'refunded' : 'partially_refunded';
-
-    // ── 7. Insert refund record (status='pending' until Moyasar confirms) ─────
-    const { data: refund, error: refundErr } = await supabase
-      .from('refunds')
-      .insert({
-        order_id:           orderId,
-        payment_attempt_id: paymentAttemptId,
-        amount,
-        currency:           attempt.currency,
-        reason,
-        status:             'pending',
-        gateway_refund_ref: null,
-      })
-      .select('id, amount, currency, status, created_at')
-      .single();
-
-    if (refundErr || !refund) {
-      log('ERROR', FN, 'Failed to insert refund record', { error: refundErr?.message });
-      return errServer('Failed to create refund record', 500, 'REFUND_CREATE_FAILED');
+    const reserved = reservedRaw as { id: string; amount: number; currency: string; status: string } | null;
+    if (!reserved?.id) {
+      return errServer('Failed to reserve refund', 500, 'REFUND_RESERVE_FAILED');
     }
 
-    // ── 8. Update orders.payment_status ───────────────────────────────────────
-    // NEVER touch payment_attempts — refunds are tracked separately.
-    const { error: orderUpdateErr } = await supabase
-      .from('orders')
-      .update({ payment_status: newPaymentStatus })
-      .eq('id', orderId);
-
-    if (orderUpdateErr) {
-      log('ERROR', FN, 'Failed to update orders.payment_status after refund', {
-        refundId: refund.id, error: orderUpdateErr.message,
-      });
-      // Refund row exists — log the inconsistency; reconcile via refunds table.
+    // Already-confirmed idempotent replay → return success without re-calling the gateway.
+    if (reserved.status === 'refunded') {
+      log('INFO', FN, 'Idempotent replay — refund already confirmed', { refundId: reserved.id });
+      return okServer({ success: true, refundId: reserved.id, orderId, amountRefunded: reserved.amount,
+        currency: reserved.currency, moyasarStatus: 'refunded', replay: true });
     }
 
-    // ── EF2-9: Call Moyasar POST /v1/payments/{id}/refund ─────────────────────
-    // Convert SAR → halalas (1 SAR = 100 halalas — Moyasar requires integers).
+    // ── 6. Call Moyasar POST /v1/payments/{id}/refund (gateway AFTER reserve) ──
     const refundHalalas = Math.round(amount * 100);
-
     let gatewayRefundRef: string | null = null;
     let moyasarRefundRaw: Record<string, unknown> | null = null;
-    let moyasarRefundStatus = 'pending';
+    let gatewaySuccess = false;
 
     try {
       const moyasarRes = await fetch(
         `https://api.moyasar.com/v1/payments/${attempt.gateway_reference}/refund`,
         {
           method:  'POST',
-          headers: {
-            'Authorization': 'Basic ' + btoa(moyasarKey + ':'),
-            'Content-Type':  'application/json',
-          },
+          headers: { 'Authorization': 'Basic ' + btoa(moyasarKey + ':'), 'Content-Type': 'application/json' },
           body: JSON.stringify({ amount: refundHalalas }),
         },
       );
-
       if (moyasarRes.ok) {
         moyasarRefundRaw = await moyasarRes.json() as Record<string, unknown>;
         gatewayRefundRef = moyasarRefundRaw['id'] as string | null ?? null;
-        moyasarRefundStatus = 'refunded';
-        log('INFO', FN, 'Moyasar refund successful', {
-          refundId: refund.id, moyasarRefundId: gatewayRefundRef,
-        });
+        gatewaySuccess = true;
+        log('INFO', FN, 'Moyasar refund successful', { refundId: reserved.id, moyasarRefundId: gatewayRefundRef });
       } else {
-        const errText = await moyasarRes.text();
-        log('ERROR', FN, 'Moyasar refund API returned non-200', {
-          refundId: refund.id, status: moyasarRes.status,
-          // errText intentionally not logged — may contain sensitive data
-        });
-        // Refund row remains in 'pending' status for manual reconciliation.
+        log('ERROR', FN, 'Moyasar refund API returned non-200', { refundId: reserved.id, status: moyasarRes.status });
       }
     } catch (fetchErr: unknown) {
-      log('ERROR', FN, 'Network error calling Moyasar refund API', {
-        refundId: refund.id, error: String(fetchErr),
-      });
-      // Continue — refund row in 'pending' is reconcilable.
+      log('ERROR', FN, 'Network error calling Moyasar refund API', { refundId: reserved.id, error: String(fetchErr) });
     }
 
-    // ── EF2-10: Update refund row with Moyasar gateway data ───────────────────
-    // Writes gateway_refund_ref, status, raw Moyasar response, and updated_at.
-    // If the Moyasar call failed, gateway_refund_ref stays null and status stays 'pending'.
-    await supabase
-      .from('refunds')
-      .update({
-        gateway_refund_ref: gatewayRefundRef,
-        status:             moyasarRefundStatus,
-        raw_response:       moyasarRefundRaw,
-        updated_at:         new Date().toISOString(),
-      })
-      .eq('id', refund.id);
-
-    log('INFO', FN, 'Refund completed', {
-      refundId:        refund.id,
-      orderId,
-      amount,
-      newPaymentStatus,
-      totalRefunded:   newTotalRefunded,
-      gatewayRefundRef,
-      moyasarStatus:   moyasarRefundStatus,
+    // ── 7. CONFIRM: finalize refund + order.payment_status + ledger in ONE txn ─
+    // On gateway success → posts a balanced customer_refund/platform_cash ledger entry and
+    // sets order.payment_status. On failure → marks the refund failed WITHOUT touching the
+    // order (no more "order shows refunded but gateway failed" inconsistency).
+    const { data: confirmedRaw, error: confirmErr } = await supabase.rpc('refund_confirm', {
+      p_refund_id:   reserved.id,
+      p_success:     gatewaySuccess,
+      p_gateway_ref: gatewayRefundRef,
+      p_raw:         moyasarRefundRaw,
     });
 
+    if (confirmErr) {
+      log('ERROR', FN, 'refund_confirm failed', { refundId: reserved.id, error: confirmErr.message });
+      return errServer('Refund gateway succeeded but finalization failed — reconcile refunds table', 500, 'REFUND_CONFIRM_FAILED');
+    }
+
+    const confirmed = confirmedRaw as { status: string } | null;
+    if (!gatewaySuccess) {
+      return errServer('Payment provider refund failed — refund marked failed, order unchanged', 502, 'GATEWAY_REFUND_FAILED');
+    }
+
+    log('INFO', FN, 'Refund completed', { refundId: reserved.id, orderId, amount, gatewayRefundRef });
+
     return okServer({
-      success:              true,
-      refundId:             refund.id,
+      success:        true,
+      refundId:       reserved.id,
       orderId,
-      amountRefunded:       amount,
-      currency:             refund.currency,
-      newPaymentStatus,
-      totalRefundedToDate:  newTotalRefunded,
-      isFullRefund,
+      amountRefunded: amount,
+      currency:       reserved.currency,
+      status:         confirmed?.status ?? 'refunded',
       gatewayRefundRef,
-      moyasarStatus:        moyasarRefundStatus,
-      createdAt:            refund.created_at,
+      moyasarStatus:  'refunded',
     });
 
   } catch (e: unknown) {

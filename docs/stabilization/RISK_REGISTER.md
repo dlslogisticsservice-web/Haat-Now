@@ -5,6 +5,26 @@
 
 Severity: 🔴 Critical · 🟠 High · 🟡 Medium · 🟢 Low.
 
+> **Phase 9 update (2026-07-05):** the 9 Critical risks below tied to P0 items have been
+> **implemented** (see `PHASE9_IMPLEMENTATION_REPORT.md`) and are marked **Mitigated (pending
+> staging verification)**. They downgrade to their residual severity only **after** the Phase 9
+> migrations are applied to a live/staging project and re-verified.
+>
+> | Risk | Phase 9 status | Fix |
+> |---|---|---|
+> | R-01 demo-as-prod | ✅ Mitigated | live CI build + `build:live` (P0-1) |
+> | R-02 provisioner schema | ✅ Mitigated | additive tenant columns (P0-2) |
+> | R-03 refund over-refund | ✅ Mitigated | `refund_reserve` lock + ceiling (P0-4) |
+> | R-04 duplicate/orphan orders | ✅ Mitigated | atomic `create_order` + idempotency (P0-3) |
+> | R-05 no scheduler / no auto-dispatch | ✅ Mitigated | scheduler + auto-dispatch trigger (P0-5/6) |
+> | R-06 PII leak | ✅ Mitigated | drop world-read + phone revoke (P0-8) — **verify pg_policies** |
+> | R-07 admin over-authority | ⚠️ Partially mitigated | granular RBAC on cash-out RPCs (P0-7); country-scope on finance = follow-on |
+> | R-08 cross-tenant leakage | ⛔ Not addressed (P2) | tenant_id RLS isolation is out of P0 scope |
+> | R-09 double charge | ✅ Mitigated | order-scoped dedup index + deterministic key (P0-9) |
+> | R-14 ledger not reconciled | ⚠️ Partially mitigated | refunds/compensations now post; **captures** still pending (P1 #10) |
+> | R-15 driver workload leak | ✅ Mitigated | unified workload trigger (P0-6) |
+> | R-24 null-client crash | ✅ Mitigated | fail-loud config guard (P0-1) |
+
 | ID | Risk | Category | Likelihood | Impact | Severity | Evidence | Mitigation (TOP20 #) |
 |---|---|---|---|---|---|---|---|
 | R-01 | Production deploys the sandbox demo (no backend) | Release | High | Catastrophic | 🔴 | `vite.config.ts:6-16`; CI tests sandbox | #1 |

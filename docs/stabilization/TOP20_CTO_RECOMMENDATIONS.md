@@ -3,6 +3,10 @@
 > Independent Enterprise CTO Audit · Phase 8 · Documentation only · 2026-07-05
 > Ranked by production-blocking priority. Effort: S (<1wk) · M (1–3wk) · L (>3wk). ROI is relative.
 > **This is a documentation-only audit — no code was changed. These are proposals for review.**
+>
+> **⟳ Phase 9 status (2026-07-05):** items **#1–#9 (all P0) are IMPLEMENTED** — see
+> `PHASE9_IMPLEMENTATION_REPORT.md`. #7 is partial (money-RPC RBAC done; country-scope follow-on).
+> Items **#10–#20 (P1/P2) remain open.** Enterprise Readiness 3.5 → 6.0.
 
 | # | Recommendation | Priority | Problem | Business risk | Technical risk | ROI | Effort | Tier |
 |---|---|---|---|---|---|---|---|---|

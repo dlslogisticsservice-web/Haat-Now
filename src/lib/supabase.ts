@@ -34,6 +34,18 @@ function makeSandboxClient(): SupabaseClient {
   return stub as SupabaseClient;
 }
 
+// Phase 9 · P0-1 — fail LOUD, not silent. A live deploy (HAAT_LIVE_BACKEND=1) with missing
+// Supabase env vars previously yielded a `null` client that crashed opaquely on first use.
+// Surface a prominent, actionable error at boot so a misconfigured production deploy is
+// diagnosable immediately (App.tsx also renders a config screen from MISSING_SUPABASE_VARS).
+if (!SANDBOX && MISSING_SUPABASE_VARS.length > 0) {
+  console.error(
+    `[HAAT] FATAL CONFIG ERROR — live backend mode is active but required env vars are missing: ` +
+    `${MISSING_SUPABASE_VARS.join(', ')}. The app cannot reach Supabase. ` +
+    `Set them in the deploy environment, or ship the demo build (unset HAAT_LIVE_BACKEND).`,
+  );
+}
+
 export const supabase: SupabaseClient = SANDBOX
   ? makeSandboxClient()
   : MISSING_SUPABASE_VARS.length === 0

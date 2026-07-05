@@ -34,6 +34,28 @@ export const ordersRepository = {
     return supabase.from('orders').insert(row).select().single();
   },
 
+  /**
+   * Atomic order creation (Phase 9 · P0-3). Delegates the whole order+items+status write
+   * to the create_order() SECURITY DEFINER RPC — one transaction, server-computed totals,
+   * idempotent on p_idempotency_key. Returns { data: orderRow, error }.
+   */
+  createOrderRpc(params: {
+    customerId: string; branchId: string;
+    items: Array<{ variant_id: string; quantity: number }>;
+    deliveryFee?: number | null;
+    location?: Record<string, any> | null;
+    idempotencyKey?: string | null;
+  }) {
+    return supabase.rpc('create_order', {
+      p_customer_id:     params.customerId,
+      p_branch_id:       params.branchId,
+      p_items:           params.items,
+      p_delivery_fee:    params.deliveryFee ?? null,
+      p_location:        params.location ?? null,
+      p_idempotency_key: params.idempotencyKey ?? null,
+    });
+  },
+
   insertOrderItems(rows: Array<Record<string, any>>) {
     return supabase.from('order_items').insert(rows);
   },

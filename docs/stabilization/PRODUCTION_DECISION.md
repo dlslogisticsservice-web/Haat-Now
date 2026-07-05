@@ -5,7 +5,27 @@
 
 ---
 
-## Decision: ⛔ **NO-GO for enterprise production** (as-is). ✅ **GO for demo / investor / pilot-prep.**
+> ## ⟳ Phase 9 update (2026-07-05) — decision revised after P0 remediation
+>
+> All **9 P0 blockers have been implemented** (see `PHASE9_IMPLEMENTATION_REPORT.md`,
+> `UPDATED_SCORECARD.md`). Enterprise Readiness moved **3.5 → 6.0**; overall **4.6 → ~5.8**.
+> Gates green: lint · build · build:live · arch · E2E 24/24.
+>
+> **Revised decision: ✅ CONDITIONAL GO for a controlled single-tenant, single-country pilot**,
+> conditioned on: (1) applying migrations `20260705000001…000008` to staging, (2) deploying the
+> updated `payment-initiate`/`payment-refund` edge functions, (3) re-running E2E against
+> `HAAT_LIVE_BACKEND=1`, (4) confirming S-4 (PII) and S-6 (single active attempt) on the live DB,
+> and (5) registering the pg_cron jobs (or the scheduled-edge fallback).
+>
+> **Still NO-GO for multi-tenant / multi-country GA** until the P1/P2 backlog closes (event
+> backbone incl. capture→ledger, KYC/suspension gating, inventory coupling, real billing,
+> DB-backed white-label, and full `tenant_id` RLS isolation — R-08).
+>
+> The original Phase 8 decision is preserved below for the audit record.
+
+---
+
+## Decision (Phase 8, original): ⛔ **NO-GO for enterprise production** (as-is). ✅ **GO for demo / investor / pilot-prep.**
 
 This is a **conditional NO-GO**, not a rejection. The platform is a **9/10 demo on a ~4.6/10 enterprise-production foundation**. The blocking issues are specific, evidenced, and remediable in weeks — not a rewrite.
 

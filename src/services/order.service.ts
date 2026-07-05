@@ -20,8 +20,45 @@ export const orderService = {
       branchLngSnapshot?: number | null;
       deliveryFee?: number | null;
     },
+    idempotencyKey?: string,
   ): Promise<{ data: Order | null; error: any }> {
-    // 1. Insert order metadata record
+    // ── Phase 9 · P0-3: atomic, idempotent, server-priced path (live mode) ──────
+    // One transaction (order + items + status history), totals computed server-side,
+    // and a repeat idempotencyKey returns the original order instead of a duplicate.
+    // Falls back to the legacy multi-insert path only if the RPC is unavailable
+    // (migration not yet applied) — preserving backward compatibility.
+    if (!SANDBOX) {
+      const rpc = await ordersRepository.createOrderRpc({
+        customerId,
+        branchId,
+        items: items.map(i => ({ variant_id: i.variantId, quantity: i.quantity })),
+        deliveryFee: locationSnapshot?.deliveryFee ?? null,
+        location: locationSnapshot ? {
+          address_id:          locationSnapshot.addressId          ?? null,
+          delivery_lat:        locationSnapshot.deliveryLat        ?? null,
+          delivery_lng:        locationSnapshot.deliveryLng        ?? null,
+          branch_lat_snapshot: locationSnapshot.branchLatSnapshot  ?? null,
+          branch_lng_snapshot: locationSnapshot.branchLngSnapshot  ?? null,
+        } : null,
+        idempotencyKey: idempotencyKey ?? null,
+      });
+
+      // If the RPC is missing (PostgREST PGRST202 / 404), fall through to the legacy path.
+      const rpcMissing = rpc.error && /PGRST202|not exist|not find|404/i.test(rpc.error.message || rpc.error.code || '');
+      if (!rpcMissing) {
+        if (rpc.error || !rpc.data) return { data: null, error: rpc.error };
+        const orderData = rpc.data as Order;
+        // Notify merchant (best-effort; identical to the legacy path).
+        const { data: branch } = await ordersRepository.getBranchMerchant(branchId);
+        if (branch?.merchant_id) {
+          await notificationService.sendNotification(branch.merchant_id, 'طلب جديد! تحقق من لوحة الطلبات.', 'order');
+        }
+        return { data: orderData, error: null };
+      }
+      // else: legacy fallback below (RPC not deployed yet)
+    }
+
+    // 1. Insert order metadata record (legacy fallback / sandbox is handled by caller)
     const { data: orderData, error: orderError } = await ordersRepository.insertOrder({
         customer_id: customerId,
         branch_id: branchId,
