@@ -1,28 +1,15 @@
-import { supabase } from '../lib/supabase';
+import { walletRepository } from '../repositories/wallet.repository';
 import { notificationService } from './notification.service';
 import { Wallet, WalletTransaction } from './types';
 
 export const walletService = {
   // Get wallet balance for any system entity (customer, merchant, driver)
   async getWallet(ownerType: 'customer' | 'driver' | 'merchant', ownerId: string): Promise<{ data: Wallet | null; error: any }> {
-    const { data, error } = await supabase
-      .from('wallets')
-      .select('*')
-      .eq('owner_type', ownerType)
-      .eq('owner_id', ownerId)
-      .single();
+    const { data, error } = await walletRepository.getWallet(ownerType, ownerId);
 
     // Auto-create wallet if it doesn't exist
     if (!data && !error) {
-      const { data: newWallet, error: createError } = await supabase
-        .from('wallets')
-        .insert({
-          owner_type: ownerType,
-          owner_id: ownerId,
-          balance: 0.00
-        })
-        .select()
-        .single();
+      const { data: newWallet, error: createError } = await walletRepository.createWallet(ownerType, ownerId);
       return { data: newWallet, error: createError };
     }
     
@@ -31,12 +18,7 @@ export const walletService = {
 
   // Get chronological transaction history for a specific wallet
   async getTransactions(walletId: string): Promise<{ data: WalletTransaction[]; error: any }> {
-    const { data, error } = await supabase
-      .from('wallet_transactions')
-      .select('*')
-      .eq('wallet_id', walletId)
-      .order('created_at', { ascending: false });
-    
+    const { data, error } = await walletRepository.getTransactions(walletId);
     return { data: data || [], error };
   },
 
@@ -47,10 +29,7 @@ export const walletService = {
     driverId: string
   ): Promise<{ error: any }> {
     try {
-      const { data, error } = await supabase.rpc('complete_delivery', {
-        p_order_id:  orderId,
-        p_driver_id: driverId,
-      });
+      const { data, error } = await walletRepository.completeDelivery(orderId, driverId);
       if (error) {
         console.error('complete_delivery RPC error:', error);
         return { error };
