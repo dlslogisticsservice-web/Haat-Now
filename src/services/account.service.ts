@@ -5,9 +5,9 @@
 // rows, and removes the auth identity. Sandbox mode has no real backend, so it
 // clears local state and resolves (the UI then signs the user out).
 // ─────────────────────────────────────────────────────────────────────────────
-import { supabase } from '../lib/supabase';
+import { accountRepository } from '../repositories/account.repository';
 
-const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 
 export const accountService = {
   /** Permanently delete the signed-in user's account + personal data. */
@@ -21,8 +21,8 @@ export const accountService = {
       } catch { /* ignore */ }
       return { error: null };
     }
-    const { error } = await supabase.rpc('delete_my_account');
-    if (!error) { try { await supabase.auth.signOut(); } catch { /* ignore */ } }
+    const { error } = await accountRepository.deleteMyAccount();
+    if (!error) await accountRepository.signOut();
     return { error };
   },
 };
