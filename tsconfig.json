@@ -21,6 +21,8 @@
       ]
     },
     "allowImportingTsExtensions": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
     "noEmit": true
   },
   "exclude": [
