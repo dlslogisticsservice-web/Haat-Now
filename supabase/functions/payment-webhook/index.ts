@@ -62,9 +62,15 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const webhookSecret = Deno.env.get('PAYMENT_WEBHOOK_SECRET');
 
     if (!webhookSecret) {
-      // In local development without a secret configured, log and continue.
-      // In production this should be a hard failure — set PAYMENT_WEBHOOK_SECRET.
-      log('WARN', FN, 'PAYMENT_WEBHOOK_SECRET not set — skipping HMAC verification (dev mode)');
+      // FAIL CLOSED: without the secret we cannot verify authenticity, so a forged
+      // webhook could mark orders paid. Reject by default. Local development may opt
+      // out EXPLICITLY with WEBHOOK_ALLOW_UNSIGNED=true (never set that in production).
+      const allowUnsigned = Deno.env.get('WEBHOOK_ALLOW_UNSIGNED') === 'true';
+      if (!allowUnsigned) {
+        log('ERROR', FN, 'PAYMENT_WEBHOOK_SECRET not set — rejecting webhook. Set the secret (supabase secrets set PAYMENT_WEBHOOK_SECRET=…), or WEBHOOK_ALLOW_UNSIGNED=true for local dev only.', { provider });
+        return errServer('Webhook signature verification is not configured', 503, 'WEBHOOK_SECRET_MISSING');
+      }
+      log('WARN', FN, 'PAYMENT_WEBHOOK_SECRET not set but WEBHOOK_ALLOW_UNSIGNED=true — skipping HMAC verification (LOCAL DEV ONLY)');
     } else {
       // Moyasar sends its HMAC in x-moyasar-signature; all other providers use x-webhook-signature.
       const signatureHeader =
