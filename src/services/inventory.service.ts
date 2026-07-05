@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { inventoryRepository } from '../repositories/inventory.repository';
 import { Product, StockMovement } from './types';
 
 // Inventory / stock control — real Supabase counterpart of sandboxStore inventory.
@@ -6,30 +6,19 @@ import { Product, StockMovement } from './types';
 export const inventoryService = {
   // All products for a branch with their stock levels.
   async getInventory(branchId: string): Promise<{ data: Product[]; error: any }> {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, branch_id, category_id, name, price, stock, low_stock_threshold, is_active')
-      .eq('branch_id', branchId)
-      .order('name');
+    const { data, error } = await inventoryRepository.getInventory(branchId);
     return { data: (data as Product[]) || [], error };
   },
 
   // Atomic stock adjustment (records a movement + auto out-of-stock toggle). Returns new stock.
   async adjustStock(productId: string, delta: number, reason = 'تعديل يدوي'): Promise<{ stock: number | null; error: any }> {
-    const { data, error } = await supabase.rpc('adjust_product_stock', {
-      p_product_id: productId, p_delta: delta, p_reason: reason,
-    });
+    const { data, error } = await inventoryRepository.adjustStock(productId, delta, reason);
     return { stock: (data as number) ?? null, error };
   },
 
   // Movement history for one product.
   async getStockHistory(productId: string): Promise<{ data: StockMovement[]; error: any }> {
-    const { data, error } = await supabase
-      .from('stock_movements')
-      .select('*')
-      .eq('product_id', productId)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const { data, error } = await inventoryRepository.getStockHistory(productId);
     return { data: (data as StockMovement[]) || [], error };
   },
 
