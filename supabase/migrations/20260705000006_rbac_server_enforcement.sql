@@ -80,7 +80,8 @@ returns boolean language sql stable security definer set search_path = public as
                 and rp.permission_key = p_perm ) )
   );
 $$;
-grant execute on function public.auth_has_permission(text) to authenticated;
+revoke execute on function public.auth_has_permission(text) from public, anon;
+grant  execute on function public.auth_has_permission(text) to authenticated;
 
 -- 4) ENFORCE at the money-movement RPCs (re-created verbatim + one permission guard).
 --    (Bodies copied exactly from 20260614000031_finance_engine.sql; only the guard added.)
@@ -129,3 +130,14 @@ begin
     jsonb_build_object('account_type',v_acct,'owner_type',p_entity_type,'owner_id',p_entity_id,'debit',0,'credit',p_amount,'ref_table','compensations','ref_id',v.id)));
   return v;
 end;$$;
+
+-- Phase 9.5 hardening (live security-advisor finding): these cash-moving SECURITY DEFINER
+-- functions were flagged as executable by the anonymous role. Revoke anon/PUBLIC execute;
+-- keep the existing authenticated grant (internal guards still enforce is_ops_admin +
+-- auth_has_permission). Defense-in-depth.
+revoke execute on function public.pay_merchant_settlement(uuid) from public, anon;
+revoke execute on function public.pay_driver_settlement(uuid)   from public, anon;
+revoke execute on function public.issue_compensation(text, uuid, numeric, text, uuid) from public, anon;
+grant  execute on function public.pay_merchant_settlement(uuid) to authenticated;
+grant  execute on function public.pay_driver_settlement(uuid)   to authenticated;
+grant  execute on function public.issue_compensation(text, uuid, numeric, text, uuid) to authenticated;

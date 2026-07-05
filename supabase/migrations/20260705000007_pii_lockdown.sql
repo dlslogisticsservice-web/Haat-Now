@@ -18,8 +18,15 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- 1) Drop the permissive world-read policies (the actual leak).
+--    Phase 9.5 live-validation finding: the APPLIED policy names on the dev project differ
+--    from the migration-file names (documented drift, S-8). The live `merchants` permissive
+--    policy is named "Public read merchants" (not "Anyone can select merchants"), and the
+--    live `drivers` table is ALREADY scoped ("Read drivers", no world-read). We therefore
+--    drop BOTH the file-era names AND the actually-applied names so this migration closes the
+--    leak on the real database, not just on a from-scratch build.
 drop policy if exists "Anyone can select drivers"   on public.drivers;
 drop policy if exists "Anyone can select merchants"  on public.merchants;
+drop policy if exists "Public read merchants"        on public.merchants;
 
 -- 2) Ensure a scoped driver read exists (self / admin) so we don't lock drivers out.
 --    (0021 added "Read drivers"; recreate defensively in case it never landed — S-8.)
@@ -52,9 +59,15 @@ begin
 end $$;
 
 -- 4) Column-level revoke of the phone PII (RLS cannot restrict columns; GRANTs can).
---    Guarded so a missing column never fails the migration.
+--    Phase 9.5 live-validation finding: the merchants PII phone column is `contact_phone`
+--    (NOT `phone_number` — that only exists on `drivers`). The original revoke targeted a
+--    non-existent merchants column and silently no-opped, leaving merchant phones exposed.
+--    Fixed: revoke the correct column per table. Each is guarded so a missing column is a
+--    no-op rather than a migration failure.
 do $$
 begin
-  begin execute 'revoke select (phone_number) on public.drivers   from anon, authenticated'; exception when others then null; end;
-  begin execute 'revoke select (phone_number) on public.merchants  from anon, authenticated'; exception when others then null; end;
+  begin execute 'revoke select (phone_number)  on public.drivers   from anon, authenticated'; exception when others then null; end;
+  begin execute 'revoke select (contact_phone) on public.merchants from anon, authenticated'; exception when others then null; end;
+  -- Defensive: also cover a `phone_number` merchants column if a future/other schema has one.
+  begin execute 'revoke select (phone_number)  on public.merchants from anon, authenticated'; exception when others then null; end;
 end $$;

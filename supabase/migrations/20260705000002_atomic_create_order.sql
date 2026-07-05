@@ -118,4 +118,8 @@ begin
   return to_jsonb(v_order);
 end;$$;
 
-grant execute on function public.create_order(uuid, uuid, jsonb, numeric, jsonb, text) to authenticated;
+-- Phase 9.5 hardening (live security-advisor finding): do NOT leave SECURITY DEFINER
+-- functions executable by the anonymous/PUBLIC role. Revoke the default, grant only
+-- authenticated. (Internal auth.uid() guard already blocks anon, but revoke as defense.)
+revoke execute on function public.create_order(uuid, uuid, jsonb, numeric, jsonb, text) from public, anon;
+grant  execute on function public.create_order(uuid, uuid, jsonb, numeric, jsonb, text) to authenticated;

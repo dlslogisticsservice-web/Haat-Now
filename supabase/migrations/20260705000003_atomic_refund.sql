@@ -145,5 +145,9 @@ end;$$;
 
 -- Edge functions call these with the service-role client (bypasses RLS); grant to
 -- authenticated too so an in-app ops console can drive refunds under is_ops_admin().
-grant execute on function public.refund_reserve(uuid, uuid, numeric, text, text) to authenticated;
-grant execute on function public.refund_confirm(uuid, boolean, text, jsonb) to authenticated;
+-- Phase 9.5 hardening (live security-advisor finding): revoke anon/PUBLIC execute on these
+-- money-mutating SECURITY DEFINER functions; only authenticated (ops) + service-role edge fn.
+revoke execute on function public.refund_reserve(uuid, uuid, numeric, text, text) from public, anon;
+revoke execute on function public.refund_confirm(uuid, boolean, text, jsonb)       from public, anon;
+grant  execute on function public.refund_reserve(uuid, uuid, numeric, text, text) to authenticated;
+grant  execute on function public.refund_confirm(uuid, boolean, text, jsonb)       to authenticated;

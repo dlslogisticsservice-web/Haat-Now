@@ -73,10 +73,17 @@ begin
   return jsonb_build_object('merchant_run', v_m, 'driver_run', v_d, 'period', v_start, 'at', now());
 end;$$;
 
-grant execute on function public.cron_dispatch_sweep()      to authenticated;
-grant execute on function public.cron_payment_reconcile()   to authenticated;
-grant execute on function public.cron_recompute_segments()  to authenticated;
-grant execute on function public.cron_daily_settlements()   to authenticated;
+-- Phase 9.5 hardening: cron wrappers run under pg_cron/service-role. Revoke anon/PUBLIC;
+-- the authenticated grant only allows an ops admin to trigger a manual sweep (the inner RPCs
+-- still enforce is_ops_admin where they move money).
+revoke execute on function public.cron_dispatch_sweep()      from public, anon;
+revoke execute on function public.cron_payment_reconcile()   from public, anon;
+revoke execute on function public.cron_recompute_segments()  from public, anon;
+revoke execute on function public.cron_daily_settlements()   from public, anon;
+grant  execute on function public.cron_dispatch_sweep()      to authenticated;
+grant  execute on function public.cron_payment_reconcile()   to authenticated;
+grant  execute on function public.cron_recompute_segments()  to authenticated;
+grant  execute on function public.cron_daily_settlements()   to authenticated;
 
 -- ── Best-effort pg_cron registration (guarded; never fails the migration). ──
 do $$
