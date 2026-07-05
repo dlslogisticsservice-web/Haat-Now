@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useHomeFeed } from '../../hooks/useHomeFeed';
-import type { BranchWithMerchant, DBOffer } from '../../services/home.service';
+import type { BranchWithMerchant } from '../../services/home.service';
 import {
   Star, Clock, SearchX, Search, X, Zap, Bike, Shield, Tag,
   UtensilsCrossed, ShoppingCart, Pill, Coffee, CakeSlice, Gift, Flower2, Smartphone,
@@ -145,7 +145,6 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
     : STATIC_BANNERS;
 
   /* Always show content — use mock data when real data empty */
-  const displayBranches = filteredBranches.length > 0 ? filteredBranches : (isFiltering ? [] : null);
   const showMock = !isFiltering && filteredBranches.length === 0;
 
   const DELIVERY_FEES = ['مجاني', `15 ${cur}`, 'مجاني', `10 ${cur}`, `8 ${cur}`, 'مجاني'];

@@ -94,7 +94,7 @@ export const RestaurantScreen = ({
   cartItems,
   onViewCart,
 }: RestaurantScreenProps) => {
-  const { country, price, lang } = useAppConfig();
+  const { country, price } = useAppConfig();
   const { t } = useTranslation();
   const tabLabel = (id: string) => id === 'الوجبات' ? t('restaurant.meals') : id === 'العروض' ? t('restaurant.offers') : id === 'التقييمات' ? t('restaurant.reviews') : t('restaurant.aboutStore');
   const cur = country.currency.symbolAr;

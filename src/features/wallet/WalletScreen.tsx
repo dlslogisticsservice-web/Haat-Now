@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { walletService } from '../../services/wallet.service';
 import { Wallet, WalletTransaction } from '../../services/types';
 import { sandboxStore, SbLoyaltyTxn } from '../../services/sandboxStore';

@@ -1,5 +1,5 @@
 import { ordersRepository } from '../repositories/orders.repository';
-import { Order, OrderItem, OrderStatusHistory } from './types';
+import { Order } from './types';
 import { notificationService } from './notification.service';
 import { sandboxStore } from './sandboxStore';
 

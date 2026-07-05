@@ -3,7 +3,6 @@ import { toast } from '../../components/ui/feedback';
 import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
 import { adminService } from '../../services/admin.service';
-import { authService } from '../../services/auth.service';
 import { paymentOrchestrator } from '../../services/payment-orchestrator.service';
 import { sandboxStore } from '../../services/sandboxStore';
 import { DEFAULT_DELIVERY_FEE } from '../../config/fees';
@@ -938,12 +937,3 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
     </div>
   );
 };
-
-function SummaryRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="flex justify-between">
-      <span style={{ fontSize: '16px', color: accent ? 'var(--color-primary-fixed)' : 'white', textTransform: 'none', letterSpacing: 0 }}>{value}</span>
-      <span style={{ fontSize: '16px', color: 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{label}</span>
-    </div>
-  );
-}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { UserRound, Wallet, Truck, Package, Star, FileText, Clock, Power, Phone, CreditCard } from 'lucide-react';
+import { UserRound, Wallet, Package, Star, FileText, Clock, Power, Phone, CreditCard } from 'lucide-react';
 import { Drawer } from '../../../components/ui/Modal';
 import { MetricCard, EmptyStateBox, StatusBadge } from '../../../components/admin/EnterpriseUI';
 import { toast } from '../../../components/ui/feedback';

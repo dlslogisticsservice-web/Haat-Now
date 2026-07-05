@@ -8,7 +8,6 @@ import { kv } from '../lib/kv';
 
 const SEED_FLAG = 'haat_demo_seeded_v2';
 const put = (table: string, rows: any[]) => kv.set(table, rows);
-const has = (table: string) => kv.has(table);
 const rnd = (n: number) => Math.floor(Math.random() * n);
 const pick = <T,>(a: T[]) => a[rnd(a.length)];
 const iso = (minsAgo: number) => new Date(Date.now() - minsAgo * 60000).toISOString();

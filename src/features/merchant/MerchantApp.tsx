@@ -17,7 +17,7 @@ import { Card, StatCard } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
-import { EnterpriseSidebar, SidebarSection } from '../../components/ui/EnterpriseSidebar';
+import { EnterpriseSidebar } from '../../components/ui/EnterpriseSidebar';
 import { Loader, EmptyState, Divider } from '../../components/ui/Primitives';
 import { StoreManagement } from './StoreManagement';
 import { KitchenQueue } from './KitchenQueue';

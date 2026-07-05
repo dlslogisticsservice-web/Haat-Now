@@ -33,7 +33,7 @@ import { ExperienceSplash, ExperienceOnboarding, ExperienceLogin } from './exper
 import {
   Loader2, ShoppingBag, Bell, Home, ScrollText, ShoppingCart,
   Wallet, User, MessageCircle, Crown, X, ChevronRight, LogOut,
-  MapPin, ChevronDown, BellOff, Search,
+  ChevronDown, BellOff, Search,
 } from 'lucide-react';
 
 interface CartItem {

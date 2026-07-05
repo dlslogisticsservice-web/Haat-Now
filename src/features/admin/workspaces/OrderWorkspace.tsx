@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ClipboardList, UserRound, Truck, Building2, Clock, CreditCard } from 'lucide-react';
+import { ClipboardList, UserRound, Truck, Clock, CreditCard } from 'lucide-react';
 import { Drawer } from '../../../components/ui/Modal';
 import { MetricCard, EmptyStateBox, StatusBadge } from '../../../components/admin/EnterpriseUI';
 import { toast } from '../../../components/ui/feedback';

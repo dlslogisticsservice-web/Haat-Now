@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Globe, Eye, UploadCloud, RotateCcw, Plus, Trash2, ChevronUp, ChevronDown, History as HistoryIcon, Copy, GripVertical, Power, Monitor, Tablet, Smartphone, Download, Upload, ImageIcon, LayoutTemplate, Pencil } from 'lucide-react';
+import { Globe, Eye, UploadCloud, RotateCcw, Plus, Trash2, ChevronUp, ChevronDown, History as HistoryIcon, Copy, GripVertical, Power, Monitor, Tablet, Smartphone, Download, Upload, ImageIcon, Pencil } from 'lucide-react';
 import { WorkspaceHeader, SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseUI';
 import { toast } from '../../components/ui/feedback';
 import { tenantService } from '../../services/tenant.service';

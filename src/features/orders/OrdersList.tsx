@@ -110,7 +110,7 @@ const DRIVER_IMG = 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1zBa4W1
 const MAP_PHOTO  = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDhSGJvJ91keV3KcXiIFnKS0YhWuSrKZCW_iybvURGhGZZjmD01O8E66Pe-IZIknLpa1xr6rbN2yXLRNgJxyafvetf_ne8GPITiRjaEB3eMmekg6LFLSIp7fCqL1UW6MdveMsESOAgzLCSewmAvdCa6ZcR2yV-xM3RgvJhMyp7xR8KkkI6rHP2Gwk06kTavSB_EMMkiSUASFeHhISs-kxGA0bnA0FDYSnYjfPRV2wUiXfRUZo6cnRgsN2WzM-VRNUcn1-Tdm0fqmccQ';
 
 export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit }: OrdersListProps) => {
-  const { price: money, lang } = useAppConfig();
+  const { price: money } = useAppConfig();
   const { t } = useTranslation();
   const [orders,          setOrders]          = useState<Order[]>([]);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(selectedOrderIdInit || null);
@@ -348,9 +348,6 @@ export const OrdersList = ({ customerId, onSelectOrderBack, selectedOrderIdInit 
     } catch (ex) { console.error(ex); }
     finally { setTicketLoading(false); }
   };
-
-  const currentStatusIndex = (status: OrderStatus) =>
-    ['pending','accepted','preparing','on_the_way','delivered'].indexOf(status);
 
   // ══════════════════════════════════════════════════════════════
   //  ORDERS LIST VIEW

@@ -6,7 +6,6 @@ import { payoutService, WalletSummary } from '../../services/ops/payout.service'
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { useTranslation } from 'react-i18next';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 
 const money = (n: number) => `${Number(n || 0).toFixed(2)} ر.س`;

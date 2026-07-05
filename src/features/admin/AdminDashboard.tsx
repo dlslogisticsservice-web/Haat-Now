@@ -3,7 +3,7 @@ import { toast } from '../../components/ui/feedback';
 import { supportRepository } from '../../repositories/support.repository';
 import { adminService } from '../../services/admin.service';
 import { Icon } from '../../components/ui/Icon';
-import { Card, StatCard } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';

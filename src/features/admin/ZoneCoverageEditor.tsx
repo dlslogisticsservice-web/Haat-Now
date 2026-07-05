@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Pencil, Hand, Trash2, Undo2, Redo2, Maximize, Save, MapPin, Plus, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Pencil, Hand, Trash2, Undo2, Redo2, Maximize, Save, MapPin, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Drawer } from '../../components/ui/Modal';
 import { toast } from '../../components/ui/feedback';
 import { adminCrud } from '../../services/admin-crud.service';

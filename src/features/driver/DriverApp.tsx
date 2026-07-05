@@ -11,7 +11,7 @@ import { calculateDistanceKm, calculateEtaMinutes } from '../../services/locatio
 import { sandboxStore } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Icon } from '../../components/ui/Icon';
-import { Card, StatCard } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
@@ -45,8 +45,7 @@ function useDeviceLive() {
   React.useEffect(() => {
     const on = () => setOnline(true), off = () => setOnline(false);
     window.addEventListener('online', on); window.addEventListener('offline', off);
-    let batt: any;
-    (navigator as any).getBattery?.().then((b: any) => { batt = b; const upd = () => setBattery(Math.round(b.level * 100)); upd(); b.addEventListener('levelchange', upd); }).catch(() => {});
+    (navigator as any).getBattery?.().then((b: any) => { const upd = () => setBattery(Math.round(b.level * 100)); upd(); b.addEventListener('levelchange', upd); }).catch(() => {});
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
   return { online, battery };
@@ -161,8 +160,7 @@ interface DriverAppProps { driverId: string; onLogout: () => void }
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 
 export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
-  const { country, lang, toggleLang, price: money } = useAppConfig();
-  const cur = country.currency.symbolAr;
+  const { lang, toggleLang, price: money } = useAppConfig();
   const D = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   // ── State (unchanged) ─────────────────────────────────────
   const [driverProfile,           setDriverProfile]           = useState<any>(null);

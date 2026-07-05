@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { COUNTRIES } from '../../config/countries';
 import {
   ChevronRight, ChevronLeft, LogOut, Bell, BellRing, User, MapPin, MapPinned,
-  MapPinOff, Loader2, UserCircle2, Camera, Crown, PenLine, AlertCircle,
+  MapPinOff, Loader2, Camera, Crown, PenLine, AlertCircle,
   CheckCircle2, Save, Settings, Trash2, Pencil, Wallet, Globe, Shield, Headphones,
   CreditCard, Plus, Banknote, Star, X as XIcon,
   Download, FileText, ShieldCheck, UserX, ChevronDown,

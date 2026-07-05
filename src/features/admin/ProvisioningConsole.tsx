@@ -5,7 +5,7 @@ import { toast } from '../../components/ui/feedback';
 import { provisioningService, type ProvisionRun, type ProvisionSpec } from '../../services/provisioning.service';
 import { PLAN_CATALOG } from '../../services/subscription.service';
 import { themePresetsService } from '../../services/themePresets.service';
-import { Can, useRbac } from '../../hooks/useRbac';
+import { Can } from '../../hooks/useRbac';
 
 const surface: React.CSSProperties = { background: 'var(--color-surface-container-high)', border: '1px solid var(--color-outline-variant)' };
 const inp: React.CSSProperties = { width: '100%', height: 36, padding: '0 12px', borderRadius: 10, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid var(--color-outline-variant)', fontSize: 13, outline: 'none' };
@@ -16,7 +16,6 @@ const StepIcon: React.FC<{ s: string }> = ({ s }) => s === 'ok' ? <Check size={1
  *  rollback · completion verification. Audit lives in operation_events (reused), not here. */
 export const ProvisioningConsole: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
-  const { can } = useRbac();
   const presets = themePresetsService.list();
   const [form, setForm] = useState<ProvisionSpec>({ brand_name: '', plan: 'starter', theme_preset_id: presets[0]?.id, vertical: 'food', country_code: 'SA' });
   const [run, setRun] = useState<ProvisionRun | null>(null);
