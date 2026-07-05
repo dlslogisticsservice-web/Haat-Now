@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { notificationRepository } from '../repositories/notification.repository';
 import { Notification, PushToken } from './types';
 
 // Monotonic counter so each realtime subscriber gets a distinct channel name.
@@ -7,26 +7,13 @@ let _chanSeq = 0;
 export const notificationService = {
   // Query all in-app notifications dispatched to specific active user ID
   async getUserNotifications(userId: string): Promise<{ data: Notification[]; error: any }> {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('target_user_id', userId)
-      .order('created_at', { ascending: false });
-    
+    const { data, error } = await notificationRepository.listForUser(userId);
     return { data: data || [], error };
   },
 
   // Save new in-app notification dispatch log
   async sendNotification(userId: string | null, message: string, type = 'system'): Promise<{ data: Notification | null; error: any }> {
-    const { data, error } = await supabase
-      .from('notifications')
-      .insert({
-        target_user_id: userId,
-        message,
-        type
-      })
-      .select()
-      .single();
+    const { data, error } = await notificationRepository.insert({ target_user_id: userId, message, type });
     return { data, error };
   },
 
@@ -34,54 +21,47 @@ export const notificationService = {
   // Production -> SECURITY DEFINER RPC broadcast_notification (admin-guarded, one row/user).
   // Sandbox (no backend) -> simulated success so the composer works end-to-end in demo.
   async broadcast(audience: 'all' | 'customers' | 'drivers' | 'merchants', message: string, type = 'announcement'): Promise<{ count: number; error: any }> {
-    if (import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase) {
+    if (import.meta.env.VITE_AUTH_MODE === 'sandbox') {
       return { count: 0, error: null };
     }
-    const { data, error } = await supabase.rpc('broadcast_notification', { p_audience: audience, p_type: type, p_message: message });
+    const { data, error } = await notificationRepository.broadcast(audience, type, message);
     return { count: typeof data === 'number' ? data : 0, error };
   },
 
   // Register device push notification token
   async registerPushToken(tokenPayload: Omit<PushToken, 'id'>): Promise<{ error: any }> {
     // Upsert the token to prevent duplicate mapping
-    const { error } = await supabase
-      .from('push_tokens')
-      .upsert({
-        user_type: tokenPayload.user_type,
-        user_id: tokenPayload.user_id,
-        token: tokenPayload.token,
-        device_type: tokenPayload.device_type
-      }, { onConflict: 'token' });
-
+    const { error } = await notificationRepository.upsertPushToken({
+      user_type: tokenPayload.user_type,
+      user_id: tokenPayload.user_id,
+      token: tokenPayload.token,
+      device_type: tokenPayload.device_type,
+    });
     return { error };
   },
 
   // Mark a single notification as read (migration 0020 adds notifications.is_read).
   async markRead(notificationId: string): Promise<{ error: any }> {
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', notificationId);
+    const { error } = await notificationRepository.markRead(notificationId);
     return { error };
   },
 
   // Mark all of a user's notifications as read.
   async markAllRead(userId: string): Promise<{ error: any }> {
-    const { error } = await supabase.from('notifications').update({ is_read: true }).eq('target_user_id', userId);
+    const { error } = await notificationRepository.markAllRead(userId);
     return { error };
   },
 
   // Count unread notifications for a user.
   async getUnreadCount(userId: string): Promise<{ count: number; error: any }> {
-    const { count, error } = await supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('target_user_id', userId)
-      .eq('is_read', false);
+    const { count, error } = await notificationRepository.unreadCount(userId);
     return { count: count ?? 0, error };
   },
 
   // Remove a notification permanently. Requires the delete grant from migration
   // 20260626000001; callers handle the error gracefully if not yet applied.
   async remove(notificationId: string): Promise<{ error: any }> {
-    const { error } = await supabase.from('notifications').delete().eq('id', notificationId);
+    const { error } = await notificationRepository.remove(notificationId);
     return { error };
   },
 
@@ -90,10 +70,7 @@ export const notificationService = {
   // Each call gets a UNIQUE channel name so multiple independent subscribers
   // (e.g. the sidebar badge + the notification center) don't collide on one channel.
   subscribe(userId: string, onChange: () => void): () => void {
-    const channel = supabase
-      .channel(`notif:${userId}:${++_chanSeq}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `target_user_id=eq.${userId}` }, () => onChange())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const channel = notificationRepository.subscribe(`notif:${userId}:${++_chanSeq}`, userId, onChange);
+    return () => { notificationRepository.unsubscribe(channel); };
   }
 };
