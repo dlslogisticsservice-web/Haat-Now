@@ -68,8 +68,16 @@ export * from './growth/experiments';
 export * from './growth/checkout-migration';
 export * from './marketing/marketing';
 export * from './portal/portal';
-export * from './realtime/realtime';
+export * from './realtime/realtime'; // re-exports the pure ./polling primitive too
 export * from './pwa/pwa';
+
+// Website experience config systems (Wave 4)
+export * from './homepage/homepage';
+export * from './navigation/navigation';
+export * from './search/search';
+export * from './collections/collections';
+export * from './promotions/promotions';
+export * from './invoices/invoice';
 
 // API contracts (no endpoints in Wave 0)
 export * from './api/contracts';

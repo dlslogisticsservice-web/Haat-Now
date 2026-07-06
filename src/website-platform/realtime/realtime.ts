@@ -9,8 +9,11 @@
 import { ordersRepository } from '../../repositories/orders.repository';
 import { cxService } from '../../services/cx.service';
 import { notificationService } from '../../services/notification.service';
+import type { Unsub } from './polling';
 
-export type Unsub = () => void;
+// Re-export the pure, node-testable polling primitive so consumers keep a single
+// `realtime` import surface. Its implementation lives in ./polling (app-agnostic).
+export { createPollingSubscription, type PollTimer, type Unsub } from './polling';
 
 export interface DriverLocationUpdate { lat: number; lng: number }
 

@@ -10,8 +10,9 @@ import React from 'react';
 
 const radius = 16;
 
-export const GlassCard: React.FC<React.PropsWithChildren<{ style?: React.CSSProperties; interactive?: boolean; ariaLabel?: string }>> = ({ children, style, interactive, ariaLabel }) => (
+export const GlassCard: React.FC<React.PropsWithChildren<{ id?: string; style?: React.CSSProperties; interactive?: boolean; ariaLabel?: string }>> = ({ id, children, style, interactive, ariaLabel }) => (
   <div
+    id={id}
     aria-label={ariaLabel}
     style={{
       background: 'color-mix(in srgb, var(--color-surface-container) 78%, transparent)',

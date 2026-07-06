@@ -47,6 +47,16 @@ export const WEBSITE_FLAGS = {
   CUSTOMER_PORTAL: 'website.customer_portal',
   /** Enable PWA (install prompt, offline, push-ready). */
   PWA: 'website.pwa',
+  /** Enable the configurable Homepage Builder. */
+  HOMEPAGE_BUILDER: 'website.homepage_builder',
+  /** Enable dynamic navigation (mega-menu, breadcrumbs, sticky). */
+  DYNAMIC_NAV: 'website.dynamic_nav',
+  /** Enable the search experience. */
+  SEARCH: 'website.search',
+  /** Enable the collections platform. */
+  COLLECTIONS: 'website.collections',
+  /** Enable the promotion engine (banners). */
+  PROMOTIONS: 'website.promotions',
 } as const;
 
 export type WebsiteFlagKey = typeof WEBSITE_FLAGS[keyof typeof WEBSITE_FLAGS];
