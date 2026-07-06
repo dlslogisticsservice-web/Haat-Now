@@ -2,10 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   resolvePublicRequest, resolveSite, applyBrand, resolvePage, buildSeo, applySeo, trackPageview,
 } from './runtime';
-import { BlockRenderer } from './blocks';
+import { BlockRenderer, BlockStyles } from './blocks';
 
-// Per-section responsive visibility rules — injected once into the public site.
-const RESP_CSS = `@media(min-width:1024px){.hd{display:none!important}}@media(min-width:641px) and (max-width:1023px){.ht{display:none!important}}@media(max-width:640px){.hm{display:none!important}}`;
+// Per-section responsive visibility rules + a11y (skip link, focus ring) — injected once.
+const RESP_CSS = `@media(min-width:1024px){.hd{display:none!important}}@media(min-width:641px) and (max-width:1023px){.ht{display:none!important}}@media(max-width:640px){.hm{display:none!important}}
+.hn-skip{position:absolute;left:-9999px;top:0;z-index:100;padding:10px 16px;border-radius:0 0 12px 0;background:var(--color-primary-fixed,#a3f95b);color:var(--color-on-primary-fixed,#0c2000);font-weight:800;text-decoration:none}
+.hn-skip:focus{left:0}
+#public_site :focus-visible{outline:2px solid var(--color-primary-fixed,#a3f95b);outline-offset:2px;border-radius:6px}`;
 const visClass = (v?: { desktop?: boolean; tablet?: boolean; mobile?: boolean }): string =>
   !v ? '' : [v.desktop === false ? 'hd' : '', v.tablet === false ? 'ht' : '', v.mobile === false ? 'hm' : ''].filter(Boolean).join(' ');
 
@@ -85,6 +88,8 @@ export const PublicSiteApp: React.FC = () => {
   return (
     <div id="public_site" style={bg}>
       <style>{RESP_CSS}</style>
+      <BlockStyles />
+      <a href="#site_main" className="hn-skip">Skip to content</a>
       {req.preview && (
         <div id="preview_banner" style={{ background: '#fbbf24', color: '#1a1400', textAlign: 'center', fontSize: 12, fontWeight: 800, padding: '4px 8px' }}>
           PREVIEW — showing the unpublished draft. Publish in the Website Center to go live.
@@ -110,7 +115,7 @@ export const PublicSiteApp: React.FC = () => {
       </header>
 
       {/* Main content */}
-      <main id="site_main">
+      <main id="site_main" tabIndex={-1} aria-label="Main content" style={{ outline: 'none' }}>
         {resolved.notFound && (
           <section style={{ maxWidth: 760, margin: '0 auto', padding: '80px 20px', textAlign: 'center' }}>
             <h1 style={{ fontSize: 40, fontWeight: 800 }}>404</h1>

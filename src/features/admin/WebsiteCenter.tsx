@@ -10,7 +10,7 @@ import { BlockRenderer } from '../website/blocks';
 
 type Section = 'settings' | 'nav' | 'footer' | 'pages' | 'blog' | 'seo' | 'domain' | 'history';
 const BLOCK_TYPES: WebsiteBlockType[] = ['hero', 'features', 'cards', 'stats', 'testimonials', 'partners', 'gallery', 'app_download', 'faq', 'contact', 'cta', 'richtext'];
-const BLOCK_LABEL: Record<WebsiteBlockType, string> = { hero: 'Hero', features: 'Features', cards: 'Cards', stats: 'Statistics', testimonials: 'Testimonials', partners: 'Partners', gallery: 'Gallery', app_download: 'App Download', faq: 'FAQ', contact: 'Contact', cta: 'CTA', richtext: 'Rich text' };
+const BLOCK_LABEL: Record<WebsiteBlockType, string> = { hero: 'Hero', features: 'Features', cards: 'Cards', stats: 'Statistics', testimonials: 'Testimonials', partners: 'Partners', gallery: 'Gallery', app_download: 'App Download', faq: 'FAQ', contact: 'Contact', cta: 'CTA', richtext: 'Rich text', categories: 'Categories', merchants: 'Merchants', deals: 'Deals', steps: 'Steps' };
 // Reusable section templates — insert a pre-built set of sections (composed from the same block types).
 const SECTION_TEMPLATES: { key: string; label: string; make: () => WebsiteBlockType[] }[] = [
   { key: 'saas', label: 'SaaS landing', make: () => ['hero', 'features', 'stats', 'testimonials', 'cta'] },

@@ -90,7 +90,14 @@ export function buildSeo(site: WebsiteSite, opts: { seo?: WebsiteSeo; title?: st
   const ogImage = s.ogImage || opts.brand?.social_banner_url || opts.brand?.logo_url || d.ogImage || '';
   return {
     title, description, ogImage, canonical, noindex: !!s.noindex,
-    jsonLd: { '@context': 'https://schema.org', '@type': 'Organization', name: site.siteName, url: origin, logo: opts.brand?.logo_url || undefined },
+    // Organization + WebSite (with SearchAction) so search engines surface a sitelinks search box.
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        { '@type': 'Organization', name: site.siteName, url: origin, logo: opts.brand?.logo_url || undefined },
+        { '@type': 'WebSite', name: site.siteName, url: origin, potentialAction: { '@type': 'SearchAction', target: `${origin}/restaurants?q={search_term_string}`, 'query-input': 'required name=search_term_string' } },
+      ],
+    },
   };
 }
 
