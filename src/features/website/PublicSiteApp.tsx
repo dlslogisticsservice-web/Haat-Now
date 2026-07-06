@@ -3,6 +3,26 @@ import {
   resolvePublicRequest, resolveSite, applyBrand, resolvePage, buildSeo, applySeo, trackPageview,
 } from './runtime';
 import { BlockRenderer, BlockStyles } from './blocks';
+import { loadLiveCommerce, type LiveCommerce } from './commerce';
+import type { WebsiteBlock } from '../../services/website.service';
+
+/** Replace merchants/deals blocks with LIVE catalog data (reused services), rotating the
+ *  live merchant list across sections so themed rails stay distinct. Curated content is kept
+ *  whenever live data is empty (sandbox / no catalog) — the established graceful fallback. */
+function hydrateSections(sections: WebsiteBlock[], live: LiveCommerce): WebsiteBlock[] {
+  if (live.merchants.length === 0 && live.deals.length === 0) return sections;
+  let merchantBlock = 0;
+  return sections.map(b => {
+    if (b.type === 'merchants' && live.merchants.length > 0) {
+      const size = b.layout === 'rail' ? 10 : 12;
+      const start = (merchantBlock++ * 4) % live.merchants.length;
+      const items = Array.from({ length: Math.min(size, live.merchants.length) }, (_v, i) => live.merchants[(start + i) % live.merchants.length]);
+      return { ...b, items };
+    }
+    if (b.type === 'deals' && live.deals.length > 0) return { ...b, items: live.deals };
+    return b;
+  });
+}
 
 // Per-section responsive visibility rules + a11y (skip link, focus ring) — injected once.
 const RESP_CSS = `@media(min-width:1024px){.hd{display:none!important}}@media(min-width:641px) and (max-width:1023px){.ht{display:none!important}}@media(max-width:640px){.hm{display:none!important}}
@@ -50,6 +70,18 @@ export const PublicSiteApp: React.FC = () => {
   }, []);
 
   const resolved = site ? resolvePage(site, path) : { notFound: true as const };
+
+  // Live commerce: hydrate discovery blocks from the reused catalog services. Scoped to the
+  // flagship HaaT site (homeService.getFeed lists all branches, not tenant-scoped), and only
+  // applied when the live catalog returns data — otherwise curated content stays.
+  const [live, setLive] = useState<LiveCommerce | null>(null);
+  const isFlagshipSite = !!site && (/haat/i.test(site.slug) || /haat\s*now/i.test(site.siteName));
+  useEffect(() => {
+    if (!isFlagshipSite || live) return;
+    let active = true;
+    loadLiveCommerce().then(r => { if (active && (r.merchants.length > 0 || r.deals.length > 0)) setLive(r); }).catch(() => { /* keep curated */ });
+    return () => { active = false; };
+  }, [isFlagshipSite, live]);
 
   // SEO + analytics runtime per page.
   useEffect(() => {
@@ -150,7 +182,7 @@ export const PublicSiteApp: React.FC = () => {
         )}
 
         {resolved.page && resolved.page.kind !== 'blog_index' && (
-          <div>{resolved.page.sections.filter(s => s.enabled !== false).map((b, i) => (
+          <div>{(live ? hydrateSections(resolved.page.sections, live) : resolved.page.sections).filter(s => s.enabled !== false).map((b, i) => (
             <div key={i} className={visClass(b.visibility)}><BlockRenderer block={b} onNav={navigate} /></div>
           ))}</div>
         )}

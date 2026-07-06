@@ -59,7 +59,9 @@ export * from './seo/seo';
 export * from './ordering/ordering';
 export * from './conversion/deeplink';
 export * from './conversion/conversion';
+export * from './conversion/handoff';
 export * from './analytics/analytics';
+export * from './analytics/funnel';
 export * from './haat-site/site-definition';
 
 // Growth, experimentation, marketing, portal, realtime, PWA (Wave 3)

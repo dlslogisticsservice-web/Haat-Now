@@ -26,6 +26,20 @@ export interface ConversionTargeting {
   devices?: DeviceClass[];
   platforms?: Platform[];
   visitor?: VisitorType[];
+  // ── Decision-engine audience signals (Launch Sprint 2, Part 6). All optional and
+  // additive: an unset field never narrows the audience, so existing rules are unchanged.
+  loyaltyTiers?: string[];        // e.g. ['gold','platinum'] — matches runtime.loyaltyTier
+  minClv?: number;                // customer lifetime value ≥ (audience: high-value customers)
+  minVisitCount?: number;         // returning depth ≥
+  referrers?: string[];           // referral source (domain or code)
+  utmSources?: string[];
+  utmMediums?: string[];
+  utmCampaigns?: string[];
+  merchants?: string[];           // scope to specific merchant/branch ids
+  categories?: string[];          // scope to specific category ids
+  cities?: string[];              // geo (city/zone)
+  daysOfWeek?: number[];          // 0=Sun..6=Sat
+  hourRange?: { start: number; end: number }; // 0..23 inclusive; wraps when start > end
 }
 
 export type TriggerType =
@@ -132,6 +146,18 @@ export interface ConversionRuntime {
   visitCount?: number;
   campaignSource?: string;
   exitIntent?: boolean;
+  // ── Decision-engine runtime signals (Launch Sprint 2, Part 6) ──
+  loyaltyTier?: string;
+  clv?: number;                 // customer lifetime value
+  referrer?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  merchantId?: string;
+  categoryId?: string;
+  city?: string;
+  dayOfWeek?: number;           // 0=Sun..6=Sat
+  hourOfDay?: number;           // 0..23 (local)
 }
 
 export interface ConversionSession {
@@ -148,13 +174,42 @@ export function emptySession(): ConversionSession {
 function inList<T>(value: T, list: T[] | undefined): boolean {
   return !list || list.length === 0 || list.includes(value);
 }
+/** Numeric floor: an unset threshold always passes; otherwise value (default 0) must be ≥ min. */
+function atLeast(value: number | undefined, min: number | undefined): boolean {
+  return min === undefined || (value ?? 0) >= min;
+}
+/** Hour-of-day window (inclusive), wrapping across midnight when start > end. */
+function hourMatch(hour: number | undefined, range: { start: number; end: number } | undefined): boolean {
+  if (!range) return true;
+  if (hour === undefined) return false;
+  return range.start <= range.end ? hour >= range.start && hour <= range.end : hour >= range.start || hour <= range.end;
+}
 
 export function matchTargeting(t: ConversionTargeting, r: ConversionRuntime): boolean {
   return inList(r.country, t.countries)
     && inList(r.language, t.languages)
     && inList(r.device, t.devices)
     && inList(r.platform, t.platforms)
-    && inList(r.visitor, t.visitor);
+    && inList(r.visitor, t.visitor)
+    // Decision-engine signals (Part 6) — each is a no-op unless the rule configures it.
+    && inList(r.loyaltyTier, t.loyaltyTiers)
+    && atLeast(r.clv, t.minClv)
+    && atLeast(r.visitCount, t.minVisitCount)
+    && inList(r.referrer, t.referrers)
+    && inList(r.utmSource, t.utmSources)
+    && inList(r.utmMedium, t.utmMediums)
+    && inList(r.utmCampaign, t.utmCampaigns)
+    && inList(r.merchantId, t.merchants)
+    && inList(r.categoryId, t.categories)
+    && inList(r.city, t.cities)
+    && (!t.daysOfWeek || t.daysOfWeek.length === 0 || (r.dayOfWeek !== undefined && t.daysOfWeek.includes(r.dayOfWeek)))
+    && hourMatch(r.hourOfDay, t.hourRange);
+}
+
+/** Build a decision-engine runtime from the browser context (URL params, session, profile).
+ *  Pure + isomorphic — callers pass raw values; nothing here reads globals. */
+export function buildRuntimeSignals(base: ConversionRuntime, extra: Partial<ConversionRuntime> = {}): ConversionRuntime {
+  return { ...base, ...extra };
 }
 
 export function matchTrigger(trigger: ConversionTrigger, r: ConversionRuntime): boolean {
