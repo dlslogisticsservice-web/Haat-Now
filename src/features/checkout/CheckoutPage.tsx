@@ -5,7 +5,7 @@ import { orderService } from '../../services/order.service';
 import { adminService } from '../../services/admin.service';
 import { paymentOrchestrator } from '../../services/payment-orchestrator.service';
 import { sandboxStore } from '../../services/sandboxStore';
-import { DEFAULT_DELIVERY_FEE } from '../../config/fees';
+import { DEFAULT_DELIVERY_FEE, DEFAULT_SERVICE_FEE } from '../../config/fees';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useTranslation } from 'react-i18next';
 import { getCategoryThumb } from '../../utils/categoryImages';
@@ -86,7 +86,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const orderIdemRef = useRef<string>(''); // Phase 9 · P0-3 idempotency key (per checkout attempt)
 
   const [deliveryFee, setDeliveryFee] = useState(DEFAULT_DELIVERY_FEE);
-  const luxuryFee    = 5.00;
+  const luxuryFee    = DEFAULT_SERVICE_FEE;
 
   // EF2-14: Poll payment-verify every 5s (max 12 attempts).
   // Called after the payment tab is opened. Reads coupon from sessionStorage to

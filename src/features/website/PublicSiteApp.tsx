@@ -4,6 +4,7 @@ import {
 } from './runtime';
 import { BlockRenderer, BlockStyles } from './blocks';
 import { loadLiveCommerce, type LiveCommerce } from './commerce';
+import { WebsiteCommerce } from './WebsiteCommerce';
 import type { WebsiteBlock } from '../../services/website.service';
 
 /** Replace merchants/deals blocks with LIVE catalog data (reused services), rotating the
@@ -69,7 +70,13 @@ export const PublicSiteApp: React.FC = () => {
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  const resolved = site ? resolvePage(site, path) : { notFound: true as const };
+  // Split any query off the path (client nav can carry ?id=/?b= inside the path state).
+  const qi = path.indexOf('?');
+  const basePath = qi >= 0 ? path.slice(0, qi) : path;
+  const commerceSearch = qi >= 0 ? path.slice(qi) : '';
+  const isCommerce = ['/menu', '/cart', '/checkout', '/order'].some(p => basePath === p || basePath.startsWith(p + '/'));
+
+  const resolved = site ? resolvePage(site, basePath) : { notFound: true as const };
 
   // Live commerce: hydrate discovery blocks from the reused catalog services. Scoped to the
   // flagship HaaT site (homeService.getFeed lists all branches, not tenant-scoped), and only
@@ -148,7 +155,10 @@ export const PublicSiteApp: React.FC = () => {
 
       {/* Main content */}
       <main id="site_main" tabIndex={-1} aria-label="Main content" style={{ outline: 'none' }}>
-        {resolved.notFound && (
+        {isCommerce && (
+          <WebsiteCommerce path={basePath} search={commerceSearch} brandName={site.siteName} onNavigate={navigate} />
+        )}
+        {!isCommerce && resolved.notFound && (
           <section style={{ maxWidth: 760, margin: '0 auto', padding: '80px 20px', textAlign: 'center' }}>
             <h1 style={{ fontSize: 40, fontWeight: 800 }}>404</h1>
             <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 8 }}>This page could not be found.</p>

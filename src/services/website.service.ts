@@ -113,7 +113,7 @@ function defaultSite(tenant: any): WebsiteSite {
       subtitle: 'Food, groceries and pharmacy from the best local spots — fast, fresh and tracked in real time.',
       search: true, searchPlaceholder: 'Search for a restaurant, dish or store', searchAction: '/restaurants',
       chips: [{ label: '🍔 Restaurants', path: '/restaurants' }, { label: '🛒 Grocery', path: '/grocery' }, { label: '💊 Pharmacy', path: '/pharmacy' }, { label: '🔥 Offers', path: '/offers' }],
-      ctas: [{ label: 'Order now', href: '/restaurants', style: 'primary' }, { label: 'Get the app', href: '/app', style: 'secondary' }] },
+      ctas: [{ label: 'Order now', href: '/menu', style: 'primary' }, { label: 'Get the app', href: '/app', style: 'secondary' }] },
     { type: 'categories', heading: 'What are you craving?', subtitle: 'Order from thousands of restaurants and stores near you', items: CATEGORY_TILES },
   ];
   if (isFlagship) {

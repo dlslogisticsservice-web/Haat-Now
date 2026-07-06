@@ -21,7 +21,7 @@ function toMerchantCard(b: BranchWithMerchant): MerchantCard {
     name: b.merchants?.business_name || b.name,
     image: b.merchants?.logo_url || undefined,
     cuisine: b.zones?.name || undefined,
-    href: `/restaurants?m=${encodeURIComponent(b.id)}`,
+    href: `/menu?b=${encodeURIComponent(b.id)}&m=${encodeURIComponent(b.merchant_id)}`,
     closed: b.is_active === false,
   };
 }

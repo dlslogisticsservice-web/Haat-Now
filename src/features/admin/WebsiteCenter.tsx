@@ -9,7 +9,7 @@ import { MediaPicker } from '../website/MediaPicker';
 import { BlockRenderer } from '../website/blocks';
 
 type Section = 'settings' | 'nav' | 'footer' | 'pages' | 'blog' | 'seo' | 'domain' | 'history';
-const BLOCK_TYPES: WebsiteBlockType[] = ['hero', 'features', 'cards', 'stats', 'testimonials', 'partners', 'gallery', 'app_download', 'faq', 'contact', 'cta', 'richtext'];
+const BLOCK_TYPES: WebsiteBlockType[] = ['hero', 'features', 'cards', 'stats', 'testimonials', 'partners', 'gallery', 'app_download', 'faq', 'contact', 'cta', 'richtext', 'categories', 'merchants', 'deals', 'steps'];
 const BLOCK_LABEL: Record<WebsiteBlockType, string> = { hero: 'Hero', features: 'Features', cards: 'Cards', stats: 'Statistics', testimonials: 'Testimonials', partners: 'Partners', gallery: 'Gallery', app_download: 'App Download', faq: 'FAQ', contact: 'Contact', cta: 'CTA', richtext: 'Rich text', categories: 'Categories', merchants: 'Merchants', deals: 'Deals', steps: 'Steps' };
 // Reusable section templates — insert a pre-built set of sections (composed from the same block types).
 const SECTION_TEMPLATES: { key: string; label: string; make: () => WebsiteBlockType[] }[] = [
@@ -413,6 +413,10 @@ function newBlock(t: WebsiteBlockType): WebsiteBlock {
     case 'faq': return { type: 'faq', heading: 'FAQ', items: [{ q: 'Question?', a: 'Answer.' }] };
     case 'contact': return { type: 'contact', heading: 'Contact', email: '' };
     case 'cta': return { type: 'cta', title: 'Call to action', button: { label: 'Get started', href: '/contact' } };
+    case 'categories': return { type: 'categories', heading: 'Categories', subtitle: '', items: [{ label: 'Restaurants', emoji: '🍔', href: '/restaurants' }, { label: 'Grocery', emoji: '🛒', href: '/grocery' }] };
+    case 'merchants': return { type: 'merchants', heading: 'Featured', subtitle: '', layout: 'rail', items: [{ name: 'Merchant', emoji: '🍴', cuisine: 'Cuisine', rating: 4.7, eta: '25–35 min', fee: 'Free delivery', href: '/menu' }] };
+    case 'deals': return { type: 'deals', heading: 'Deals', subtitle: '', items: [{ title: 'Offer', merchant: 'Merchant', emoji: '🎁', discount: '-20%', href: '/offers' }] };
+    case 'steps': return { type: 'steps', heading: 'How it works', subtitle: '', items: [{ title: 'Step', body: 'Description', icon: '①' }] };
     default: return { type: 'richtext', heading: '', body: '' };
   }
 }
@@ -561,6 +565,69 @@ const BlockEditor: React.FC<{ block: WebsiteBlock; onChange: (b: WebsiteBlock) =
       <Field label={L('العنوان', 'Heading')} value={block.heading || ''} onChange={v => onChange({ ...block, heading: v })} />
       <Field label={L('النص', 'Body')} value={block.body} onChange={v => onChange({ ...block, body: v })} textarea />
     </div>);
+    case 'categories': {
+      const items = block.items; const setItems = (it: any[]) => onChange({ ...block, items: it } as any);
+      return (<div className="space-y-2">
+        <Field label={L('العنوان', 'Heading')} value={block.heading || ''} onChange={v => onChange({ ...block, heading: v } as any)} />
+        <Field label={L('العنوان الفرعي', 'Subtitle')} value={block.subtitle || ''} onChange={v => onChange({ ...block, subtitle: v } as any)} />
+        {items.map((it, i) => (
+          <div key={i} className="grid grid-cols-[auto_1fr_1fr_auto] gap-2 items-end">
+            <Field label={L('رمز', 'Emoji')} value={it.emoji || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, emoji: v } : x))} />
+            <Field label={L('التسمية', 'Label')} value={it.label} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, label: v } : x))} />
+            <Field label={L('رابط', 'Href')} value={it.href} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, href: v } : x))} />
+            <ItemDel onClick={() => setItems(items.filter((_, j) => j !== i))} />
+          </div>
+        ))}
+        <Btn onClick={() => setItems([...items, { label: 'Category', emoji: '🍽️', href: '/' }])}><Plus size={13} />{L('فئة', 'Category')}</Btn>
+      </div>);
+    }
+    case 'steps': {
+      const items = block.items; const setItems = (it: any[]) => onChange({ ...block, items: it } as any);
+      return (<div className="space-y-2">
+        <Field label={L('العنوان', 'Heading')} value={block.heading || ''} onChange={v => onChange({ ...block, heading: v } as any)} />
+        <Field label={L('العنوان الفرعي', 'Subtitle')} value={block.subtitle || ''} onChange={v => onChange({ ...block, subtitle: v } as any)} />
+        {items.map((it, i) => (
+          <div key={i} style={{ ...card, padding: 10 }} className="space-y-1.5">
+            <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-end"><Field label={L('رمز', 'Icon')} value={it.icon || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, icon: v } : x))} /><Field label={L('العنوان', 'Title')} value={it.title} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, title: v } : x))} /><ItemDel onClick={() => setItems(items.filter((_, j) => j !== i))} /></div>
+            <Field label={L('الوصف', 'Body')} value={it.body} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, body: v } : x))} />
+          </div>
+        ))}
+        <Btn onClick={() => setItems([...items, { title: 'Step', body: 'Description', icon: '①' }])}><Plus size={13} />{L('خطوة', 'Step')}</Btn>
+      </div>);
+    }
+    case 'deals': {
+      const items = block.items; const setItems = (it: any[]) => onChange({ ...block, items: it } as any);
+      return (<div className="space-y-2">
+        <Field label={L('العنوان', 'Heading')} value={block.heading || ''} onChange={v => onChange({ ...block, heading: v } as any)} />
+        <Field label={L('العنوان الفرعي', 'Subtitle')} value={block.subtitle || ''} onChange={v => onChange({ ...block, subtitle: v } as any)} />
+        {items.map((it, i) => (
+          <div key={i} style={{ ...card, padding: 10 }} className="space-y-1.5">
+            <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-end"><Field label={L('رمز', 'Emoji')} value={it.emoji || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, emoji: v } : x))} /><Field label={L('العنوان', 'Title')} value={it.title} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, title: v } : x))} /><ItemDel onClick={() => setItems(items.filter((_, j) => j !== i))} /></div>
+            <div className="grid grid-cols-2 gap-2"><Field label={L('المتجر', 'Merchant')} value={it.merchant || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, merchant: v } : x))} /><Field label={L('الخصم', 'Discount')} value={it.discount || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, discount: v } : x))} /></div>
+            <div className="grid grid-cols-2 gap-2"><Field label={L('الكود', 'Code')} value={it.code || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, code: v } : x))} /><Field label={L('رابط', 'Href')} value={it.href || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, href: v } : x))} /></div>
+          </div>
+        ))}
+        <Btn onClick={() => setItems([...items, { title: 'Offer', merchant: '', emoji: '🎁', discount: '-20%', href: '/offers' }])}><Plus size={13} />{L('عرض', 'Deal')}</Btn>
+      </div>);
+    }
+    case 'merchants': {
+      const items = block.items; const setItems = (it: any[]) => onChange({ ...block, items: it } as any);
+      return (<div className="space-y-2">
+        <Field label={L('العنوان', 'Heading')} value={block.heading || ''} onChange={v => onChange({ ...block, heading: v } as any)} />
+        <Field label={L('العنوان الفرعي', 'Subtitle')} value={block.subtitle || ''} onChange={v => onChange({ ...block, subtitle: v } as any)} />
+        <label className="block"><span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('التخطيط', 'Layout')}</span>
+          <select value={block.layout || 'grid'} onChange={e => onChange({ ...block, layout: e.target.value as any })} style={{ ...inputStyle, marginTop: 4 }}><option value="grid">{L('شبكة', 'Grid')}</option><option value="rail">{L('شريط', 'Rail')}</option></select></label>
+        {items.map((it, i) => (
+          <div key={i} style={{ ...card, padding: 10 }} className="space-y-1.5">
+            <div className="grid grid-cols-[auto_1fr_auto] gap-2 items-end"><Field label={L('رمز', 'Emoji')} value={it.emoji || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, emoji: v } : x))} /><Field label={L('الاسم', 'Name')} value={it.name} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, name: v } : x))} /><ItemDel onClick={() => setItems(items.filter((_, j) => j !== i))} /></div>
+            <div className="grid grid-cols-2 gap-2"><Field label={L('المطبخ', 'Cuisine')} value={it.cuisine || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, cuisine: v } : x))} /><Field label={L('التقييم', 'Rating')} value={String(it.rating ?? '')} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, rating: Number(v) || undefined } : x))} /></div>
+            <div className="grid grid-cols-2 gap-2"><Field label={L('الوقت', 'ETA')} value={it.eta || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, eta: v } : x))} /><Field label={L('الرسوم', 'Fee')} value={it.fee || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, fee: v } : x))} /></div>
+            <div className="grid grid-cols-2 gap-2"><Field label={L('عرض', 'Promo')} value={it.promo || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, promo: v } : x))} /><Field label={L('رابط', 'Href')} value={it.href || ''} onChange={v => setItems(items.map((x, j) => j === i ? { ...x, href: v } : x))} /></div>
+          </div>
+        ))}
+        <Btn onClick={() => setItems([...items, { name: 'Merchant', emoji: '🍴', cuisine: '', rating: 4.5, eta: '25–35 min', fee: 'Free delivery', href: '/menu' }])}><Plus size={13} />{L('متجر', 'Merchant')}</Btn>
+      </div>);
+    }
     default: return null;
   }
 };

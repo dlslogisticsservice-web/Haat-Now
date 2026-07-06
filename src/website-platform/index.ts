@@ -80,6 +80,8 @@ export * from './search/search';
 export * from './collections/collections';
 export * from './promotions/promotions';
 export * from './invoices/invoice';
+export * from './finance/pricing';
+export * from './finance/receipt';
 
 // API contracts (no endpoints in Wave 0)
 export * from './api/contracts';
