@@ -63,3 +63,29 @@ handlers, GraphQL server. These land in later waves behind the flags this wave e
 - Files created / modified, migrations, flags, repositories, events, contracts, tests, coverage,
   risk, rollback → see this file's companion sections in the commit body and
   `MIGRATION_GUIDE.md` (migration risk + rollback).
+
+---
+
+## 7. Wave 1 — Persistence Engine (additive on this foundation)
+Wave 1 makes the platform **data-driven** without touching Wave 0's frozen architecture (it reuses
+the Repository contract, the generic Supabase/in-memory backends, the event bus interface, and the
+`website_*` schema). Added:
+- **21 repository targets** (17 aggregates via a DRY `defineAggregate` factory + 8 child collections),
+  Supabase + in-memory, with optimistic locking / soft delete / pagination / filtering.
+- **12 services** (generic `AggregateService` + named), repository-only, with automatic audit +
+  validation + events + transactions.
+- **Unit of Work** (saga: rollback / savepoints / recovery), **transactional outbox** (durable
+  events: replay/retry/idempotency/DLQ), **audit trail** (who/when/before/after/correlation/tenant/
+  env), **snapshot storage** (draft+published, hash/checksum/version), **Supabase Storage gateway**
+  (tenant-namespaced), **observability** (logging/tracing/metrics/health/repo-diagnostics), and
+  **background-worker infrastructure** (queue/registry/runner — no domain logic).
+- **DB runtime migration** `20260705000200`: outbox/audit/snapshot/jobs tables, RPCs, views, a
+  materialized view, and indexes.
+- **68 tests** (91% line coverage; the remainder is Supabase-backed code that requires a live DB) +
+  a **benchmark harness** (`BENCHMARK_REPORT.md`).
+- One backward-compatible core edit: `src/lib/supabase.ts` guarded with `import.meta.env &&` so the
+  module is import-safe under Node (tests/bench) while preserving Vite's build-time `define`
+  (browser behavior unchanged; E2E 24/24).
+
+Full detail: `PERSISTENCE_ENGINE.md`, `SERVICE_LAYER.md`, `UNIT_OF_WORK.md`, `OUTBOX_PATTERN.md`,
+`AUDIT_TRAIL.md`, `SNAPSHOT_STORAGE.md`, `BENCHMARK_REPORT.md`, `DATABASE_REFERENCE.md`.

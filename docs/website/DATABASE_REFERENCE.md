@@ -69,3 +69,30 @@ for shared marketplace items; `website_component_library` is a global read-only 
 ## Public read model
 Visitors never read these tables directly. The (future) edge Rendering Engine uses the service role
 to read `website_published_pages` (published version only), scoped to the resolved tenant/host.
+
+---
+
+## Wave 1 — Persistence Runtime (`20260705000200_website_persistence_runtime.sql`)
+
+Additive/idempotent runtime tables + procedures used by the Persistence Engine.
+
+| Table | Purpose | Key constraints / indexes |
+|---|---|---|
+| `website_event_outbox` | transactional outbox (durable events) | `unique(idempotency_key)`; status CHECK; idx `(status, created_at)` |
+| `website_audit_log` | who/when/before/after/correlation/tenant/env | idx `(entity_type, entity_id)`, `(correlation_id)`, `(tenant_id)` |
+| `website_snapshots` | draft+published snapshots (hash/checksum/version) | `unique(site_id, kind, version)`; kind CHECK; idx lookup |
+| `website_jobs` | background job queue (infrastructure only) | kind/status CHECK; idx `(kind, status, run_after)` |
+
+**RPCs (SECURITY DEFINER, anon/PUBLIC execute revoked):**
+- `website_next_publish_version(site) → int` — monotonic published version.
+- `website_reorder_pages(tenant, site, ids[]) → int` — atomic page reorder (one txn, `website.edit` gated).
+- `website_outbox_append(tenant, type, payload, meta, idem_key) → uuid` — idempotent durable insert.
+- `website_refresh_tenant_stats()` — refresh the materialized view (concurrently, with fallback).
+
+**Views / read models:**
+- `website_published_current` (view) — latest published snapshot per site.
+- `website_site_summary` (view) — per-site page/section/block counts.
+- `website_tenant_stats` (**materialized view**, unique index on `tenant_id`) — per-tenant rollup.
+
+**RLS:** all four runtime tables enable RLS, tenant-scoped (`tenant_id = auth_tenant()`), write gated
+by `auth_has_permission('website.edit')`, no anon grants, no `using(true)`.

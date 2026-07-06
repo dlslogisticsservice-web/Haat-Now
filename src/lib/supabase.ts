@@ -1,7 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_URL : '') || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_ANON_KEY : '') || '';
+// `import.meta.env` is guarded (`env &&`) so this module is import-safe under Node/tsx
+// (where import.meta.env is undefined) — e.g. the Website Platform's node-run tests/bench.
+// The literal `import.meta.env.VITE_*` member expressions are preserved verbatim so Vite's
+// build-time `define` replacement still fires in the browser build (behavior unchanged).
+const supabaseUrl = (import.meta.env && import.meta.env.VITE_SUPABASE_URL) || (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_URL : '') || '';
+const supabaseAnonKey = (import.meta.env && import.meta.env.VITE_SUPABASE_ANON_KEY) || (typeof process !== 'undefined' ? process.env?.VITE_SUPABASE_ANON_KEY : '') || '';
 
 export const MISSING_SUPABASE_VARS: string[] = [
   ...(!supabaseUrl ? ['VITE_SUPABASE_URL'] : []),
@@ -14,7 +18,7 @@ export const MISSING_SUPABASE_VARS: string[] = [
 // any channel a no-op: zero HTTP, zero websockets, zero backend errors. Per-service sandbox
 // branches still serve real localStorage data; this is the platform-wide safety net for any
 // ungated path. The real client (and RLS) are used only outside sandbox.
-const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+const SANDBOX = (import.meta.env && import.meta.env.VITE_AUTH_MODE) === 'sandbox';
 
 function makeSandboxClient(): SupabaseClient {
   const RESOLVED = { data: [], error: null, count: 0, status: 200, statusText: 'OK' };

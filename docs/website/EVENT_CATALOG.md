@@ -60,3 +60,13 @@ interface EventBus {
 Journeys (triggers), Experiments (exposure/conversion), Analytics (rollups), Personalization
 (profile updates), Observability (health), Realtime blocks (snapshot invalidation). All subscribe to
 this catalog — the contracts are frozen now so those waves add consumers without touching producers.
+
+---
+
+## Wave 1 — Durable delivery (Outbox)
+The Wave 0 in-memory bus is superseded (interface-compatibly) by the **transactional outbox**
+(`OUTBOX_PATTERN.md`). Every published event is now persisted to `website_event_outbox` before/with
+delivery, adding: **idempotency** (dedup by `meta.idempotencyKey`), **replay** (re-deliver
+pending/failed), **retry** (attempts++), and **dead-letter** (status `dead` at 5 attempts). Producers
+still call `EventBus.publish(event)` unchanged; `PageService` emits `website.page.created` through it.
+The typed event catalog (24 events) is unchanged.

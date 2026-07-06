@@ -13,6 +13,7 @@
     "lint": "tsc --noEmit && node scripts/check-architecture.cjs",
     "check:arch": "node scripts/check-architecture.cjs",
     "test:website": "node scripts/test-website.cjs",
+    "bench:website": "tsx src/website-platform/__bench__/bench.ts",
     "gen:icons": "node scripts/gen-icons.cjs && node scripts/gen-android-icons.cjs",
     "gen:store": "node scripts/gen-store-assets.cjs"
   },

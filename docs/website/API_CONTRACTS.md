@@ -57,3 +57,12 @@ per-endpoint afterthought.
 - Write scopes require the corresponding `website.*` permission (`auth_has_permission`).
 - Public/headless read is served from the published snapshot via the edge, never from these
   authenticated write routes.
+
+---
+
+## Wave 1 — Persistence backing (still contracts only)
+The route contracts are unchanged, but their **persistence** now exists: each route maps to a
+service (`SERVICE_LAYER.md`) over a repository (`PERSISTENCE_ENGINE.md`). Request bodies remain the
+domain DTOs (`CreateSiteDto`, etc.); `PATCH` carries `expectedVersion` for optimistic concurrency
+(→ `409 optimistic_lock`). Endpoint handlers are still **not** implemented (a later wave) — Wave 1
+delivers the data layer they will call, not the HTTP surface.
