@@ -10,6 +10,9 @@ import type { UUID, ISODateTime, Result } from '../shared/types';
 import { ok, err, isOk } from '../shared/types';
 import { errors } from '../shared/errors';
 import type { JsonObject } from '../domain/entities';
+import type { CollectionRepository } from '../repositories/collection';
+import { createCollection } from '../repositories/collection';
+import type { RepositoryBackend } from '../repositories/registry';
 
 export type WorkerKind = 'publishing' | 'seo' | 'media' | 'notifications' | 'cleanup';
 export const WORKER_KINDS: ReadonlyArray<WorkerKind> = ['publishing', 'seo', 'media', 'notifications', 'cleanup'];
@@ -88,6 +91,57 @@ export class MemoryJobQueue implements JobQueue {
     const all = Array.from(this.jobs.values()).filter(j => !kind || j.kind === kind).map(j => ({ ...j }));
     return ok(all);
   }
+}
+
+type JobRow = Job & Record<string, unknown>;
+
+/** Durable job queue backed by the generic collection (website_jobs). Same interface as
+ *  MemoryJobQueue; used by the platform context (memory or Supabase). Claim is a
+ *  find-then-mark (non-atomic) — a SECURITY DEFINER claim RPC replaces it under load. */
+export class CollectionJobQueue implements JobQueue {
+  constructor(
+    private readonly col: CollectionRepository<JobRow>,
+    private readonly clock: () => ISODateTime = () => new Date().toISOString(),
+    private readonly idgen: () => UUID = () => crypto.randomUUID(),
+  ) {}
+
+  async enqueue(input: EnqueueInput): Promise<Result<Job>> {
+    const now = this.clock();
+    const job: JobRow = { id: this.idgen(), kind: input.kind, tenantId: input.tenantId, payload: input.payload, status: 'queued', attempts: 0, runAfter: input.runAfter ?? now, lastError: null, createdAt: now };
+    const r = await this.col.insert(job);
+    return isOk(r) ? ok(r.value) : err(r.error);
+  }
+  async claim(kind: WorkerKind, now: ISODateTime): Promise<Result<Job | null>> {
+    const found = await this.col.find({ kind, status: 'queued' });
+    if (!isOk(found)) return err(found.error);
+    const next = found.value.find(j => j.runAfter <= now);
+    if (!next) return ok(null);
+    const claimed: JobRow = { ...next, status: 'running', attempts: next.attempts + 1 };
+    const up = await this.col.upsert(claimed, ['id']);
+    return isOk(up) ? ok(up.value) : err(up.error);
+  }
+  async complete(jobId: UUID): Promise<Result<true>> {
+    const found = await this.col.findOne({ id: jobId });
+    if (!isOk(found)) return err(found.error);
+    if (!found.value) return err(errors.notFound('Job', jobId));
+    const up = await this.col.upsert({ ...found.value, status: 'done' }, ['id']);
+    return isOk(up) ? ok(true) : err(up.error);
+  }
+  async fail(jobId: UUID, error: string): Promise<Result<true>> {
+    const found = await this.col.findOne({ id: jobId });
+    if (!isOk(found)) return err(found.error);
+    if (!found.value) return err(errors.notFound('Job', jobId));
+    const status: JobStatus = found.value.attempts >= MAX_JOB_ATTEMPTS ? 'dead' : 'queued';
+    const up = await this.col.upsert({ ...found.value, status, lastError: error }, ['id']);
+    return isOk(up) ? ok(true) : err(up.error);
+  }
+  async list(kind?: WorkerKind): Promise<Result<Job[]>> {
+    return kind ? this.col.find({ kind }) : this.col.find();
+  }
+}
+
+export function createJobQueue(backend: RepositoryBackend): JobQueue {
+  return new CollectionJobQueue(createCollection<JobRow>(backend, 'website_jobs'));
 }
 
 /** A handler processes one job of a kind. Registered by later waves (execution). */

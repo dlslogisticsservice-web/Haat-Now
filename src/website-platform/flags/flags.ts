@@ -23,6 +23,16 @@ export const WEBSITE_FLAGS = {
   LOCALIZATION: 'website.localization',
   /** Enable the compatibility adapter that bridges legacy ↔ platform. */
   COMPAT_ADAPTER: 'website.compat_adapter',
+  /** Enable the Publishing Engine (compile → snapshot → publish/rollback). */
+  PUBLISHING_ENGINE: 'website.publishing_engine',
+  /** Serve the platform-rendered public site (edge/static render from snapshot). */
+  RENDER_PUBLIC: 'website.render_public',
+  /** Enable ordering directly from the website (reuses the app backend). */
+  WEBSITE_ORDERING: 'website.ordering',
+  /** Enable the App Conversion Engine (install prompts, deferred deep linking). */
+  CONVERSION_ENGINE: 'website.conversion_engine',
+  /** Enable website analytics ingestion. */
+  ANALYTICS: 'website.analytics',
 } as const;
 
 export type WebsiteFlagKey = typeof WEBSITE_FLAGS[keyof typeof WEBSITE_FLAGS];

@@ -20,6 +20,8 @@ import type { StorageGateway } from '../storage/storage';
 import { createStorageGateway } from '../storage/storage';
 import type { UnitOfWork } from '../persistence/unit-of-work';
 import { SagaUnitOfWork } from '../persistence/unit-of-work';
+import type { JobQueue } from '../workers/workers';
+import { createJobQueue } from '../workers/workers';
 import type { Environment } from '../flags/flags';
 
 /** Per-operation caller context (who + correlation). */
@@ -37,6 +39,7 @@ export interface PlatformContext {
   snapshots: SnapshotStore;
   storage: StorageGateway;
   uow: UnitOfWork;
+  jobs: JobQueue;
   environment: Environment;
   clock: () => string;
   idgen: () => UUID;
@@ -60,6 +63,7 @@ export function createPlatformContext(opts: PlatformContextOptions): PlatformCon
     snapshots: createSnapshotStore(backend),
     storage: createStorageGateway(backend),
     uow: new SagaUnitOfWork(),
+    jobs: createJobQueue(backend),
     environment: opts.environment ?? 'sandbox',
     clock: opts.clock ?? (() => new Date().toISOString()),
     idgen: opts.idgen ?? (() => crypto.randomUUID()),

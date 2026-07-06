@@ -49,8 +49,18 @@ export * from './workers/workers';
 export * from './services/context';
 export * from './services/services';
 
-// Publishing contracts (interfaces only in Wave 0)
+// Publishing contracts (Wave 0) + engine (Wave 2)
 export * from './publishing/contracts';
+export * from './publishing/engine';
+
+// Rendering, SEO, ordering, conversion, analytics, official site (Wave 2)
+export * from './rendering/renderer';
+export * from './seo/seo';
+export * from './ordering/ordering';
+export * from './conversion/deeplink';
+export * from './conversion/conversion';
+export * from './analytics/analytics';
+export * from './haat-site/site-definition';
 
 // API contracts (no endpoints in Wave 0)
 export * from './api/contracts';
