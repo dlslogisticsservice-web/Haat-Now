@@ -62,6 +62,15 @@ export * from './conversion/conversion';
 export * from './analytics/analytics';
 export * from './haat-site/site-definition';
 
+// Growth, experimentation, marketing, portal, realtime, PWA (Wave 3)
+export * from './growth/campaign';
+export * from './growth/experiments';
+export * from './growth/checkout-migration';
+export * from './marketing/marketing';
+export * from './portal/portal';
+export * from './realtime/realtime';
+export * from './pwa/pwa';
+
 // API contracts (no endpoints in Wave 0)
 export * from './api/contracts';
 

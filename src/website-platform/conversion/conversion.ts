@@ -178,15 +178,18 @@ export function triggersMatch(rule: ConversionRule, r: ConversionRuntime): boole
     : rule.triggers.every(t => matchTrigger(t, r));
 }
 
-export function frequencyAllows(rule: ConversionRule, session: ConversionSession, now: number): boolean {
-  if (session.dismissed.includes(rule.id)) return false;
-  const hist = session.shown[rule.id];
-  const f = rule.frequency;
+/** Frequency gate for any id+frequency (reused by the Growth Engine — no duplicate logic). */
+export function frequencyAllowsFor(id: UUID, f: ConversionFrequency, session: ConversionSession, now: number): boolean {
+  if (session.dismissed.includes(id)) return false;
+  const hist = session.shown[id];
   if (!hist) return true;
   if (f.showOnce) return false;
   if (f.maxPerSession !== undefined && hist.count >= f.maxPerSession) return false;
   if (f.cooldownSeconds !== undefined && now - hist.lastAt < f.cooldownSeconds * 1000) return false;
   return true;
+}
+export function frequencyAllows(rule: ConversionRule, session: ConversionSession, now: number): boolean {
+  return frequencyAllowsFor(rule.id, rule.frequency, session, now);
 }
 
 export interface ConversionMatch {

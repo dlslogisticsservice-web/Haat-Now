@@ -33,6 +33,20 @@ export const WEBSITE_FLAGS = {
   CONVERSION_ENGINE: 'website.conversion_engine',
   /** Enable website analytics ingestion. */
   ANALYTICS: 'website.analytics',
+  /** Enable the premium public website frontend (site shell mount). */
+  SITE_FRONTEND: 'website.site_frontend',
+  /** Enable the App Growth Engine (multi-campaign install prompts). */
+  GROWTH_ENGINE: 'website.growth_engine',
+  /** Enable the Smart Checkout Migration offer. */
+  CHECKOUT_MIGRATION: 'website.checkout_migration',
+  /** Enable A/B experimentation on growth campaigns. */
+  EXPERIMENTS: 'website.experiments',
+  /** Enable the marketing pages platform. */
+  MARKETING: 'website.marketing',
+  /** Enable the customer portal (wallet/loyalty/orders/favorites/notifications). */
+  CUSTOMER_PORTAL: 'website.customer_portal',
+  /** Enable PWA (install prompt, offline, push-ready). */
+  PWA: 'website.pwa',
 } as const;
 
 export type WebsiteFlagKey = typeof WEBSITE_FLAGS[keyof typeof WEBSITE_FLAGS];
