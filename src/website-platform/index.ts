@@ -82,6 +82,7 @@ export * from './promotions/promotions';
 export * from './invoices/invoice';
 export * from './finance/pricing';
 export * from './finance/receipt';
+export * from './finance/cod';
 
 // API contracts (no endpoints in Wave 0)
 export * from './api/contracts';

@@ -124,7 +124,7 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
   const [couponPct, setCouponPct] = useState(0);
   const [couponMsg, setCouponMsg] = useState('');
   const [tipPct, setTipPct] = useState(0);
-  const [pay, setPay] = useState<'cash' | 'wallet' | 'card'>('cash');
+  const [pay, setPay] = useState<'cod' | 'wallet' | 'card'>('cod');
   const [placing, setPlacing] = useState(false);
   const [err, setErr] = useState('');
 
@@ -192,12 +192,16 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
         <section style={card}>
           <p style={{ fontWeight: 800, margin: '0 0 10px' }}>Payment</p>
           <div style={{ display: 'grid', gap: 8 }}>
-            {(['cash', 'wallet', 'card'] as const).map(m => (
-              <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: 'var(--color-on-surface, #e8ebe3)' }}>
-                <input type="radio" name="pay" checked={pay === m} onChange={() => setPay(m)} /> {m === 'cash' ? 'Cash on delivery' : m === 'wallet' ? 'Wallet' : 'Card'}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', color: 'var(--color-on-surface, #e8ebe3)' }}>
+              <input id="pay_cod" type="radio" name="pay" checked={pay === 'cod'} onChange={() => setPay('cod')} /> 💵 Cash on Delivery (COD)
+            </label>
+            {(['card', 'wallet'] as const).map(m => (
+              <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, color: muted, opacity: 0.55 }}>
+                <input type="radio" name="pay" disabled /> {m === 'card' ? 'Card' : 'Wallet'} <span style={{ fontSize: 11 }}>· coming soon</span>
               </label>
             ))}
           </div>
+          <p style={{ color: muted, fontSize: 12, marginTop: 8 }}>Pay with cash when your order arrives — no card or account needed.</p>
         </section>
 
         <BreakdownCard bd={bd} />

@@ -10,6 +10,7 @@
 import { cartService } from '../../services/cart.service';
 import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
+import { paymentOrchestrator } from '../../services/payment-orchestrator.service';
 import { cxService } from '../../services/cx.service';
 import { productService } from '../../services/product.service';
 import { sandboxStore } from '../../services/sandboxStore';
@@ -115,6 +116,8 @@ export interface PlacedOrder { orderId: string }
 
 export async function placeWebsiteOrder(input: PlaceOrderInput): Promise<{ data: PlacedOrder | null; error: string | null }> {
   const items = input.lines.map(l => ({ name: l.name, qty: l.quantity, price: l.price }));
+  // COD (cash on delivery) — the production launch method: create the order via the existing
+  // order engine, then record a COD attempt on the single payment pipeline. No gateway/secret.
   if (SANDBOX) {
     const order = sandboxStore.createOrder({
       customer_id: input.customerId, customer_name: input.customerName,
@@ -122,6 +125,7 @@ export async function placeWebsiteOrder(input: PlaceOrderInput): Promise<{ data:
       total_amount: input.breakdown.total, delivery_fee: input.breakdown.deliveryFee,
       items,
     });
+    await paymentOrchestrator.recordCod({ orderId: order.id, customerId: input.customerId, amount: input.breakdown.total, currency: input.breakdown.currency });
     clearWebsiteCart();
     return { data: { orderId: order.id }, error: null };
   }
@@ -135,6 +139,7 @@ export async function placeWebsiteOrder(input: PlaceOrderInput): Promise<{ data:
     { addressId: input.addressId ?? null, deliveryFee: input.breakdown.deliveryFee },
   );
   if (error || !data) return { data: null, error: 'Order failed' };
+  await paymentOrchestrator.recordCod({ orderId: data.id, customerId: input.customerId, amount: input.breakdown.total, currency: input.breakdown.currency });
   clearWebsiteCart();
   return { data: { orderId: data.id }, error: null };
 }

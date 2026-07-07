@@ -13,8 +13,27 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { supabase } from '../lib/supabase';
 import { authService } from './auth.service';
+import { buildCodRecord, COD_PROVIDER } from '../website-platform/finance/cod';
 
 export const paymentOrchestrator = {
+  /**
+   * Cash-on-Delivery — a FIRST-CLASS method on the single payment pipeline. COD needs no
+   * gateway and no secret: it records a COD attempt in the same `payment_attempts` ledger
+   * (idempotent per order) and labels the order `payment_method='cod'`. Cash is reconciled to
+   * paid at delivery. Reuses the pure COD model (website-platform/finance/cod) — no duplication.
+   */
+  async recordCod(req: { orderId: string; customerId: string; amount: number; currency: string }): Promise<{ ok: boolean; data: any }> {
+    const rec = buildCodRecord(req.orderId, req.customerId, req.amount, req.currency);
+    if (!supabase) return { ok: true, data: { ...rec, simulated: true } };
+    const { error } = await supabase.from('payment_attempts').insert({
+      order_id: rec.orderId, customer_id: rec.customerId, provider: COD_PROVIDER,
+      amount: rec.amount, status: 'pending', idempotency_key: rec.idempotencyKey,
+    } as any);
+    // Additive label so reporting/receipts show COD (column added by the COD migration).
+    await supabase.from('orders').update({ payment_method: COD_PROVIDER } as any).eq('id', rec.orderId);
+    return { ok: true, data: { ...rec, recorded: !error } };
+  },
+
   /**
    * Gateway initiation — the single client entry for hosted-gateway checkout. Routes
    * through the SECURE server-side `payment-initiate` edge function (gateway secrets stay
@@ -54,10 +73,11 @@ export const paymentOrchestrator = {
     return { stuck: data || [], error };
   },
 
-  /** Transaction history for an order or a customer. */
+  /** Transaction history for an order or a customer (reads the live `payment_attempts`
+   *  ledger where both gateway and COD attempts are recorded). */
   async history(filter: { orderId?: string; customerId?: string }): Promise<{ data: any[]; error: any }> {
     if (!supabase) return { data: [], error: null };
-    let q = supabase.from('payment_transactions').select('*').order('created_at', { ascending: false });
+    let q = supabase.from('payment_attempts').select('*').order('created_at', { ascending: false });
     if (filter.orderId) q = q.eq('order_id', filter.orderId);
     if (filter.customerId) q = q.eq('customer_id', filter.customerId);
     const { data, error } = await q;
