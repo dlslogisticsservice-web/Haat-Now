@@ -12,6 +12,8 @@
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit && node scripts/check-architecture.cjs",
     "check:arch": "node scripts/check-architecture.cjs",
+    "check:env": "node scripts/check-env.cjs",
+    "preflight": "npm run lint && npm run test:website && npm run build",
     "test:website": "node scripts/test-website.cjs",
     "bench:website": "tsx src/website-platform/__bench__/bench.ts",
     "gen:icons": "node scripts/gen-icons.cjs && node scripts/gen-android-icons.cjs",

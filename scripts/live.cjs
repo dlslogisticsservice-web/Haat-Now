@@ -18,6 +18,11 @@ function run(cmd, args) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
+// Advisory environment validation — surfaces missing LIVE client env (Supabase URL/key)
+// early. Non-fatal on purpose: CI compiles the live bundle without secrets, and the deploy
+// host injects real env. A production deploy should gate on `npm run check:env` (exit code).
+spawnSync('node', ['scripts/check-env.cjs'], { stdio: 'inherit', env, shell: process.platform === 'win32' });
+
 if (mode === 'dev') {
   run('vite', ['--port=3000', '--host=0.0.0.0']);
 } else {
