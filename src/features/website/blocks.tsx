@@ -282,6 +282,17 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
         </section>
       );
     }
+    case 'waitlist':
+      return (
+        <section style={{ padding: '44px 0' }}>
+          <div style={{ ...sectionWrap, maxWidth: 640, textAlign: 'center' }}>
+            {block.badge && <div style={{ marginBottom: 12 }}><span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 800, background: 'color-mix(in srgb, var(--color-primary-fixed, #a3f95b) 18%, transparent)', color: 'var(--color-primary-fixed, #a3f95b)' }}>{block.badge}</span></div>}
+            {block.heading && <h2 style={{ ...hStyle, textAlign: 'center' }}>{block.heading}</h2>}
+            {block.subtitle && <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 8, fontSize: 15 }}>{block.subtitle}</p>}
+            <Waitlist placeholder={block.placeholder} cta={block.cta} note={block.note} />
+          </div>
+        </section>
+      );
     case 'steps':
       return (
         <section style={{ padding: '44px 0' }}>
@@ -311,6 +322,42 @@ const SectionHead: React.FC<{ heading: string; subtitle?: string; center?: boole
     {subtitle && <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 6, fontSize: 15 }}>{subtitle}</p>}
   </div>
 );
+
+/** Pre-launch waitlist / Notify-me. Client-only: stores the email locally and confirms.
+ *  No backend — an operator exports haat_waitlist_emails, or wires a form endpoint later. */
+const Waitlist: React.FC<{ placeholder?: string; cta?: string; note?: string }> = ({ placeholder, cta, note }) => {
+  const [email, setEmail] = React.useState('');
+  const [done, setDone] = React.useState(false);
+  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim());
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!valid) return;
+    try {
+      const key = 'haat_waitlist_emails';
+      const list: string[] = JSON.parse(localStorage.getItem(key) || '[]');
+      if (!list.includes(email.trim().toLowerCase())) list.push(email.trim().toLowerCase());
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch { /* private mode — still confirm */ }
+    setDone(true);
+  };
+  if (done) return (
+    <div role="status" style={{ marginTop: 22, padding: 18, borderRadius: 'var(--card-radius, 16px)', background: 'color-mix(in srgb, var(--color-primary-fixed, #a3f95b) 12%, transparent)', border: '1px solid var(--color-outline-variant, #2a3330)' }}>
+      <p style={{ fontWeight: 800, color: 'var(--color-on-surface, #e8ebe3)', margin: 0 }}>You're on the list 🎉</p>
+      <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', fontSize: 14, margin: '6px 0 0' }}>We'll email you the moment HaaT Now goes live in your city.</p>
+    </div>
+  );
+  return (
+    <form onSubmit={submit} style={{ marginTop: 22 }}>
+      <div style={{ display: 'flex', gap: 8, maxWidth: 460, margin: '0 auto', background: 'var(--color-surface-container, #10160f)', border: '1px solid var(--color-outline-variant, #2a3330)', borderRadius: 'var(--button-radius, 14px)', padding: 6 }}>
+        <input type="email" required value={email} onChange={e => setEmail(e.target.value)} aria-label="Email address"
+          placeholder={placeholder || 'you@email.com'}
+          style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: 'var(--color-on-surface, #e8ebe3)', fontSize: 15, padding: '10px 12px' }} />
+        <button type="submit" disabled={!valid} style={{ padding: '11px 20px', borderRadius: 'var(--button-radius, 12px)', border: 'none', cursor: valid ? 'pointer' : 'not-allowed', opacity: valid ? 1 : 0.5, fontWeight: 800, background: 'var(--color-primary-fixed, #a3f95b)', color: 'var(--color-on-primary-fixed, #0c2000)' }}>{cta || 'Notify me'}</button>
+      </div>
+      {note && <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', fontSize: 12, marginTop: 10 }}>{note}</p>}
+    </form>
+  );
+};
 
 const HeroSearch: React.FC<{ placeholder?: string; action?: string; center?: boolean; onNav: (p: string) => void }> = ({ placeholder, action = '/restaurants', center, onNav }) => {
   const [q, setQ] = React.useState('');

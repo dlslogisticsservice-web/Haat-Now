@@ -24,6 +24,24 @@ const input: React.CSSProperties = { width: '100%', padding: '11px 12px', border
 const h2: React.CSSProperties = { fontSize: 22, fontWeight: 800, color: 'var(--color-on-surface, #e8ebe3)', margin: '0 0 14px' };
 const muted = 'var(--color-on-surface-variant, #a7b0a6)';
 
+// Menu item visual fallback (no photo yet): a deterministic gradient tile + a category emoji.
+// Real product photography replaces this when merchants upload it (via Website Center / catalog).
+function menuTile(seed: string): string {
+  let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
+  return `linear-gradient(135deg, hsl(${h} 55% 42%), hsl(${(h + 40) % 360} 60% 30%))`;
+}
+function menuEmoji(category?: string, name?: string): string {
+  const s = `${category || ''} ${name || ''}`.toLowerCase();
+  if (/عصير|مشروب|juice|drink|coffee|قهو|شاي|tea/.test(s)) return '🥤';
+  if (/دجاج|مندي|chicken|كبسة|rice|أرز/.test(s)) return '🍛';
+  if (/برجر|burger/.test(s)) return '🍔';
+  if (/بيتزا|pizza/.test(s)) return '🍕';
+  if (/حلو|sweet|dessert|كيك|cake/.test(s)) return '🍰';
+  if (/دواء|صيدل|pharma|medic/.test(s)) return '💊';
+  if (/خضار|بقال|grocer|market/.test(s)) return '🛒';
+  return '🍽️';
+}
+
 export interface WebsiteCommerceProps {
   path: string;
   search: string;
@@ -62,10 +80,17 @@ const MenuView: React.FC<{ search: string; onNavigate: (to: string) => void }> =
           <div style={card}><p style={{ color: muted, margin: 0 }}>This menu is served from the live catalog. Connect a live backend to populate items.</p></div>
         ) : (
           <div style={{ display: 'grid', gap: 10 }}>
-            {items.map(it => (
-              <div key={it.id} style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <div><p style={{ fontWeight: 700, margin: 0, color: 'var(--color-on-surface, #e8ebe3)' }}>{it.name}</p>{it.category && <p style={{ color: muted, fontSize: 13, margin: '2px 0 0' }}>{it.category}</p>}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {items.map((it, i) => (
+              <div key={it.id} style={{ ...card, display: 'flex', alignItems: 'center', gap: 14 }}>
+                <span aria-hidden="true" style={{ width: 56, height: 56, flexShrink: 0, borderRadius: 14, display: 'grid', placeItems: 'center', fontSize: 26, background: menuTile(it.name) }}>{menuEmoji(it.category, it.name)}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <p style={{ fontWeight: 700, margin: 0, color: 'var(--color-on-surface, #e8ebe3)' }}>{it.name}</p>
+                    {i === 0 && <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 999, background: 'color-mix(in srgb, var(--color-primary-fixed,#a3f95b) 18%, transparent)', color: 'var(--color-primary-fixed,#a3f95b)' }}>POPULAR</span>}
+                  </div>
+                  {it.category && <p style={{ color: muted, fontSize: 13, margin: '3px 0 0' }}>{it.category}</p>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
                   <span style={{ fontWeight: 800, color: 'var(--color-primary-fixed, #a3f95b)' }}>SAR {it.price.toFixed(2)}</span>
                   <button id={`add_${it.id}`} onClick={() => add(it)} style={btn()}>Add</button>
                 </div>

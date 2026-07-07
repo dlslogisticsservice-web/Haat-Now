@@ -46,6 +46,8 @@ export type WebsiteBlock = BlockBase & (
   | { type: 'merchants'; heading?: string; subtitle?: string; layout?: 'grid' | 'rail'; viewAll?: WebsiteCta; items: MerchantCard[] }
   | { type: 'deals'; heading?: string; subtitle?: string; items: DealCard[] }
   | { type: 'steps'; heading?: string; subtitle?: string; items: { title: string; body: string; icon?: string }[] }
+  // ── Pre-launch waitlist / Notify-me (client-only email capture; no backend) ──
+  | { type: 'waitlist'; heading?: string; subtitle?: string; placeholder?: string; cta?: string; note?: string; badge?: string }
 );
 export type WebsiteBlockType = WebsiteBlock['type'];
 
@@ -109,45 +111,39 @@ function defaultSite(tenant: any): WebsiteSite {
 
   // ── Homepage (premium, marketplace-grade) ──
   const homeSections: WebsiteBlock[] = [
-    { type: 'hero', layout: 'center', title: 'Everything you love, delivered in minutes',
-      subtitle: 'Food, groceries and pharmacy from the best local spots — fast, fresh and tracked in real time.',
+    { type: 'hero', layout: 'center', title: 'Your city’s food, groceries & pharmacy — delivered',
+      subtitle: 'HaaT Now is a new local delivery service launching soon. Order in a few taps, pay cash at your door, and track every delivery live.',
       search: true, searchPlaceholder: 'Search for a restaurant, dish or store', searchAction: '/restaurants',
       chips: [{ label: '🍔 Restaurants', path: '/restaurants' }, { label: '🛒 Grocery', path: '/grocery' }, { label: '💊 Pharmacy', path: '/pharmacy' }, { label: '🔥 Offers', path: '/offers' }],
-      ctas: [{ label: 'Order now', href: '/menu', style: 'primary' }, { label: 'Get the app', href: '/app', style: 'secondary' }] },
-    { type: 'categories', heading: 'What are you craving?', subtitle: 'Order from thousands of restaurants and stores near you', items: CATEGORY_TILES },
+      ctas: [{ label: 'Order now', href: '/menu', style: 'primary' }, { label: 'Join the waitlist', href: '/app', style: 'secondary' }] },
+    { type: 'features', heading: 'Why HaaT Now?', items: [
+      { title: 'Everything, one place', body: 'Restaurants, grocery and pharmacy from your neighbourhood — in a single app.', icon: '🧺' },
+      { title: 'Fair for everyone', body: 'Honest pricing for customers, fair commissions for merchants, weekly payouts for captains.', icon: '⚖️' },
+      { title: 'Pay cash, no account', body: 'Order as a guest and pay cash on delivery. Cards and wallet are coming soon.', icon: '💵' },
+      { title: 'Live, transparent tracking', body: 'Follow your order end to end — no guessing where it is.', icon: '📍' },
+    ] },
+    { type: 'categories', heading: 'What are you craving?', subtitle: 'Explore the categories launching in your city', items: CATEGORY_TILES },
   ];
   if (isFlagship) {
     homeSections.push(
-      { type: 'deals', heading: '⚡ Flash deals', subtitle: 'Limited-time offers ending soon', items: FLASH_DEALS },
-      { type: 'merchants', heading: 'Featured restaurants', subtitle: 'Hand-picked favourites in your city', layout: 'rail', viewAll: { label: 'See all', href: '/restaurants' }, items: FEATURED_RESTAURANTS },
-      { type: 'merchants', heading: 'Grocery & pharmacy', subtitle: 'Daily essentials, delivered fast', layout: 'rail', viewAll: { label: 'See all', href: '/grocery' }, items: FEATURED_STORES },
-      { type: 'merchants', heading: '🔥 Popular near you', layout: 'rail', items: POPULAR },
-      { type: 'merchants', heading: '📈 Trending this week', layout: 'rail', items: TRENDING },
-      { type: 'merchants', heading: '📍 Nearby', subtitle: 'Closest to your last location', items: NEARBY },
+      { type: 'merchants', heading: 'A preview of what’s coming', subtitle: 'Sample partners — real merchants are onboarding now for launch', layout: 'rail', viewAll: { label: 'See the lineup', href: '/restaurants' }, items: FEATURED_RESTAURANTS },
+      { type: 'merchants', heading: 'Grocery & pharmacy', subtitle: 'Preview — neighbourhood stores joining at launch', layout: 'rail', viewAll: { label: 'See the lineup', href: '/grocery' }, items: FEATURED_STORES },
+      { type: 'deals', heading: '⚡ Launch offers (preview)', subtitle: 'Example deals — your first-order offer lands when we go live', items: FLASH_DEALS },
     );
   }
   homeSections.push(
     { type: 'steps', heading: 'How it works', subtitle: 'Three taps to your door', items: [
-      { title: 'Browse & choose', body: 'Discover restaurants and stores near you, with live ratings and ETAs.', icon: '🔎' },
-      { title: 'Order & pay', body: 'Checkout securely with wallet, card, loyalty points or cash.', icon: '🛍️' },
-      { title: 'Track live', body: 'Follow your captain on the map, in real time, to your door.', icon: '🛵' },
+      { title: 'Browse & choose', body: 'Discover restaurants and stores near you, with clear ETAs and prices.', icon: '🔎' },
+      { title: 'Order & pay cash', body: 'Check out as a guest and pay cash on delivery — no account or card needed.', icon: '🛍️' },
+      { title: 'Track live', body: 'Follow your order in real time, right to your door.', icon: '🛵' },
     ] },
-    { type: 'stats', heading: 'Trusted across the region', items: [
-      { value: '2M+', label: 'Orders delivered' }, { value: '12k+', label: 'Partner merchants' },
-      { value: '25 min', label: 'Avg delivery' }, { value: '4.8★', label: 'App rating' },
-    ] },
-    { type: 'testimonials', heading: 'Loved by customers', items: [
-      { quote: 'Fastest delivery in the city. My groceries arrive before I finish my coffee.', author: 'Layla A.', role: 'Riyadh' },
-      { quote: 'The live tracking is spot on and the app is beautiful. My go-to for dinner.', author: 'Omar K.', role: 'Jeddah' },
-      { quote: 'Great offers every week and support actually helps. Highly recommend.', author: 'Sara M.', role: 'Dammam' },
-    ] },
+    { type: 'waitlist', badge: 'Launching soon', heading: 'Be among the first to order', subtitle: 'HaaT Now is launching in your city. Join the waitlist and we’ll email you the moment we go live — with a first-order offer.', placeholder: 'you@email.com', cta: 'Join the waitlist', note: 'No spam. One email when we launch.' },
     { type: 'cards', heading: 'Grow with us', items: [
-      { title: 'Become a partner →', body: 'List your restaurant or store and reach thousands of new customers.', href: '/merchants' },
+      { title: 'Become a partner →', body: 'List your restaurant or store and reach new local customers from day one.', href: '/merchants' },
       { title: 'Drive & earn →', body: 'Flexible hours and weekly payouts. Deliver on your schedule.', href: '/drivers' },
-      { title: 'Own a franchise →', body: 'Bring the platform to your city with a full launch playbook.', href: '/franchise' },
+      { title: 'Own a franchise →', body: 'Bring HaaT Now to your city with a full launch playbook.', href: '/franchise' },
     ] },
-    { type: 'app_download', heading: 'Get the app', subtitle: 'Order in one tap and track every delivery in real time.', iosUrl: '#', androidUrl: '#' },
-    { type: 'cta', title: 'Hungry yet?', subtitle: 'Your next meal is minutes away.', button: { label: 'Start an order', href: '/restaurants' } },
+    { type: 'cta', title: 'Hungry to get started?', subtitle: 'Order now, or join the waitlist for launch updates.', button: { label: 'Start an order', href: '/menu' } },
   );
 
   const home: WebsitePage = {
@@ -162,20 +158,20 @@ function defaultSite(tenant: any): WebsiteSite {
     seo: { title: `${title} — ${name}`, description: seoDesc },
     sections: [
       { type: 'hero', layout: 'left', title: heading, subtitle: sub, search: true, searchAction: path, searchPlaceholder: `Search ${title.toLowerCase()}` },
-      { type: 'merchants', heading: `All ${title.toLowerCase()}`, layout: 'grid', items },
-      { type: 'cta', title: 'Prefer the app?', subtitle: 'Get faster reordering and exclusive app-only deals.', button: { label: 'Get the app', href: '/app' } },
+      { type: 'merchants', heading: `${title} — preview lineup`, subtitle: 'Sample partners shown while real merchants onboard for launch.', layout: 'grid', items },
+      { type: 'cta', title: 'Want launch updates?', subtitle: 'Join the waitlist and we’ll tell you when HaaT Now goes live in your city.', button: { label: 'Join the waitlist', href: '/app' } },
     ],
   });
 
-  const restaurants = categoryPage('/restaurants', 'Restaurants', 'Order from the best restaurants', 'From street food to fine dining — delivered hot and fast.', [...FEATURED_RESTAURANTS, ...POPULAR], 'Browse and order from top-rated restaurants near you.');
+  const restaurants = categoryPage('/restaurants', 'Restaurants', 'Order from the best restaurants', 'From street food to fine dining — delivered hot and fast.', [...FEATURED_RESTAURANTS, ...POPULAR, ...TRENDING], 'Browse and order from top-rated restaurants near you.');
   const grocery = categoryPage('/grocery', 'Grocery', 'Groceries in minutes', 'Fresh produce and daily essentials from local markets.', FEATURED_STORES.filter(s => s.cuisine !== 'Pharmacy'), 'Order groceries online with fast delivery near you.');
   const pharmacy = categoryPage('/pharmacy', 'Pharmacy', 'Pharmacy, delivered discreetly', 'Medicines, wellness and personal care to your door.', FEATURED_STORES.filter(s => s.cuisine === 'Pharmacy').concat(NEARBY.slice(0, 2)), 'Order pharmacy and wellness essentials with fast delivery.');
   const offers: WebsitePage = { id: 'p_offers', path: '/offers', kind: 'custom', title: 'Offers', nav: true, navOrder: 2,
     seo: { title: `Offers & deals — ${name}`, description: `Today's best food, grocery and pharmacy deals on ${name}.` },
     sections: [
-      { type: 'hero', layout: 'left', title: 'Deals worth the tap', subtitle: 'Fresh discounts every day across restaurants and stores.' },
-      { type: 'deals', heading: '⚡ Flash deals', subtitle: 'Ending soon', items: FLASH_DEALS },
-      { type: 'merchants', heading: 'Offers you might like', layout: 'grid', items: TRENDING },
+      { type: 'hero', layout: 'left', title: 'Launch offers are on the way', subtitle: 'A preview of the deals coming to your city. Join the waitlist to unlock your first-order offer at launch.' },
+      { type: 'deals', heading: '⚡ Launch offers (preview)', subtitle: 'Example deals — real offers activate when we go live', items: FLASH_DEALS },
+      { type: 'waitlist', badge: 'Launching soon', heading: 'Get your first-order offer', subtitle: 'Join the waitlist and we’ll send your launch-day discount.', placeholder: 'you@email.com', cta: 'Join the waitlist', note: 'One email at launch. No spam.' },
     ] };
 
   // ── Marketing / partner pages (flagship) ──
@@ -263,15 +259,15 @@ function defaultSite(tenant: any): WebsiteSite {
       { type: 'cta', title: 'Don’t see your role?', subtitle: 'We’re always meeting great people.', button: { label: 'Send your CV', href: '/contact' } },
     ] };
 
-  const appPage: WebsitePage = { id: 'p_app', path: '/app', kind: 'custom', title: 'Get the App', nav: false, navOrder: 26,
-    seo: { title: `Get the ${name} app`, description: `Download the ${name} app to order food, groceries and pharmacy with one tap and live tracking.` },
+  const appPage: WebsitePage = { id: 'p_app', path: '/app', kind: 'custom', title: 'Join the Waitlist', nav: false, navOrder: 26,
+    seo: { title: `Join the ${name} waitlist`, description: `${name} is launching soon. Join the waitlist to be first to order and get a launch-day offer.` },
     sections: [
-      { type: 'hero', layout: 'left', title: 'Order faster with the app', subtitle: 'One-tap reordering, exclusive app-only deals and real-time tracking.' },
-      { type: 'app_download', heading: 'Download now', subtitle: 'Available on iOS and Android.', iosUrl: '#', androidUrl: '#' },
-      { type: 'features', heading: 'Why the app', items: [
-        { title: 'One-tap reorder', body: 'Your favourites, a tap away.', icon: '🔁' },
-        { title: 'App-only deals', body: 'Offers you won’t find anywhere else.', icon: '🎁' },
-        { title: 'Live tracking', body: 'Watch your captain approach in real time.', icon: '📍' },
+      { type: 'hero', layout: 'left', title: 'The HaaT Now app is on its way', subtitle: 'We’re putting the finishing touches on the iOS and Android apps. Join the waitlist and we’ll notify you the moment they’re live.' },
+      { type: 'waitlist', badge: 'Launching soon', heading: 'Get notified at launch', subtitle: 'Be first to order — and get an exclusive first-order offer.', placeholder: 'you@email.com', cta: 'Notify me', note: 'We’ll only email you about the launch.' },
+      { type: 'features', heading: 'What to expect', items: [
+        { title: 'One-tap reorder', body: 'Your favourites, a tap away — once you’ve placed your first order.', icon: '🔁' },
+        { title: 'Launch offers', body: 'Early members get first access to launch-day deals.', icon: '🎁' },
+        { title: 'Live tracking', body: 'Watch your order arrive in real time.', icon: '📍' },
       ] },
     ] };
 
@@ -281,11 +277,11 @@ function defaultSite(tenant: any): WebsiteSite {
     sections: [
       { type: 'hero', layout: 'left', title: 'About ' + name, subtitle: 'A modern delivery platform connecting customers, merchants and captains through one seamless experience.' },
       { type: 'features', heading: 'What we stand for', items: [
-        { title: 'Speed', body: 'Fast, reliable delivery is the promise we keep every day.', icon: '⚡' },
+        { title: 'Speed', body: 'Fast, reliable delivery is the promise we intend to keep every day.', icon: '⚡' },
         { title: 'Fairness', body: 'A fair deal for customers, merchants and captains alike.', icon: '⚖️' },
         { title: 'Craft', body: 'A beautiful, effortless experience end to end.', icon: '✨' },
       ] },
-      { type: 'stats', heading: 'By the numbers', items: [{ value: '2M+', label: 'Orders' }, { value: '12k+', label: 'Merchants' }, { value: '15+', label: 'Cities' }, { value: '4.8★', label: 'Rating' }] },
+      { type: 'richtext', heading: 'Where we are today', body: 'HaaT Now is pre-launch. We’re onboarding our first merchants and captains and preparing to go live city by city. We’d rather be transparent than show inflated numbers — so instead of vanity metrics, here’s our commitment: fast delivery, fair pricing and real support from day one. Want to be first? Join the waitlist.' },
     ] };
   const contact: WebsitePage = { id: 'p_contact', path: '/contact', kind: 'contact', title: 'Contact', nav: true, navOrder: 5,
     seo: { title: `Contact ${name}`, description: `Get in touch with ${name}.` },
@@ -300,7 +296,7 @@ function defaultSite(tenant: any): WebsiteSite {
     sections: [{ type: 'faq', heading: 'Frequently asked questions', items: [
       { q: 'How fast is delivery?', a: 'Most orders arrive within 30 minutes.' },
       { q: 'How do I track my order?', a: 'Open the app or your account and go to Orders to track in real time.' },
-      { q: 'What payment methods are accepted?', a: 'Wallet, cards, loyalty points and cash on delivery.' },
+      { q: 'What payment methods are accepted?', a: 'At launch, cash on delivery — no account or card needed. Cards and wallet are coming soon.' },
       { q: 'How do I contact support?', a: `Email us at ${support} or use the in-app support center.` },
     ] }] };
   const privacy: WebsitePage = { id: 'p_privacy', path: '/privacy', kind: 'legal', title: 'Privacy Policy', nav: false, navOrder: 30,

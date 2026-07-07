@@ -9,8 +9,8 @@ import { MediaPicker } from '../website/MediaPicker';
 import { BlockRenderer } from '../website/blocks';
 
 type Section = 'settings' | 'nav' | 'footer' | 'pages' | 'blog' | 'seo' | 'domain' | 'history';
-const BLOCK_TYPES: WebsiteBlockType[] = ['hero', 'features', 'cards', 'stats', 'testimonials', 'partners', 'gallery', 'app_download', 'faq', 'contact', 'cta', 'richtext', 'categories', 'merchants', 'deals', 'steps'];
-const BLOCK_LABEL: Record<WebsiteBlockType, string> = { hero: 'Hero', features: 'Features', cards: 'Cards', stats: 'Statistics', testimonials: 'Testimonials', partners: 'Partners', gallery: 'Gallery', app_download: 'App Download', faq: 'FAQ', contact: 'Contact', cta: 'CTA', richtext: 'Rich text', categories: 'Categories', merchants: 'Merchants', deals: 'Deals', steps: 'Steps' };
+const BLOCK_TYPES: WebsiteBlockType[] = ['hero', 'features', 'cards', 'stats', 'testimonials', 'partners', 'gallery', 'app_download', 'faq', 'contact', 'cta', 'richtext', 'categories', 'merchants', 'deals', 'steps', 'waitlist'];
+const BLOCK_LABEL: Record<WebsiteBlockType, string> = { hero: 'Hero', features: 'Features', cards: 'Cards', stats: 'Statistics', testimonials: 'Testimonials', partners: 'Partners', gallery: 'Gallery', app_download: 'App Download', faq: 'FAQ', contact: 'Contact', cta: 'CTA', richtext: 'Rich text', categories: 'Categories', merchants: 'Merchants', deals: 'Deals', steps: 'Steps', waitlist: 'Waitlist' };
 // Reusable section templates — insert a pre-built set of sections (composed from the same block types).
 const SECTION_TEMPLATES: { key: string; label: string; make: () => WebsiteBlockType[] }[] = [
   { key: 'saas', label: 'SaaS landing', make: () => ['hero', 'features', 'stats', 'testimonials', 'cta'] },
@@ -417,6 +417,7 @@ function newBlock(t: WebsiteBlockType): WebsiteBlock {
     case 'merchants': return { type: 'merchants', heading: 'Featured', subtitle: '', layout: 'rail', items: [{ name: 'Merchant', emoji: '🍴', cuisine: 'Cuisine', rating: 4.7, eta: '25–35 min', fee: 'Free delivery', href: '/menu' }] };
     case 'deals': return { type: 'deals', heading: 'Deals', subtitle: '', items: [{ title: 'Offer', merchant: 'Merchant', emoji: '🎁', discount: '-20%', href: '/offers' }] };
     case 'steps': return { type: 'steps', heading: 'How it works', subtitle: '', items: [{ title: 'Step', body: 'Description', icon: '①' }] };
+    case 'waitlist': return { type: 'waitlist', badge: 'Launching soon', heading: 'Be the first to order', subtitle: 'Join the waitlist and we’ll notify you at launch.', placeholder: 'you@email.com', cta: 'Notify me', note: 'No spam — one email when we go live.' };
     default: return { type: 'richtext', heading: '', body: '' };
   }
 }
@@ -628,6 +629,16 @@ const BlockEditor: React.FC<{ block: WebsiteBlock; onChange: (b: WebsiteBlock) =
         <Btn onClick={() => setItems([...items, { name: 'Merchant', emoji: '🍴', cuisine: '', rating: 4.5, eta: '25–35 min', fee: 'Free delivery', href: '/menu' }])}><Plus size={13} />{L('متجر', 'Merchant')}</Btn>
       </div>);
     }
+    case 'waitlist': return (<div className="space-y-2">
+      <Field label={L('شارة', 'Badge')} value={block.badge || ''} onChange={v => onChange({ ...block, badge: v })} />
+      <Field label={L('العنوان', 'Heading')} value={block.heading || ''} onChange={v => onChange({ ...block, heading: v })} />
+      <Field label={L('العنوان الفرعي', 'Subtitle')} value={block.subtitle || ''} onChange={v => onChange({ ...block, subtitle: v })} />
+      <div className="grid grid-cols-2 gap-2">
+        <Field label={L('النائب', 'Placeholder')} value={block.placeholder || ''} onChange={v => onChange({ ...block, placeholder: v })} />
+        <Field label={L('زر', 'Button')} value={block.cta || ''} onChange={v => onChange({ ...block, cta: v })} />
+      </div>
+      <Field label={L('ملاحظة', 'Note')} value={block.note || ''} onChange={v => onChange({ ...block, note: v })} />
+    </div>);
     default: return null;
   }
 };

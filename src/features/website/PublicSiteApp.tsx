@@ -159,10 +159,16 @@ export const PublicSiteApp: React.FC = () => {
           <WebsiteCommerce path={basePath} search={commerceSearch} brandName={site.siteName} onNavigate={navigate} />
         )}
         {!isCommerce && resolved.notFound && (
-          <section style={{ maxWidth: 760, margin: '0 auto', padding: '80px 20px', textAlign: 'center' }}>
-            <h1 style={{ fontSize: 40, fontWeight: 800 }}>404</h1>
-            <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 8 }}>This page could not be found.</p>
-            <a href="/" onClick={e => { e.preventDefault(); navigate('/'); }} style={{ color: 'var(--color-primary-fixed, #a3f95b)', marginTop: 16, display: 'inline-block' }}>← Back home</a>
+          <section style={{ maxWidth: 640, margin: '0 auto', padding: '96px 20px', textAlign: 'center' }}>
+            <div aria-hidden="true" style={{ fontSize: 56, lineHeight: 1 }}>🧭</div>
+            <h1 style={{ fontSize: 'clamp(30px,5vw,44px)', fontWeight: 800, marginTop: 12 }}>This page took a wrong turn</h1>
+            <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 10, fontSize: 16 }}>We couldn’t find what you were looking for on {site.siteName}. Try one of these:</p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 22 }}>
+              {[{ l: 'Home', p: '/' }, { l: 'Restaurants', p: '/restaurants' }, { l: 'Offers', p: '/offers' }, { l: 'Join the waitlist', p: '/app' }].map(x => (
+                <a key={x.p} href={x.p} onClick={e => { e.preventDefault(); navigate(x.p); }}
+                  style={{ padding: '10px 18px', borderRadius: 'var(--button-radius,12px)', fontWeight: 700, textDecoration: 'none', background: x.p === '/' ? 'var(--color-primary-fixed,#a3f95b)' : 'transparent', color: x.p === '/' ? 'var(--color-on-primary-fixed,#0c2000)' : 'var(--color-on-surface,#e8ebe3)', border: x.p === '/' ? 'none' : '1px solid var(--color-outline-variant,#2a3330)' }}>{x.l}</a>
+              ))}
+            </div>
           </section>
         )}
 
