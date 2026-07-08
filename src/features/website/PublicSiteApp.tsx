@@ -103,7 +103,7 @@ export const PublicSiteApp: React.FC = () => {
   const bg: React.CSSProperties = { minHeight: '100vh', background: 'var(--color-background, #0a0f0c)', color: 'var(--color-on-surface, #e8ebe3)', fontFamily: 'var(--font-family, Cairo, system-ui, sans-serif)' };
 
   if (!site) return (
-    <div id="public_site_notfound" style={{ ...bg, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 24 }}>
+    <div id="public_site_notfound" dir="ltr" style={{ ...bg, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 24 }}>
       <div>
         <h1 style={{ fontSize: 28, fontWeight: 800 }}>Site not found</h1>
         <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 8 }}>No website is published for this address.</p>
@@ -113,7 +113,7 @@ export const PublicSiteApp: React.FC = () => {
 
   // Tenant runtime — website status + maintenance mode.
   if (site.status !== 'published' || site.maintenance) return (
-    <div id="public_site_maintenance" style={{ ...bg, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 24 }}>
+    <div id="public_site_maintenance" dir="ltr" style={{ ...bg, display: 'grid', placeItems: 'center', textAlign: 'center', padding: 24 }}>
       <div>
         {tenant?.logo_url ? <img src={tenant.logo_url} alt="" style={{ height: 40, marginBottom: 16 }} /> : null}
         <h1 style={{ fontSize: 30, fontWeight: 800 }}>{site.siteName}</h1>
@@ -125,7 +125,10 @@ export const PublicSiteApp: React.FC = () => {
   );
 
   return (
-    <div id="public_site" style={bg}>
+    // The public marketing site content is authored in English (LTR). Force LTR so it
+    // renders correctly regardless of the Arabic-first app shell (index.html dir="rtl") —
+    // otherwise neutral punctuation (?, →) and text alignment reorder incorrectly.
+    <div id="public_site" dir="ltr" style={bg}>
       <style>{RESP_CSS}</style>
       <BlockStyles />
       <a href="#site_main" className="hn-skip">Skip to content</a>

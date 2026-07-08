@@ -143,6 +143,7 @@ function defaultSite(tenant: any): WebsiteSite {
       { title: 'Drive & earn →', body: 'Flexible hours and weekly payouts. Deliver on your schedule.', href: '/drivers' },
       { title: 'Own a franchise →', body: 'Bring HaaT Now to your city with a full launch playbook.', href: '/franchise' },
     ] },
+    { type: 'app_download', heading: 'The HaaT Now app is coming', subtitle: 'One-tap reordering, live tracking and launch-day offers — landing on iOS and Android soon. Join the waitlist to be first.' },
     { type: 'cta', title: 'Hungry to get started?', subtitle: 'Order now, or join the waitlist for launch updates.', button: { label: 'Start an order', href: '/menu' } },
   );
 
