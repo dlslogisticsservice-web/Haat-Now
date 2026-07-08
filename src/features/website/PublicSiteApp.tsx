@@ -27,8 +27,8 @@ function hydrateSections(sections: WebsiteBlock[], live: LiveCommerce): WebsiteB
 
 // Per-section responsive visibility rules + a11y (skip link, focus ring) — injected once.
 const RESP_CSS = `@media(min-width:1024px){.hd{display:none!important}}@media(min-width:641px) and (max-width:1023px){.ht{display:none!important}}@media(max-width:640px){.hm{display:none!important}}
-.hn-skip{position:absolute;left:-9999px;top:0;z-index:100;padding:10px 16px;border-radius:0 0 12px 0;background:var(--color-primary-fixed,#a3f95b);color:var(--color-on-primary-fixed,#0c2000);font-weight:800;text-decoration:none}
-.hn-skip:focus{left:0}
+.hn-skip{position:fixed;left:8px;top:8px;z-index:100;padding:10px 16px;border-radius:12px;background:var(--color-primary-fixed,#a3f95b);color:var(--color-on-primary-fixed,#0c2000);font-weight:800;text-decoration:none;transform:translateY(-150%);transition:transform .15s ease}
+.hn-skip:focus{transform:translateY(0)}
 #public_site :focus-visible{outline:2px solid var(--color-primary-fixed,#a3f95b);outline-offset:2px;border-radius:6px}`;
 const visClass = (v?: { desktop?: boolean; tablet?: boolean; mobile?: boolean }): string =>
   !v ? '' : [v.desktop === false ? 'hd' : '', v.tablet === false ? 'ht' : '', v.mobile === false ? 'hm' : ''].filter(Boolean).join(' ');
