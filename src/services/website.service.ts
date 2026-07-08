@@ -281,7 +281,8 @@ function defaultSite(tenant: any): WebsiteSite {
         { title: 'Fairness', body: 'A fair deal for customers, merchants and captains alike.', icon: '⚖️' },
         { title: 'Craft', body: 'A beautiful, effortless experience end to end.', icon: '✨' },
       ] },
-      { type: 'richtext', heading: 'Where we are today', body: 'HaaT Now is pre-launch. We’re onboarding our first merchants and captains and preparing to go live city by city. We’d rather be transparent than show inflated numbers — so instead of vanity metrics, here’s our commitment: fast delivery, fair pricing and real support from day one. Want to be first? Join the waitlist.' },
+      { type: 'richtext', heading: 'Where we are today', body: 'HaaT Now is pre-launch. We’re onboarding our first merchants and captains and preparing to go live city by city. We’d rather be transparent than show inflated numbers — so instead of vanity metrics, here’s our commitment: fast delivery, fair pricing and real support from day one.' },
+      { type: 'cta', title: 'Want to be first?', subtitle: 'Join the waitlist and we’ll tell you when we launch in your city.', button: { label: 'Join the waitlist', href: '/app' } },
     ] };
   const contact: WebsitePage = { id: 'p_contact', path: '/contact', kind: 'contact', title: 'Contact', nav: true, navOrder: 5,
     seo: { title: `Contact ${name}`, description: `Get in touch with ${name}.` },
@@ -293,18 +294,30 @@ function defaultSite(tenant: any): WebsiteSite {
     seo: { title: `${name} Blog`, description: `News and updates from ${name}.` }, sections: [] };
   const help: WebsitePage = { id: 'p_help', path: '/help', kind: 'help_index', title: 'Help', nav: true, navOrder: 6,
     seo: { title: `${name} Help Center`, description: `Answers and support for ${name}.` },
-    sections: [{ type: 'faq', heading: 'Frequently asked questions', items: [
-      { q: 'How fast is delivery?', a: 'Most orders arrive within 30 minutes.' },
-      { q: 'How do I track my order?', a: 'Open the app or your account and go to Orders to track in real time.' },
-      { q: 'What payment methods are accepted?', a: 'At launch, cash on delivery — no account or card needed. Cards and wallet are coming soon.' },
-      { q: 'How do I contact support?', a: `Email us at ${support} or use the in-app support center.` },
-    ] }] };
+    sections: [
+      { type: 'hero', layout: 'left', title: 'Help Center', subtitle: `Answers to common questions — and how to reach the ${name} team.` },
+      { type: 'faq', heading: 'Frequently asked questions', items: [
+        { q: 'How fast is delivery?', a: 'Most orders arrive within 30 minutes.' },
+        { q: 'How do I track my order?', a: 'Open your account and go to Orders to track in real time.' },
+        { q: 'What payment methods are accepted?', a: 'At launch, cash on delivery — no account or card needed. Cards and wallet are coming soon.' },
+        { q: 'How do I contact support?', a: `Email us at ${support} or open a support request from your account.` },
+      ] },
+      { type: 'cta', title: 'Still need help?', subtitle: 'Our team is happy to assist.', button: { label: 'Contact us', href: '/contact' } },
+    ] };
   const privacy: WebsitePage = { id: 'p_privacy', path: '/privacy', kind: 'legal', title: 'Privacy Policy', nav: false, navOrder: 30,
     seo: { title: `Privacy Policy — ${name}`, noindex: false },
-    sections: [{ type: 'richtext', heading: 'Privacy Policy', body: `${name} respects your privacy. We collect only the data needed to provide the service, protect it with industry-standard security, and never sell it. You can request access or deletion of your data at any time by contacting ${support}.` }] };
+    sections: [
+      { type: 'hero', layout: 'left', title: 'Privacy Policy', subtitle: 'How we collect, use and protect your data.' },
+      { type: 'richtext', body: `${name} respects your privacy. We collect only the data needed to provide the service, protect it with industry-standard security, and never sell it. You can request access or deletion of your data at any time by contacting ${support}.` },
+      { type: 'cta', title: 'Questions about your data?', subtitle: 'We’re here to help.', button: { label: 'Contact us', href: '/contact' } },
+    ] };
   const terms: WebsitePage = { id: 'p_terms', path: '/terms', kind: 'legal', title: 'Terms of Service', nav: false, navOrder: 31,
     seo: { title: `Terms of Service — ${name}` },
-    sections: [{ type: 'richtext', heading: 'Terms of Service', body: `By using ${name} you agree to these terms. Orders are subject to merchant availability and delivery-area coverage. Prices, fees and offers may change. For the full agreement or any questions, contact ${support}.` }] };
+    sections: [
+      { type: 'hero', layout: 'left', title: 'Terms of Service', subtitle: `The terms that apply when you use ${name}.` },
+      { type: 'richtext', body: `By using ${name} you agree to these terms. Orders are subject to merchant availability and delivery-area coverage. Prices, fees and offers may change. For the full agreement or any questions, contact ${support}.` },
+      { type: 'cta', title: 'Questions about these terms?', subtitle: 'Get in touch any time.', button: { label: 'Contact us', href: '/contact' } },
+    ] };
 
   // Extra custom pages declared by the template's cms_structure (reuse the manifest structure).
   const known = new Set(['home', 'about', 'contact', 'blog', 'help', 'privacy', 'terms', 'menu', 'offers', 'restaurants', 'grocery', 'pharmacy', 'merchants', 'drivers', 'franchise', 'business', 'enterprise', 'careers', 'app']);
