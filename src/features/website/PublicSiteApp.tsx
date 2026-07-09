@@ -5,7 +5,7 @@ import {
 import { BlockRenderer, BlockStyles } from './blocks';
 import { loadLiveCommerce, type LiveCommerce } from './commerce';
 import { WebsiteCommerce } from './WebsiteCommerce';
-import type { WebsiteBlock } from '../../services/website.service';
+import type { WebsiteBlock, WebsiteSite } from '../../services/website.service';
 
 /** Replace merchants/deals blocks with LIVE catalog data (reused services), rotating the
  *  live merchant list across sections so themed rails stay distinct. Curated content is kept
@@ -32,6 +32,21 @@ const RESP_CSS = `@media(min-width:1024px){.hd{display:none!important}}@media(mi
 #public_site :focus-visible{outline:2px solid var(--color-primary-fixed,#a3f95b);outline-offset:2px;border-radius:6px}`;
 const visClass = (v?: { desktop?: boolean; tablet?: boolean; mobile?: boolean }): string =>
   !v ? '' : [v.desktop === false ? 'hd' : '', v.tablet === false ? 'ht' : '', v.mobile === false ? 'hm' : ''].filter(Boolean).join(' ');
+
+/** Visible breadcrumb trail: Home → …page titles… (→ leaf) resolved from the site's pages. */
+function buildCrumbs(site: WebsiteSite, path: string, leaf?: string): { name: string; path: string }[] {
+  const clean = (path.split('?')[0] || '/').replace(/\/+$/, '') || '/';
+  const crumbs: { name: string; path: string }[] = [{ name: 'Home', path: '/' }];
+  const segs = clean.split('/').filter(Boolean);
+  let acc = '';
+  for (const s of segs) {
+    acc += `/${s}`;
+    const page = site.pages.find(p => p.path.replace(/\/+$/, '') === acc);
+    crumbs.push({ name: page?.title || s.charAt(0).toUpperCase() + s.slice(1).replace(/-/g, ' '), path: acc });
+  }
+  if (leaf) crumbs.push({ name: leaf, path: clean });
+  return crumbs;
+}
 
 /**
  * Public Website Runtime — renders a tenant's published website inside the existing SPA.
@@ -102,11 +117,14 @@ export const PublicSiteApp: React.FC = () => {
     return () => { active = false; };
   }, [isFlagshipSite, live]);
 
-  // SEO + analytics runtime per page.
+  // SEO + analytics runtime per page. Commerce steps aren't CMS pages, so give them descriptive titles here.
   useEffect(() => {
     if (!site) return;
     const seo = resolved.post ? resolved.post.seo : resolved.page?.seo;
-    const title = resolved.post ? resolved.post.title : resolved.page?.title;
+    const commerceTitle = isCommerce
+      ? `${basePath.startsWith('/menu') ? 'Order online' : basePath.startsWith('/cart') ? 'Your cart' : basePath.startsWith('/checkout') ? 'Checkout' : basePath.startsWith('/order') ? 'Order tracking' : 'Order'} — ${site.siteName}`
+      : undefined;
+    const title = resolved.post ? resolved.post.title : (resolved.page?.title || commerceTitle);
     applySeo(buildSeo(site, { seo, title, host: req.host, path, brand: tenant || {} }));
     trackPageview(site, path);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -173,6 +191,20 @@ export const PublicSiteApp: React.FC = () => {
 
       {/* Main content */}
       <main id="site_main" tabIndex={-1} aria-label="Main content" style={{ outline: 'none' }}>
+        {/* Breadcrumbs — visible on every sub-page (mirrors the BreadcrumbList schema; aids internal linking + orientation). */}
+        {!isCommerce && basePath !== '/' && (resolved.page || resolved.post) && (
+          <nav aria-label="Breadcrumb" style={{ maxWidth: 1120, margin: '0 auto', padding: '16px 20px 0' }}>
+            <ol style={{ display: 'flex', flexWrap: 'wrap', gap: 6, listStyle: 'none', padding: 0, margin: 0, fontSize: 13, color: 'var(--color-on-surface-variant, #a7b0a6)' }}>
+              {buildCrumbs(site, resolved.post ? '/blog' : basePath, resolved.post?.title).map((c, i, arr) => (
+                <li key={c.path} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {i < arr.length - 1
+                    ? <><a href={c.path} onClick={e => { e.preventDefault(); navigate(c.path); }} style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', textDecoration: 'none' }}>{c.name}</a><span aria-hidden="true">/</span></>
+                    : <span aria-current="page" style={{ color: 'var(--color-on-surface, #e8ebe3)', fontWeight: 600 }}>{c.name}</span>}
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
         {isCommerce && (
           <WebsiteCommerce path={basePath} search={commerceSearch} brandName={site.siteName} onNavigate={navigate} />
         )}

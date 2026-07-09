@@ -141,7 +141,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
               {block.items.map((it, i) => {
                 const inner = hasImages ? (
                   <div className="hn-media-card" style={{ ...cardStyle, padding: 0, overflow: 'hidden', height: '100%' }}>
-                    {it.image && <div style={{ overflow: 'hidden' }}><img className="hn-zoom" src={it.image} alt="" loading="lazy" style={{ width: '100%', aspectRatio: '16/10', objectFit: 'cover', display: 'block' }} /></div>}
+                    {it.image && <div style={{ overflow: 'hidden' }}><img className="hn-zoom" src={it.image} alt={it.title} loading="lazy" decoding="async" style={{ width: '100%', aspectRatio: '16/10', objectFit: 'cover', display: 'block' }} /></div>}
                     <div style={{ padding: 20 }}>
                       <h3 style={{ fontSize: 18, fontWeight: 800, color: T.on, margin: 0 }}>{it.title}</h3>
                       <p style={{ color: T.onVar, marginTop: 8, fontSize: 14.5, lineHeight: 1.6 }}>{it.body}</p>
@@ -208,7 +208,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
           <div style={sectionWrap}>
             {block.heading && <p style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.onVar, margin: 0 }}>{block.heading}</p>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center', justifyContent: 'center', marginTop: 20, opacity: 0.7 }}>
-              {block.logos.map((src, i) => <img key={i} src={src} alt="" loading="lazy" style={{ height: 30, objectFit: 'contain', filter: 'grayscale(1) brightness(1.6)' }} />)}
+              {block.logos.map((src, i) => <img key={i} src={src} alt={`Partner ${i + 1}`} loading="lazy" decoding="async" style={{ height: 30, objectFit: 'contain', filter: 'grayscale(1) brightness(1.6)' }} />)}
             </div>
           </div>
         </section>
@@ -229,7 +229,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
                   {!block.iosUrl && !block.androidUrl && <span style={{ ...storeBtn, opacity: 0.7 }}>📱 Coming soon</span>}
                 </div>
               </div>
-              {block.image && <img src={block.image} alt="" loading="lazy" style={{ position: 'relative', maxHeight: 260, borderRadius: 20 }} />}
+              {block.image && <img src={block.image} alt={block.heading} loading="lazy" decoding="async" style={{ position: 'relative', maxHeight: 260, borderRadius: 20 }} />}
             </div>
           </div>
         </section>
@@ -262,7 +262,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
           <div style={sectionWrap}>
             {block.heading && <SectionHead heading={block.heading} />}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14, marginTop: 24 }}>
-              {block.images.map((src, i) => <div key={i} style={{ overflow: 'hidden', borderRadius: T.cardR }}><img className="hn-zoom" src={src} alt="" loading="lazy" style={{ width: '100%', objectFit: 'cover', aspectRatio: '4/3', display: 'block' }} /></div>)}
+              {block.images.map((src, i) => <div key={i} style={{ overflow: 'hidden', borderRadius: T.cardR }}><img className="hn-zoom" src={src} alt={block.heading ? `${block.heading} — ${i + 1}` : `Gallery image ${i + 1}`} loading="lazy" decoding="async" style={{ width: '100%', objectFit: 'cover', aspectRatio: '4/3', display: 'block' }} /></div>)}
             </div>
           </div>
         </section>
@@ -321,7 +321,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
         <section style={{ padding: 'clamp(32px,5vw,52px) 0' }}>
           <div style={sectionWrap}>
             {block.heading && <SectionHead eyebrow="Limited time" heading={block.heading} subtitle={block.subtitle} />}
-            <div className="hn-rail" style={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(272px, 1fr)', gap: 16, marginTop: 26, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }}>
+            <div className="hn-rail" role="group" aria-label={block.heading || 'Offers'} tabIndex={0} style={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(272px, 1fr)', gap: 16, marginTop: 26, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }}>
               {block.items.map((d, i) => <DealTile key={i} d={d} onNav={onNav} />)}
             </div>
           </div>
@@ -346,7 +346,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
               action={block.viewAll && <a href={block.viewAll.href} onClick={e => { if (block.viewAll!.href.startsWith('/')) { e.preventDefault(); onNav(block.viewAll!.href); } }} className="hn-arrow" style={{ color: T.primary, fontSize: 14, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}>{block.viewAll.label} →</a>}
             />
             {useFeatured && <div style={{ marginTop: 26 }}><FeaturedMerchant m={items[0]} onNav={onNav} /></div>}
-            <div className={rail ? 'hn-rail' : undefined} style={{ ...gridStyle, marginTop: useFeatured ? 16 : 26 }}>
+            <div className={rail ? 'hn-rail' : undefined} role={rail ? 'group' : undefined} aria-label={rail ? (block.heading || 'Merchants') : undefined} tabIndex={rail ? 0 : undefined} style={{ ...gridStyle, marginTop: useFeatured ? 16 : 26 }}>
               {(useFeatured ? items.slice(1) : items).map((m, i) => <MerchantTile key={i} m={m} snap={rail} onNav={onNav} />)}
             </div>
           </div>
@@ -483,7 +483,7 @@ const MetaRow: React.FC<{ m: MerchantCard }> = ({ m }) => (
 
 const CardCover: React.FC<{ m: MerchantCard; height: number }> = ({ m, height }) => (
   <div className="hn-cover" style={{ position: 'relative', height, background: m.image ? undefined : gradientFor(m.name), display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-    {m.image && <img className="hn-zoom" src={m.image} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+    {m.image && <img className="hn-zoom" src={m.image} alt={m.name} loading="lazy" decoding="async" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
     {!m.image && <span aria-hidden="true" style={{ fontSize: 52, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,.4))' }}>{m.emoji || '🍴'}</span>}
     <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,.05) 40%, rgba(0,0,0,.4))' }} />
     {m.promo && <span style={badge('promo')}>{m.promo}</span>}
@@ -531,7 +531,7 @@ const DealTile: React.FC<{ d: DealCard; onNav: (p: string) => void }> = ({ d, on
   const inner = (
     <div className="hn-lift" style={{ ...cardStyle, padding: 0, overflow: 'hidden', scrollSnapAlign: 'start', height: '100%' }}>
       <div style={{ position: 'relative', height: 140, background: d.image ? undefined : gradientFor(d.merchant || d.title), display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-        {d.image && <img className="hn-zoom" src={d.image} alt="" loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+        {d.image && <img className="hn-zoom" src={d.image} alt={d.title} loading="lazy" decoding="async" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
         {!d.image && <span aria-hidden="true" style={{ fontSize: 48, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,.4))' }}>{d.emoji || '🎁'}</span>}
         <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,.35))' }} />
         {d.discount && <span style={badge('promo')}>{d.discount}</span>}

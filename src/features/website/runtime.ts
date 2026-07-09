@@ -96,26 +96,43 @@ export function resolvePage(site: WebsiteSite, path: string): { page?: WebsitePa
 }
 
 // ── SEO runtime ──────────────────────────────────────────────────────────────
-export interface ResolvedSeo { title: string; description: string; ogImage: string; canonical: string; noindex: boolean; jsonLd: object }
+export interface ResolvedSeo { title: string; description: string; ogImage: string; canonical: string; noindex: boolean; siteName: string; jsonLd: object }
+
+/** Breadcrumb trail from the URL path, resolving segment titles from the site's pages. */
+export function breadcrumbTrail(site: WebsiteSite, path: string, origin: string): { name: string; item: string }[] {
+  const clean = (path.split('?')[0] || '/').replace(/\/+$/, '') || '/';
+  const trail: { name: string; item: string }[] = [{ name: 'Home', item: `${origin}/` }];
+  if (clean === '/') return trail;
+  const titleFor = (p: string): string => {
+    const page = site.pages.find(x => x.path.replace(/\/+$/, '') === p);
+    if (page) return page.title;
+    const seg = p.split('/').filter(Boolean).pop() || '';
+    return seg ? seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, ' ') : 'Page';
+  };
+  const segs = clean.split('/').filter(Boolean);
+  let acc = '';
+  for (const s of segs) { acc += `/${s}`; trail.push({ name: titleFor(acc), item: `${origin}${acc}` }); }
+  return trail;
+}
 
 export function buildSeo(site: WebsiteSite, opts: { seo?: WebsiteSeo; title?: string; host: string; path: string; brand: any }): ResolvedSeo {
   const d = site.seoDefaults || {};
   const s = opts.seo || {};
-  const title = s.title || opts.title ? `${s.title || opts.title}` : (d.title || site.siteName);
+  const title = (s.title || opts.title) ? `${s.title || opts.title}` : (d.title || site.siteName);
   const description = s.description || d.description || `${site.siteName}, powered by HAAT NOW.`;
   const origin = opts.host ? `https://${opts.host}` : `https://${site.slug}.haatnow.app`;
   const canonical = s.canonical || `${origin}${opts.path === '/' ? '' : opts.path}`;
   const ogImage = s.ogImage || opts.brand?.social_banner_url || opts.brand?.logo_url || d.ogImage || '';
+  const trail = breadcrumbTrail(site, opts.path, origin);
+  const graph: object[] = [
+    { '@type': 'Organization', name: site.siteName, url: origin, logo: opts.brand?.logo_url || undefined },
+    { '@type': 'WebSite', name: site.siteName, url: origin, potentialAction: { '@type': 'SearchAction', target: `${origin}/restaurants?q={search_term_string}`, 'query-input': 'required name=search_term_string' } },
+  ];
+  // BreadcrumbList on every non-home page → richer search results + clearer site structure.
+  if (trail.length > 1) graph.push({ '@type': 'BreadcrumbList', itemListElement: trail.map((c, i) => ({ '@type': 'ListItem', position: i + 1, name: c.name, item: c.item })) });
   return {
-    title, description, ogImage, canonical, noindex: !!s.noindex,
-    // Organization + WebSite (with SearchAction) so search engines surface a sitelinks search box.
-    jsonLd: {
-      '@context': 'https://schema.org',
-      '@graph': [
-        { '@type': 'Organization', name: site.siteName, url: origin, logo: opts.brand?.logo_url || undefined },
-        { '@type': 'WebSite', name: site.siteName, url: origin, potentialAction: { '@type': 'SearchAction', target: `${origin}/restaurants?q={search_term_string}`, 'query-input': 'required name=search_term_string' } },
-      ],
-    },
+    title, description, ogImage, canonical, noindex: !!s.noindex, siteName: site.siteName,
+    jsonLd: { '@context': 'https://schema.org', '@graph': graph },
   };
 }
 
@@ -134,10 +151,13 @@ export function applySeo(seo: ResolvedSeo): void {
     set('meta[property="og:description"]', { property: 'og:description', content: seo.description });
     set('meta[property="og:type"]', { property: 'og:type', content: 'website' });
     set('meta[property="og:url"]', { property: 'og:url', content: seo.canonical });
+    set('meta[property="og:site_name"]', { property: 'og:site_name', content: seo.siteName });
+    set('meta[property="og:locale"]', { property: 'og:locale', content: 'en_US' });
     if (seo.ogImage) set('meta[property="og:image"]', { property: 'og:image', content: seo.ogImage });
     set('meta[name="twitter:card"]', { name: 'twitter:card', content: seo.ogImage ? 'summary_large_image' : 'summary' });
     set('meta[name="twitter:title"]', { name: 'twitter:title', content: seo.title });
     set('meta[name="twitter:description"]', { name: 'twitter:description', content: seo.description });
+    if (seo.ogImage) set('meta[name="twitter:image"]', { name: 'twitter:image', content: seo.ogImage });
     let canon = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (!canon) { canon = document.createElement('link'); canon.rel = 'canonical'; document.head.appendChild(canon); }
     canon.href = seo.canonical;

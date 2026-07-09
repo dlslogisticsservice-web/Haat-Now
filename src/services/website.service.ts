@@ -164,11 +164,11 @@ function defaultSite(tenant: any): WebsiteSite {
     ],
   });
 
-  const restaurants = categoryPage('/restaurants', 'Restaurants', 'Order from the best restaurants', 'From street food to fine dining — delivered hot and fast.', [...FEATURED_RESTAURANTS, ...POPULAR, ...TRENDING], 'Browse and order from top-rated restaurants near you.');
-  const grocery = categoryPage('/grocery', 'Grocery', 'Groceries in minutes', 'Fresh produce and daily essentials from local markets.', FEATURED_STORES.filter(s => s.cuisine !== 'Pharmacy'), 'Order groceries online with fast delivery near you.');
-  const pharmacy = categoryPage('/pharmacy', 'Pharmacy', 'Pharmacy, delivered discreetly', 'Medicines, wellness and personal care to your door.', FEATURED_STORES.filter(s => s.cuisine === 'Pharmacy').concat(NEARBY.slice(0, 2)), 'Order pharmacy and wellness essentials with fast delivery.');
+  const restaurants = categoryPage('/restaurants', 'Restaurants', 'Order from the best restaurants', 'From street food to fine dining — delivered hot and fast.', [...FEATURED_RESTAURANTS, ...POPULAR, ...TRENDING], `From street food to fine dining, order from top local restaurants on ${name}. Fast delivery, live tracking and cash on delivery — launching in your city.`);
+  const grocery = categoryPage('/grocery', 'Grocery', 'Groceries in minutes', 'Fresh produce and daily essentials from local markets.', FEATURED_STORES.filter(s => s.cuisine !== 'Pharmacy'), `Fresh produce and daily essentials from neighbourhood markets, delivered by ${name}. Order groceries online with live tracking and cash on delivery.`);
+  const pharmacy = categoryPage('/pharmacy', 'Pharmacy', 'Pharmacy, delivered discreetly', 'Medicines, wellness and personal care to your door.', FEATURED_STORES.filter(s => s.cuisine === 'Pharmacy').concat(NEARBY.slice(0, 2)), `Medicines, wellness and personal care delivered discreetly by ${name}. Order from local pharmacies with live tracking and cash on delivery.`);
   const offers: WebsitePage = { id: 'p_offers', path: '/offers', kind: 'custom', title: 'Offers', nav: true, navOrder: 2,
-    seo: { title: `Offers & deals — ${name}`, description: `Today's best food, grocery and pharmacy deals on ${name}.` },
+    seo: { title: `Offers & deals — ${name}`, description: `Discover ${name}'s best food, grocery and pharmacy offers. Join the waitlist to unlock your first-order launch deal in your city.` },
     sections: [
       { type: 'hero', layout: 'left', title: 'Launch offers are on the way', subtitle: 'A preview of the deals coming to your city. Join the waitlist to unlock your first-order offer at launch.' },
       { type: 'deals', heading: '⚡ Launch offers (preview)', subtitle: 'Example deals — real offers activate when we go live', items: FLASH_DEALS },
@@ -286,15 +286,15 @@ function defaultSite(tenant: any): WebsiteSite {
       { type: 'cta', title: 'Want to be first?', subtitle: 'Join the waitlist and we’ll tell you when we launch in your city.', button: { label: 'Join the waitlist', href: '/waitlist' } },
     ] };
   const contact: WebsitePage = { id: 'p_contact', path: '/contact', kind: 'contact', title: 'Contact', nav: true, navOrder: 5,
-    seo: { title: `Contact ${name}`, description: `Get in touch with ${name}.` },
+    seo: { title: `Contact ${name}`, description: `Get in touch with the ${name} team for help with orders, partnerships, press or support — we're here for you every day.` },
     sections: [
       { type: 'hero', layout: 'left', title: 'Get in touch', subtitle: 'We’re here to help — reach out any time.' },
       { type: 'contact', heading: 'Contact us', email: support, phone, address: '' },
     ] };
   const blog: WebsitePage = { id: 'p_blog', path: '/blog', kind: 'blog_index', title: 'Blog', nav: true, navOrder: 4,
-    seo: { title: `${name} Blog`, description: `News and updates from ${name}.` }, sections: [] };
+    seo: { title: `${name} Blog`, description: `News, product updates and delivery tips from ${name} — food, grocery and pharmacy delivery for your city.` }, sections: [] };
   const help: WebsitePage = { id: 'p_help', path: '/help', kind: 'help_index', title: 'Help', nav: true, navOrder: 6,
-    seo: { title: `${name} Help Center`, description: `Answers and support for ${name}.` },
+    seo: { title: `${name} Help Center`, description: `Find answers about ordering, delivery, tracking, payments and support on ${name} — and how to reach our team any time.` },
     sections: [
       { type: 'hero', layout: 'left', title: 'Help Center', subtitle: `Answers to common questions — and how to reach the ${name} team.` },
       { type: 'faq', heading: 'Frequently asked questions', items: [
@@ -359,7 +359,7 @@ function defaultSite(tenant: any): WebsiteSite {
     },
     pages: allPages,
     blog: posts,
-    seoDefaults: { title: name, description: `${name} — fast food, grocery and pharmacy delivery.` },
+    seoDefaults: { title: name, description: `${name} — order food, groceries and pharmacy from top local merchants. Fast delivery, live tracking and cash on delivery, launching in your city.` },
     analytics: {}, cookie: { enabled: true, policyPath: '/privacy' },
     domain: `${slug}.haatnow.app`, sslStatus: 'active',
     updatedAt: now(),
