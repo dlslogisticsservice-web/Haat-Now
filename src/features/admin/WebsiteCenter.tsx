@@ -1,18 +1,19 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Globe, Eye, UploadCloud, RotateCcw, Plus, Trash2, ChevronUp, ChevronDown, History as HistoryIcon, Copy,
   GripVertical, Power, Monitor, Tablet, Smartphone, ImageIcon, Pencil, Undo2, Redo2, Check,
-  Palette, Megaphone, Search as SearchIcon, FileText, PanelBottom, Navigation2, RotateCw, Settings2,
+  Palette, FileText, PanelBottom, Navigation2, RotateCw, Settings2,
   Wand2, MousePointerClick,
 } from 'lucide-react';
 import { SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseUI';
 import { toast } from '../../components/ui/feedback';
 import { tenantService } from '../../services/tenant.service';
-import { platformService } from '../../platform/platform.service';
 import { websiteService, type WebsiteSite, type WebsitePage, type WebsiteBlock, type WebsiteBlockType, type WebsiteCta, type BlogPost } from '../../services/website.service';
-import { MediaPicker } from '../website/MediaPicker';
 import { BlockRenderer } from '../website/blocks';
 import { assetsService, BRAND_SLOTS, type AssetItem } from '../../experience/assets.service';
+import { card, inputStyle, iconBtn, swap, Field, Toggle, Btn, MediaField, MediaListField, ItemDel } from './studioUI';
+import { MarketingNav, MarketingPanel, MARKETING_MODULES, campaignOverlayFor, type MarketingModule } from './MarketingOS';
+import { marketingService } from '../../services/marketing.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Website Studio — a professional three-panel visual builder (Structure · Live Preview ·
@@ -23,7 +24,7 @@ import { assetsService, BRAND_SLOTS, type AssetItem } from '../../experience/ass
 // an app-install campaign composer. Publish/rollback flow reuses websiteService versions.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StudioModule = 'pages' | 'nav' | 'footer' | 'blog' | 'theme' | 'brand' | 'media' | 'appcampaign' | 'seo' | 'settings' | 'domain' | 'history';
+type StudioModule = 'pages' | 'nav' | 'footer' | 'blog' | 'theme' | 'brand' | 'media' | 'settings' | 'domain' | 'history';
 type DeviceMode = 'desktop' | 'tablet' | 'mobile';
 type Orientation = 'portrait' | 'landscape';
 
@@ -44,8 +45,6 @@ const MODULES: { k: StudioModule; icon: any; ar: string; en: string; group: stri
   { k: 'theme', icon: Palette, ar: 'الثيم', en: 'Theme', group: 'Design' },
   { k: 'brand', icon: Wand2, ar: 'الهوية', en: 'Brand', group: 'Design' },
   { k: 'media', icon: ImageIcon, ar: 'الوسائط', en: 'Media', group: 'Design' },
-  { k: 'appcampaign', icon: Megaphone, ar: 'حملة التطبيق', en: 'App Campaign', group: 'Growth' },
-  { k: 'seo', icon: SearchIcon, ar: 'تحسين الظهور', en: 'SEO', group: 'Growth' },
   { k: 'settings', icon: Settings2, ar: 'الإعدادات', en: 'Settings', group: 'System' },
   { k: 'domain', icon: Globe, ar: 'النطاق', en: 'Domain', group: 'System' },
   { k: 'history', icon: HistoryIcon, ar: 'الإصدارات', en: 'History', group: 'System' },
@@ -55,43 +54,6 @@ const DEVICE_W: Record<DeviceMode, Record<Orientation, number>> = {
   tablet: { portrait: 820, landscape: 1180 },
   mobile: { portrait: 390, landscape: 844 },
 };
-
-const card: React.CSSProperties = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)', borderRadius: 14 };
-const inputStyle: React.CSSProperties = { width: '100%', background: 'var(--color-surface-container-high)', border: '1px solid var(--color-outline-variant)', borderRadius: 10, padding: '9px 11px', color: 'var(--color-on-surface)', fontSize: 14, outline: 'none' };
-
-const Field: React.FC<{ label: string; value: string; onChange: (v: string) => void; textarea?: boolean; placeholder?: string; id?: string }> = ({ label, value, onChange, textarea, placeholder, id }) => (
-  <label className="block">
-    <span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
-    {textarea
-      ? <textarea id={id} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={4} style={{ ...inputStyle, resize: 'vertical', marginTop: 4 }} />
-      : <input id={id} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ ...inputStyle, marginTop: 4 }} />}
-  </label>
-);
-const Toggle: React.FC<{ label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string; id?: string }> = ({ label, checked, onChange, hint, id }) => (
-  <button id={id} onClick={() => onChange(!checked)} className="flex items-center justify-between w-full cursor-pointer" style={{ ...card, padding: '10px 12px' }}>
-    <span className="text-left"><span className="text-sm font-semibold" style={{ color: 'var(--color-on-surface)' }}>{label}</span>{hint && <span className="block text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>{hint}</span>}</span>
-    <span style={{ width: 40, height: 22, borderRadius: 999, background: checked ? 'var(--color-primary-fixed)' : 'var(--color-outline-variant)', position: 'relative', flexShrink: 0 }}>
-      <span style={{ position: 'absolute', top: 2, insetInlineStart: checked ? 20 : 2, width: 18, height: 18, borderRadius: 999, background: '#fff', transition: 'inset-inline-start .15s' }} />
-    </span>
-  </button>
-);
-const Btn: React.FC<{ onClick: () => void; children: React.ReactNode; primary?: boolean; danger?: boolean; id?: string }> = ({ onClick, children, primary, danger, id }) => (
-  <button id={id} onClick={onClick} className="inline-flex items-center gap-1.5 cursor-pointer" style={{
-    padding: '8px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, border: 'none',
-    background: primary ? 'var(--color-primary-fixed)' : danger ? 'rgba(248,113,113,0.14)' : 'var(--color-surface-container-high)',
-    color: primary ? 'var(--color-on-primary-fixed)' : danger ? '#f87171' : 'var(--color-on-surface)',
-  }}>{children}</button>
-);
-
-const iconBtn: React.CSSProperties = { width: 34, height: 34, borderRadius: 9, background: 'var(--color-surface-container-high)', border: 'none', color: 'var(--color-on-surface-variant)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 };
-function swap<T>(arr: T[], i: number, j: number): T[] { const a = [...arr]; [a[i], a[j]] = [a[j], a[i]]; return a; }
-
-// ── Studio-only extras (reuse the existing localStorage persistence pattern; no new backend) ──
-export interface AppCampaign { enabled: boolean; format: 'popup' | 'sheet' | 'banner'; headline: string; body: string; cta: string; discount: string; trigger: 'delay' | 'scroll' | 'exit'; delaySec: number; dismissible: boolean; animation: 'fade' | 'slide' | 'pop' }
-const APPCAMP_KEY = (id: string) => `haat_ws_appcampaign_${id}`;
-const defaultCampaign = (): AppCampaign => ({ enabled: true, format: 'popup', headline: 'Continue in the app', body: 'Get 15% off your next order when you finish in the HaaT app.', cta: 'Open the app', discount: '15% OFF', trigger: 'delay', delaySec: 5, dismissible: true, animation: 'pop' });
-const loadCampaign = (id: string): AppCampaign => { try { return { ...defaultCampaign(), ...(JSON.parse(localStorage.getItem(APPCAMP_KEY(id)) || '{}')) }; } catch { return defaultCampaign(); } };
-const saveCampaign = (id: string, c: AppCampaign) => { try { localStorage.setItem(APPCAMP_KEY(id), JSON.stringify(c)); } catch { /* ignore */ } };
 
 function readableOn(hex: string): string {
   const h = (hex || '').replace('#', ''); if (h.length < 6) return '#0c2000';
@@ -117,7 +79,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   const [tenantId, setTenantId] = useState('');
   const [brand, setBrand] = useState<Record<string, any> | null>(null);
   const [site, setSite] = useState<WebsiteSite | null>(null);
-  const [module, setModule] = useState<StudioModule>('pages');
+  const [module, setModule] = useState<StudioModule | MarketingModule>('pages');
   const [pageId, setPageId] = useState('');
   const [postId, setPostId] = useState('');
   const [selIdx, setSelIdx] = useState<number | null>(null);
@@ -127,7 +89,6 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   const [redo, setRedo] = useState<WebsiteSite[]>([]);
   const [savedAt, setSavedAt] = useState<number>(0);
   const [versions, setVersions] = useState<{ version: number; at: string }[]>([]);
-  const [campaign, setCampaign] = useState<AppCampaign>(defaultCampaign());
   const [showAdd, setShowAdd] = useState(false);
 
   useEffect(() => { tenantService.list().then(({ data }) => { const ts = (data as any[]) || []; setTenants(ts); if (ts[0]) setTenantId(String(ts[0].id)); }); }, []);
@@ -136,14 +97,11 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
     setSite(s);
     setVersions(websiteService.listVersions(id));
     setBrand(tenants.find(t => String(t.id) === String(id)) || null);
-    setCampaign(loadCampaign(id));
     setUndo([]); setRedo([]); setSelIdx(null);
     const home = s?.pages.find(p => p.path === '/') || s?.pages[0];
     setPageId(home?.id || '');
   };
   useEffect(() => { if (tenantId) loadTenant(tenantId); /* eslint-disable-next-line */ }, [tenantId, tenants.length]);
-
-  const analyticsProviders = useMemo(() => { try { return platformService.providers().filter(p => p.category === 'analytics'); } catch { return []; } }, []);
 
   if (!site) return (
     <div id="website_center" dir={dir} className="p-6">
@@ -186,7 +144,29 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
     setTenants(ts => ts.map(t => (String(t.id) === String(tenantId) ? { ...t, ...patchObj } : t)));
     tenantService.saveBranding(tenantId, patchObj).catch(() => { /* best-effort in sandbox */ });
   };
-  const updateCampaign = (patchObj: Partial<AppCampaign>) => { const next = { ...campaign, ...patchObj }; setCampaign(next); saveCampaign(tenantId, next); };
+  const isFlagship = marketingService.isFlagship(site.slug) || marketingService.isFlagship(site.siteName);
+  const user = 'admin';
+
+  // AI Marketing Assistant — reuses the EXISTING Studio blocks (newBlock) + Theme/SEO; never duplicates structures.
+  const handleGenerate = (recipe: string) => {
+    if (!selectedPage) { toast.error(L('اختر صفحة أولاً', 'Select a page first')); return; }
+    const add = (blocks: WebsiteBlock[], label: string) => { setSections([...selectedPage.sections, ...blocks]); setModule('pages'); setSelIdx(selectedPage.sections.length); marketingService.audit(tenantId, user, 'ai.generate', label); toast.success(label); };
+    const heroLike = (title: string, subtitle: string, cta: string, href: string): WebsiteBlock => ({ type: 'hero', title, subtitle, layout: 'center', overlay: 0.5, ctas: [{ label: cta, href, style: 'primary' }] });
+    switch (recipe) {
+      case 'ramadan_home': return add([heroLike('Ramadan Kareem 🌙', 'Iftar delivered on time, every night — with special Ramadan offers.', 'Order iftar', '/restaurants'), { ...newBlock('deals'), heading: 'Ramadan offers' } as WebsiteBlock, newBlock('steps')], L('تم إنشاء أقسام رمضان', 'Ramadan sections added'));
+      case 'black_friday': return add([heroLike('Black Friday — up to 50% off', 'One weekend only. Deals across restaurants, grocery and pharmacy.', 'Shop deals', '/offers'), { ...newBlock('deals'), heading: 'Black Friday deals' } as WebsiteBlock], L('تمت إضافة الجمعة البيضاء', 'Black Friday added'));
+      case 'pharmacy_campaign': return add([heroLike('Pharmacy, delivered discreetly', 'Medicines and wellness to your door in minutes.', 'Order now', '/pharmacy'), { ...newBlock('merchants'), heading: 'Pharmacies near you' } as WebsiteBlock], L('تمت إضافة حملة الصيدلية', 'Pharmacy campaign added'));
+      case 'rewrite_hero': {
+        const i = selectedPage.sections.findIndex(s => s.type === 'hero');
+        if (i < 0) return add([heroLike('Everything delivered, fast', 'Restaurants, grocery and pharmacy — one app, live tracking, cash on delivery.', 'Order now', '/menu')], L('تمت إضافة هيرو', 'Hero added'));
+        const nb: WebsiteBlock = { ...(selectedPage.sections[i] as any), title: 'Your city, delivered', subtitle: 'Order in a few taps, pay cash at your door, and track every delivery live.' };
+        setSections(selectedPage.sections.map((x, j) => j === i ? nb : x)); setSelIdx(i); setModule('pages'); marketingService.audit(tenantId, user, 'ai.generate', 'rewrite_hero'); return toast.success(L('أعيدت صياغة الهيرو', 'Hero rewritten'));
+      }
+      case 'improve_seo': { patch({ seoDefaults: { ...site.seoDefaults, title: `${site.siteName} — Food, grocery & pharmacy delivery`, description: `Order food, groceries and pharmacy from top local merchants with ${site.siteName}. Fast delivery, live tracking and cash on delivery.` } }); setModule('seostudio'); marketingService.audit(tenantId, user, 'ai.generate', 'improve_seo'); return toast.success(L('تم تحسين الـ SEO', 'SEO improved')); }
+      case 'increase_conversions': { setModule('conversion'); return toast.success(L('افتح مركز التحويل لإضافة عنصر', 'Opened Conversion Center — add a widget')); }
+      default: return;
+    }
+  };
 
   const frameW = DEVICE_W[device][orient];
   const previewPage = selectedPage;
@@ -222,7 +202,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
       <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '248px minmax(0,1fr) 340px', gap: 10 }}>
         {/* LEFT — Structure navigator */}
         <div style={{ ...card, padding: 8, overflow: 'auto' }} id="studio_left">
-          {['Content', 'Design', 'Growth', 'System'].map(group => (
+          {['Content', 'Design', 'System'].map(group => (
             <div key={group} className="mb-2">
               <p className="text-[10px] font-bold uppercase tracking-wide px-2 mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>{group}</p>
               {MODULES.filter(m => m.group === group).map(m => {
@@ -236,6 +216,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
               })}
             </div>
           ))}
+          <MarketingNav active={module} onSelect={(m) => { setModule(m); setSelIdx(null); }} L={L} />
 
           {/* Contextual list */}
           {module === 'pages' && (
@@ -305,7 +286,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
                       selectedIdx={module === 'pages' ? selIdx : null}
                       onSelect={(i) => { setModule('pages'); setSelIdx(i); }}
                       onReorder={(from, to) => { if (previewPage) { const s = previewPage.sections.slice(); const [m] = s.splice(from, 1); s.splice(to, 0, m); setSections(s); setSelIdx(to); } }} />
-                    {module === 'appcampaign' && campaign.enabled && <CampaignPreview c={campaign} />}
+                    {campaignOverlayFor(module, tenantId, isFlagship)}
                   </div>
                 </div>
               )}
@@ -314,7 +295,9 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
 
         {/* RIGHT — properties */}
         <div style={{ ...card, padding: 14, overflow: 'auto' }} id="studio_right">
-          {module === 'pages' && selectedPage && selIdx != null && selectedPage.sections[selIdx] ? (
+          {MARKETING_MODULES.includes(module as MarketingModule) ? (
+            <MarketingPanel module={module as MarketingModule} tenantId={tenantId} user={user} site={site} brand={brand} lang={lang} L={L} isFlagship={isFlagship} onPatchSite={patch} onGenerate={handleGenerate} versions={versions} onRollback={rollback} />
+          ) : module === 'pages' && selectedPage && selIdx != null && selectedPage.sections[selIdx] ? (
             <SectionProperties page={selectedPage} idx={selIdx} L={L} lang={lang}
               onChange={(nb) => setSections(selectedPage.sections.map((x, j) => j === selIdx ? nb : x))}
               onVis={(k, on) => setSections(selectedPage.sections.map((x, j) => j === selIdx ? { ...x, visibility: { ...x.visibility, [k]: on } } : x))}
@@ -331,14 +314,10 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
             <NavEditor site={site} L={L} patch={patch} />
           ) : module === 'footer' ? (
             <FooterEditor site={site} L={L} patch={patch} />
-          ) : module === 'seo' ? (
-            <SeoEditor site={site} L={L} patch={patch} providers={analyticsProviders} />
           ) : module === 'settings' ? (
             <SettingsEditor site={site} L={L} patch={patch} />
           ) : module === 'domain' ? (
             <DomainEditor site={site} L={L} patch={patch} />
-          ) : module === 'appcampaign' ? (
-            <AppCampaignEditor c={campaign} L={L} onChange={updateCampaign} />
           ) : module === 'blog' ? (
             selectedPost ? <PostEditor post={selectedPost} onChange={p => commit({ ...site, blog: site.blog.map(b => b.id === p.id ? p : b) })} onRemove={() => { commit({ ...site, blog: site.blog.filter(b => b.id !== selectedPost.id) }); setPostId(''); }} L={L} /> : <EmptyStateBox Icon={FileText} title={L('اختر مقالاً', 'Select a post')} />
           ) : module === 'history' ? (
@@ -523,48 +502,7 @@ const MediaRightInfo: React.FC<{ L: (a: string, e: string) => string }> = ({ L }
   </div>
 );
 
-// ── App Install Campaign editor + in-studio preview ──
-const AppCampaignEditor: React.FC<{ c: AppCampaign; L: (a: string, e: string) => string; onChange: (p: Partial<AppCampaign>) => void }> = ({ c, L, onChange }) => (
-  <div className="space-y-3">
-    <SectionHeader title={L('حملة تثبيت التطبيق', 'App Install Campaign')} />
-    <Toggle label={L('تفعيل الحملة', 'Enable campaign')} checked={c.enabled} onChange={v => onChange({ enabled: v })} id="camp_enabled" />
-    <label className="block"><span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('الشكل', 'Format')}</span>
-      <select value={c.format} onChange={e => onChange({ format: e.target.value as AppCampaign['format'] })} style={{ ...inputStyle, marginTop: 4 }} id="camp_format"><option value="popup">{L('نافذة منبثقة', 'Popup')}</option><option value="sheet">{L('ورقة سفلية', 'Bottom sheet')}</option><option value="banner">{L('شريط مضمّن', 'Inline banner')}</option></select></label>
-    <Field label={L('العنوان', 'Headline')} value={c.headline} onChange={v => onChange({ headline: v })} id="camp_headline" />
-    <Field label={L('النص', 'Body')} value={c.body} onChange={v => onChange({ body: v })} textarea id="camp_body" />
-    <div className="grid grid-cols-2 gap-2">
-      <Field label={L('زر', 'CTA')} value={c.cta} onChange={v => onChange({ cta: v })} id="camp_cta" />
-      <Field label={L('الخصم', 'Discount')} value={c.discount} onChange={v => onChange({ discount: v })} id="camp_discount" />
-    </div>
-    <div className="grid grid-cols-2 gap-2">
-      <label className="block"><span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('المُشغّل', 'Trigger')}</span>
-        <select value={c.trigger} onChange={e => onChange({ trigger: e.target.value as AppCampaign['trigger'] })} style={{ ...inputStyle, marginTop: 4 }} id="camp_trigger"><option value="delay">{L('بعد مدة', 'After delay')}</option><option value="scroll">{L('عند التمرير', 'On scroll')}</option><option value="exit">{L('نية المغادرة', 'Exit intent')}</option></select></label>
-      <label className="block"><span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('الحركة', 'Animation')}</span>
-        <select value={c.animation} onChange={e => onChange({ animation: e.target.value as AppCampaign['animation'] })} style={{ ...inputStyle, marginTop: 4 }} id="camp_anim"><option value="pop">Pop</option><option value="slide">Slide</option><option value="fade">Fade</option></select></label>
-    </div>
-    {c.trigger === 'delay' && <label className="block"><span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('التأخير', 'Delay')} · {c.delaySec}s</span><input type="range" min={0} max={30} value={c.delaySec} onChange={e => onChange({ delaySec: Number(e.target.value) })} style={{ width: '100%', marginTop: 8 }} /></label>}
-    <Toggle label={L('قابلة للإغلاق', 'Dismissible')} checked={c.dismissible} onChange={v => onChange({ dismissible: v })} />
-    <p className="text-[10px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('المعاينة في المنتصف تعكس التصميم الحيّ. جاهزة لاختبار A/B.', 'The centre preview mirrors the live design. A/B-test ready.')}</p>
-  </div>
-);
-const CampaignPreview: React.FC<{ c: AppCampaign }> = ({ c }) => {
-  const cardInner = (
-    <div style={{ background: 'var(--color-surface-container-high, #141a17)', border: '1px solid var(--color-outline-variant, #2a3330)', borderRadius: 18, padding: 20, maxWidth: 360, boxShadow: '0 30px 80px -30px rgba(0,0,0,.8)' }}>
-      {c.discount && <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 999, fontSize: 12, fontWeight: 800, background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', marginBottom: 12 }}>{c.discount}</span>}
-      <p style={{ fontSize: 19, fontWeight: 900, color: 'var(--color-on-surface, #e8ebe3)', margin: 0 }}>{c.headline}</p>
-      <p style={{ fontSize: 14, color: 'var(--color-on-surface-variant, #a7b0a6)', margin: '8px 0 16px' }}>{c.body}</p>
-      <div style={{ display: 'flex', gap: 10 }}>
-        <span style={{ flex: 1, textAlign: 'center', padding: '11px', borderRadius: 'var(--button-radius,12px)', fontWeight: 800, background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)' }}>{c.cta}</span>
-        {c.dismissible && <span style={{ padding: '11px 16px', borderRadius: 'var(--button-radius,12px)', fontWeight: 700, border: '1px solid var(--color-outline-variant, #2a3330)', color: 'var(--color-on-surface-variant, #a7b0a6)' }}>✕</span>}
-      </div>
-    </div>
-  );
-  if (c.format === 'banner') return <div style={{ position: 'absolute', insetInline: 12, bottom: 12, zIndex: 6 }}><div style={{ background: 'var(--color-surface-container-high,#141a17)', border: '1px solid var(--color-outline-variant,#2a3330)', borderRadius: 14, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12 }}><span style={{ fontWeight: 800, color: 'var(--color-on-surface,#e8ebe3)', fontSize: 13 }}>{c.headline}</span><span style={{ marginInlineStart: 'auto', padding: '7px 14px', borderRadius: 'var(--button-radius,12px)', background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontWeight: 800, fontSize: 12 }}>{c.cta}</span></div></div>;
-  const pos: React.CSSProperties = c.format === 'sheet' ? { position: 'absolute', insetInline: 0, bottom: 0, zIndex: 6, display: 'flex', justifyContent: 'center', padding: 12 } : { position: 'absolute', inset: 0, zIndex: 6, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,.5)', padding: 16 };
-  return <div style={pos}>{cardInner}</div>;
-};
-
-// ── Compact right-panel editors for nav / footer / seo / settings / domain / history ──
+// ── Compact right-panel editors for nav / footer / settings / domain / history ──
 const NavEditor: React.FC<{ site: WebsiteSite; L: (a: string, e: string) => string; patch: (p: Partial<WebsiteSite>) => void }> = ({ site, L, patch }) => (
   <div className="space-y-2">
     <SectionHeader title={L('روابط التنقل', 'Navigation')} action={<button id="ws_nav_add" onClick={() => patch({ navigation: [...site.navigation, { label: 'New', path: '/new' }] })} style={{ ...iconBtn, width: 28, height: 28 }}><Plus size={14} /></button>} />
@@ -592,18 +530,6 @@ const FooterEditor: React.FC<{ site: WebsiteSite; L: (a: string, e: string) => s
       </div>
     ))}
     <Btn onClick={() => patch({ footer: { ...site.footer, columns: [...site.footer.columns, { title: 'Column', links: [] }] } })} id="ws_footer_col_add"><Plus size={14} />{L('عمود', 'Column')}</Btn>
-  </div>
-);
-const SeoEditor: React.FC<{ site: WebsiteSite; L: (a: string, e: string) => string; patch: (p: Partial<WebsiteSite>) => void; providers: any[] }> = ({ site, L, patch, providers }) => (
-  <div className="space-y-3">
-    <SectionHeader title={L('SEO والتحليلات', 'SEO & Analytics')} />
-    <Field label={L('العنوان الافتراضي', 'Default title')} value={site.seoDefaults.title || ''} onChange={v => patch({ seoDefaults: { ...site.seoDefaults, title: v } })} id="ws_seo_title" />
-    <Field label={L('الوصف الافتراضي', 'Default description')} value={site.seoDefaults.description || ''} onChange={v => patch({ seoDefaults: { ...site.seoDefaults, description: v } })} textarea />
-    <Field label={L('صورة OpenGraph', 'OpenGraph image URL')} value={site.seoDefaults.ogImage || ''} onChange={v => patch({ seoDefaults: { ...site.seoDefaults, ogImage: v } })} placeholder="https://…" />
-    <label className="block"><span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('مزوّد التحليلات', 'Analytics provider')}</span>
-      <select value={site.analytics.providerId || ''} onChange={e => patch({ analytics: { ...site.analytics, providerId: e.target.value || undefined } })} style={{ ...inputStyle, marginTop: 4 }} id="ws_analytics_provider"><option value="">{L('لا شيء', 'None')}</option>{providers.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
-    <Field label={L('معرّف القياس', 'Measurement ID')} value={site.analytics.measurementId || ''} onChange={v => patch({ analytics: { ...site.analytics, measurementId: v } })} placeholder="G-XXXX" />
-    <Toggle label={L('لافتة الكوكيز', 'Cookie banner')} checked={site.cookie.enabled} onChange={v => patch({ cookie: { ...site.cookie, enabled: v } })} id="ws_cookie_toggle" />
   </div>
 );
 const SettingsEditor: React.FC<{ site: WebsiteSite; L: (a: string, e: string) => string; patch: (p: Partial<WebsiteSite>) => void }> = ({ site, L, patch }) => (
@@ -677,43 +603,6 @@ function newBlock(t: WebsiteBlockType): WebsiteBlock {
     default: return { type: 'richtext', heading: '', body: '' };
   }
 }
-
-// Media field — reuses the Media Library picker (assets.service). No free-text media entry.
-const MediaField: React.FC<{ label: string; value: string; kind?: 'image' | 'video'; onChange: (u: string) => void; lang: 'ar' | 'en' }> = ({ label, value, kind = 'image', onChange, lang }) => {
-  const [open, setOpen] = useState(false);
-  const L = (a: string, e: string) => (lang === 'ar' ? a : e);
-  return (
-    <div>
-      <span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
-      <div className="flex items-center gap-2 mt-1">
-        {value ? (kind === 'video' ? <span style={thumb}>▶</span> : <img src={value} alt="" style={{ ...thumb, objectFit: 'cover' } as any} />) : <span style={{ ...thumb, display: 'grid', placeItems: 'center', color: 'var(--color-on-surface-variant)' }}><ImageIcon size={16} /></span>}
-        <button onClick={() => setOpen(true)} className="text-[12px] font-bold cursor-pointer" style={{ padding: '7px 12px', borderRadius: 9, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: 'none' }}>{L('من المكتبة', 'From library')}</button>
-        {value && <button onClick={() => onChange('')} className="text-[12px] cursor-pointer" style={{ color: '#f87171', background: 'transparent', border: 'none' }}>{L('مسح', 'Clear')}</button>}
-      </div>
-      <MediaPicker open={open} kind={kind} onPick={onChange} onClose={() => setOpen(false)} lang={lang} />
-    </div>
-  );
-};
-const MediaListField: React.FC<{ label: string; values: string[]; kind?: 'image' | 'video'; onChange: (v: string[]) => void; lang: 'ar' | 'en' }> = ({ label, values, kind = 'image', onChange, lang }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      <span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
-      <div className="flex flex-wrap gap-2 mt-1">
-        {values.map((v, i) => (
-          <div key={i} style={{ position: 'relative' }}>
-            <img src={v} alt="" style={{ ...thumb, objectFit: 'cover' } as any} />
-            <button onClick={() => onChange(values.filter((_, j) => j !== i))} style={{ position: 'absolute', top: -6, insetInlineEnd: -6, width: 18, height: 18, borderRadius: 999, background: '#f87171', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, lineHeight: '18px' }}>×</button>
-          </div>
-        ))}
-        <button onClick={() => setOpen(true)} style={{ ...thumb, display: 'grid', placeItems: 'center', cursor: 'pointer', border: '1px dashed var(--color-outline-variant)', color: 'var(--color-on-surface-variant)' }}><Plus size={16} /></button>
-      </div>
-      <MediaPicker open={open} kind={kind} onPick={u => onChange([...values, u])} onClose={() => setOpen(false)} lang={lang} />
-    </div>
-  );
-};
-
-const ItemDel: React.FC<{ onClick: () => void }> = ({ onClick }) => <button onClick={onClick} style={{ ...iconBtn, color: '#f87171', marginBottom: 2 }}><Trash2 size={14} /></button>;
 
 const BlockEditor: React.FC<{ block: WebsiteBlock; onChange: (b: WebsiteBlock) => void; L: (a: string, e: string) => string; lang: 'ar' | 'en' }> = ({ block, onChange, L, lang }) => {
   switch (block.type) {
@@ -898,5 +787,3 @@ const BlockEditor: React.FC<{ block: WebsiteBlock; onChange: (b: WebsiteBlock) =
     default: return null;
   }
 };
-
-const thumb: React.CSSProperties = { width: 44, height: 44, borderRadius: 8, background: 'var(--color-surface-container-high)', border: '1px solid var(--color-outline-variant)', display: 'inline-block', fontSize: 14, textAlign: 'center', lineHeight: '44px' };
