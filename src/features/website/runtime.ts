@@ -7,14 +7,28 @@ import { monitoring } from '../../services/monitoring.service';
 const APP_HOSTS = ['localhost', '127.0.0.1', 'haat-now.vercel.app'];
 const RESERVED_SUB = new Set(['www', 'app', 'admin', 'api', 'haat-now', 'haatnow']);
 
-export type PublicVia = 'custom-domain' | 'subdomain' | 'param' | 'none';
+/** The flagship tenant. Its marketing website is the CANONICAL public entry point at the app host `/`. */
+export const FLAGSHIP_SLUG = 'haat-now';
+/** Reserved route prefix that mounts the role APPLICATION (customer/merchant/driver/admin), never the website.
+ *  The website owns every other path; the application is a first-class route under this prefix. */
+export const APP_ROUTE_PREFIX = '/app';
+
+export type PublicVia = 'custom-domain' | 'subdomain' | 'param' | 'default' | 'none';
 export interface PublicRequest { isPublicSite: boolean; slug: string | null; path: string; host: string; preview: boolean; via: PublicVia }
 
-/** Decide whether this request targets a tenant website, which tenant, and how it was resolved.
- *  HOST RESOLUTION PRIORITY (host is always primary; the query param is never primary):
- *    1. Custom Domain   — any non-app host that is not a haatnow subdomain (→ resolve by stored domain)
- *    2. Tenant Subdomain — <slug>.haatnow.(app|com)
- *    3. Development query parameter — `?site=<slug>` (fallback only; consulted last, never primary) */
+/** True when the path targets the role application (the `/app` route and anything nested under it). */
+export function isAppRoute(path: string): boolean {
+  return path === APP_ROUTE_PREFIX || path.startsWith(APP_ROUTE_PREFIX + '/');
+}
+
+/** Decide whether this request targets the public website (and which tenant) or the role application.
+ *  RESOLUTION ORDER:
+ *    0. Application route — `/app[...]` always mounts the role app (never the website).
+ *    1. Custom Domain     — any non-app host that is not a haatnow subdomain (→ resolve by stored domain)
+ *    2. Tenant Subdomain  — <slug>.haatnow.(app|com)
+ *    3. Development query parameter — `?site=<slug>` (dev override for viewing a specific tenant)
+ *    4. Default (app host) — the FLAGSHIP marketing website is the canonical public entry point at `/`.
+ *  This is what makes the website the production root: `/` renders the website, `/app` renders the app. */
 export function resolvePublicRequest(loc: Location): PublicRequest {
   const host = (loc.hostname || '').toLowerCase();
   const params = new URLSearchParams(loc.search);
@@ -24,13 +38,17 @@ export function resolvePublicRequest(loc: Location): PublicRequest {
   const isAppHost = APP_HOSTS.includes(host) || host.endsWith('.vercel.app');
   const sub = host.match(/^([a-z0-9-]+)\.haatnow\.(app|com)$/i);
 
+  // Priority 0 — Application route. The role app owns `/app`; it is never the public website.
+  if (isAppRoute(path)) return { isPublicSite: false, slug: null, via: 'none', ...base };
   // Priority 1 — Custom domain.
   if (host && !isAppHost && !sub && host.includes('.')) return { isPublicSite: true, slug: null, via: 'custom-domain', ...base };
   // Priority 2 — Tenant subdomain.
   if (sub && !RESERVED_SUB.has(sub[1].toLowerCase())) return { isPublicSite: true, slug: sub[1].toLowerCase(), via: 'subdomain', ...base };
-  // Priority 3 — Development query parameter (NON-primary fallback; only when the host did not resolve).
+  // Priority 3 — Development query parameter (view a specific tenant by slug on an app host).
   const siteParam = params.get('site');
   if (siteParam) return { isPublicSite: true, slug: siteParam.toLowerCase(), via: 'param', ...base };
+  // Priority 4 — Default. On the canonical app host, the flagship website is the public entry point.
+  if (isAppHost) return { isPublicSite: true, slug: FLAGSHIP_SLUG, via: 'default', ...base };
 
   return { isPublicSite: false, slug: null, via: 'none', ...base };
 }

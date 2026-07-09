@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  resolvePublicRequest, resolveSite, applyBrand, resolvePage, buildSeo, applySeo, trackPageview,
+  resolvePublicRequest, resolveSite, applyBrand, resolvePage, buildSeo, applySeo, trackPageview, isAppRoute,
 } from './runtime';
 import { BlockRenderer, BlockStyles } from './blocks';
 import { loadLiveCommerce, type LiveCommerce } from './commerce';
@@ -58,10 +58,13 @@ export const PublicSiteApp: React.FC = () => {
     return () => { window.removeEventListener('haat:website', onChange as EventListener); window.removeEventListener('storage', onStorage); };
   }, []);
 
-  // Client-side navigation (reload-safe: keeps ?site= in sandbox).
+  // Client-side navigation. The `/app` route belongs to the role application (a separate runtime tree),
+  // so any link into it performs a full navigation that re-mounts main.tsx. Website pages navigate in-SPA;
+  // the `?site=&path=` form is kept only for the dev `?site=` override — real hosts use clean paths.
   const navigate = (to: string) => {
+    if (isAppRoute(to)) { try { window.location.assign(to); } catch { /* ignore */ } return; }
     setPath(to);
-    const url = req.slug ? `?site=${req.slug}&path=${encodeURIComponent(to)}${req.preview ? '&preview=1' : ''}` : to;
+    const url = req.via === 'param' && req.slug ? `?site=${req.slug}&path=${encodeURIComponent(to)}${req.preview ? '&preview=1' : ''}` : to;
     try { window.history.pushState({}, '', url); window.scrollTo(0, 0); } catch { /* ignore */ }
   };
   useEffect(() => {
@@ -153,6 +156,9 @@ export const PublicSiteApp: React.FC = () => {
               );
             })}
           </nav>
+          {/* Bridge into the role application (customer / merchant / driver / admin — resolved by login). */}
+          <a href="/app" onClick={e => { e.preventDefault(); navigate('/app'); }} id="site_app_login"
+            style={{ padding: '9px 18px', borderRadius: 'var(--button-radius, 12px)', fontSize: 14, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap', background: 'var(--color-primary-fixed, #a3f95b)', color: 'var(--color-on-primary-fixed, #0c2000)' }}>Log in</a>
         </div>
       </header>
 
@@ -167,7 +173,7 @@ export const PublicSiteApp: React.FC = () => {
             <h1 style={{ fontSize: 'clamp(30px,5vw,44px)', fontWeight: 800, marginTop: 12 }}>This page took a wrong turn</h1>
             <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 10, fontSize: 16 }}>We couldn’t find what you were looking for on {site.siteName}. Try one of these:</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 22 }}>
-              {[{ l: 'Home', p: '/' }, { l: 'Restaurants', p: '/restaurants' }, { l: 'Offers', p: '/offers' }, { l: 'Join the waitlist', p: '/app' }].map(x => (
+              {[{ l: 'Home', p: '/' }, { l: 'Restaurants', p: '/restaurants' }, { l: 'Offers', p: '/offers' }, { l: 'Join the waitlist', p: '/waitlist' }].map(x => (
                 <a key={x.p} href={x.p} onClick={e => { e.preventDefault(); navigate(x.p); }}
                   style={{ padding: '10px 18px', borderRadius: 'var(--button-radius,12px)', fontWeight: 700, textDecoration: 'none', background: x.p === '/' ? 'var(--color-primary-fixed,#a3f95b)' : 'transparent', color: x.p === '/' ? 'var(--color-on-primary-fixed,#0c2000)' : 'var(--color-on-surface,#e8ebe3)', border: x.p === '/' ? 'none' : '1px solid var(--color-outline-variant,#2a3330)' }}>{x.l}</a>
               ))}

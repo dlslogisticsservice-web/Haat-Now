@@ -12,12 +12,16 @@ import { APP_VERSION } from './config/version';
 import { PublicSiteApp } from './features/website/PublicSiteApp';
 import { resolvePublicRequest } from './features/website/runtime';
 
-// Website Runtime: when the request targets a tenant website (?site=<slug> in sandbox/dev, or a
-// subdomain / custom domain in production) render the public site instead of the role apps. Additive —
-// the default host/path is unchanged, so the existing apps and the E2E suite are untouched.
+// Runtime entry point: the FLAGSHIP marketing website is the canonical public root — `/` renders the
+// website; the role application (customer/merchant/driver/admin) is a first-class route under `/app`.
+// Tenant websites resolve by subdomain / custom domain (or `?site=<slug>` in dev). See runtime.ts.
 const publicReq = resolvePublicRequest(window.location);
+// Native shells (Capacitor iOS/Android) ARE the customer application — they package the role app and must
+// always render it, never the marketing website, even though their runtime host is `localhost`.
+const isNativeApp = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+const showPublicSite = publicReq.isPublicSite && !isNativeApp;
 // In sandbox, ensure demo tenants exist so a slug resolves to a real branded tenant (idempotent).
-if (publicReq.isPublicSite && import.meta.env.VITE_AUTH_MODE === 'sandbox') {
+if (showPublicSite && import.meta.env.VITE_AUTH_MODE === 'sandbox') {
   import('./services/demoSeed').then(m => { try { m.seedDemoData(); } catch { /* best-effort */ } });
 }
 
@@ -53,7 +57,7 @@ createRoot(document.getElementById('root')!).render(
     ) : (
       <ErrorBoundary>
         <AppConfigProvider>
-          {publicReq.isPublicSite ? (
+          {showPublicSite ? (
             // The public tenant site owns its own theme (the TENANT's brand, via applyBrand). It is mounted
             // OUTSIDE DesignProvider so the platform's published design cannot override the tenant brand — this
             // is what makes brand/theme changes propagate to each tenant website.

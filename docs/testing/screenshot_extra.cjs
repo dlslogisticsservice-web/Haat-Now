@@ -101,7 +101,7 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
       const page = await browser.newPage();
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
       await page.evaluateOnNewDocument(INJECTED_SCRIPT);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4000);
       // Scroll to bottom of page content
       await page.evaluate(() => window.scrollBy(0, 600));
@@ -116,7 +116,7 @@ const delay = ms => new Promise(r => setTimeout(r, ms));
       page.on('console', msg => { if (msg.type() === 'error') console.log('ERR:', msg.text()); });
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
       await page.evaluateOnNewDocument(INJECTED_SCRIPT);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4000);
 
       // Try to click the first restaurant/merchant card
@@ -163,7 +163,7 @@ try {
 } catch(e) {}
 `;
       await page.evaluateOnNewDocument(checkoutScript);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4000);
 
       // Try to navigate to checkout via nav or cart button

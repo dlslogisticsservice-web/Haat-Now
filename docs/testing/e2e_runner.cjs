@@ -1,6 +1,7 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
-const BASE = 'http://localhost:3001';
+// The role application now lives under the `/app` route (the marketing website owns `/`). See runtime.ts.
+const BASE = 'http://localhost:3001/app';
 const OUT = 'docs/testing/e2e_shots';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });

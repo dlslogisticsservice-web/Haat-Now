@@ -1,6 +1,6 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
-const BASE = 'http://localhost:3001';
+const BASE = 'http://localhost:3001/app'; // role app moved to /app (website owns /)
 const OUT = 'docs/testing/e2e_shots/enterprise';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 

@@ -99,7 +99,7 @@ async function shot(page, name) {
       const page = await browser.newPage();
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
       await page.evaluateOnNewDocument(BASE_INJECT);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4500);
       await shot(page, 'home_top');
       await page.evaluate(() => window.scrollBy(0, 160));
@@ -117,7 +117,7 @@ async function shot(page, name) {
       page.on('console', m => { if (m.type()==='error') console.log('ERR:', m.text()); });
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
       await page.evaluateOnNewDocument(BASE_INJECT);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4500);
       // Click first restaurant card
       const clicked = await page.evaluate(() => {
@@ -157,7 +157,7 @@ try {
 } catch(e) {}
 `;
       await page.evaluateOnNewDocument(injectCart);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4500);
       // Try to reach checkout through restaurant → cart pill
       const r = await page.evaluate(() => {
@@ -189,7 +189,7 @@ try {
       const page = await browser.newPage();
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
       await page.evaluateOnNewDocument(BASE_INJECT);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4500);
       const r = await page.evaluate(() => {
         const btn = document.querySelector('#nav_orders');
@@ -211,7 +211,7 @@ try {
       const page = await browser.newPage();
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
       await page.evaluateOnNewDocument(BASE_INJECT);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4500);
       const r = await page.evaluate(() => {
         const btn = document.querySelector('#nav_wallet');
@@ -229,7 +229,7 @@ try {
       const page = await browser.newPage();
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
       await page.evaluateOnNewDocument(BASE_INJECT);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4500);
       const r = await page.evaluate(() => {
         const btn = document.querySelector('#nav_profile');

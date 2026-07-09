@@ -115,7 +115,7 @@ function defaultSite(tenant: any): WebsiteSite {
       subtitle: 'HaaT Now is a new local delivery service launching soon. Order in a few taps, pay cash at your door, and track every delivery live.',
       search: true, searchPlaceholder: 'Search for a restaurant, dish or store', searchAction: '/restaurants',
       chips: [{ label: '🍔 Restaurants', path: '/restaurants' }, { label: '🛒 Grocery', path: '/grocery' }, { label: '💊 Pharmacy', path: '/pharmacy' }, { label: '🔥 Offers', path: '/offers' }],
-      ctas: [{ label: 'Order now', href: '/menu', style: 'primary' }, { label: 'Join the waitlist', href: '/app', style: 'secondary' }] },
+      ctas: [{ label: 'Order now', href: '/menu', style: 'primary' }, { label: 'Join the waitlist', href: '/waitlist', style: 'secondary' }] },
     { type: 'features', heading: 'Why HaaT Now?', items: [
       { title: 'Everything, one place', body: 'Restaurants, grocery and pharmacy from your neighbourhood — in a single app.', icon: '🧺' },
       { title: 'Fair for everyone', body: 'Honest pricing for customers, fair commissions for merchants, weekly payouts for captains.', icon: '⚖️' },
@@ -160,7 +160,7 @@ function defaultSite(tenant: any): WebsiteSite {
     sections: [
       { type: 'hero', layout: 'left', title: heading, subtitle: sub, search: true, searchAction: path, searchPlaceholder: `Search ${title.toLowerCase()}` },
       { type: 'merchants', heading: `${title} — preview lineup`, subtitle: 'Sample partners shown while real merchants onboard for launch.', layout: 'grid', items },
-      { type: 'cta', title: 'Want launch updates?', subtitle: 'Join the waitlist and we’ll tell you when HaaT Now goes live in your city.', button: { label: 'Join the waitlist', href: '/app' } },
+      { type: 'cta', title: 'Want launch updates?', subtitle: 'Join the waitlist and we’ll tell you when HaaT Now goes live in your city.', button: { label: 'Join the waitlist', href: '/waitlist' } },
     ],
   });
 
@@ -260,7 +260,7 @@ function defaultSite(tenant: any): WebsiteSite {
       { type: 'cta', title: 'Don’t see your role?', subtitle: 'We’re always meeting great people.', button: { label: 'Send your CV', href: '/contact' } },
     ] };
 
-  const appPage: WebsitePage = { id: 'p_app', path: '/app', kind: 'custom', title: 'Join the Waitlist', nav: false, navOrder: 26,
+  const appPage: WebsitePage = { id: 'p_app', path: '/waitlist', kind: 'custom', title: 'Join the Waitlist', nav: false, navOrder: 26,
     seo: { title: `Join the ${name} waitlist`, description: `${name} is launching soon. Join the waitlist to be first to order and get a launch-day offer.` },
     sections: [
       { type: 'hero', layout: 'left', title: 'The HaaT Now app is on its way', subtitle: 'We’re putting the finishing touches on the iOS and Android apps. Join the waitlist and we’ll notify you the moment they’re live.' },
@@ -283,7 +283,7 @@ function defaultSite(tenant: any): WebsiteSite {
         { title: 'Craft', body: 'A beautiful, effortless experience end to end.', icon: '✨' },
       ] },
       { type: 'richtext', heading: 'Where we are today', body: 'HaaT Now is pre-launch. We’re onboarding our first merchants and captains and preparing to go live city by city. We’d rather be transparent than show inflated numbers — so instead of vanity metrics, here’s our commitment: fast delivery, fair pricing and real support from day one.' },
-      { type: 'cta', title: 'Want to be first?', subtitle: 'Join the waitlist and we’ll tell you when we launch in your city.', button: { label: 'Join the waitlist', href: '/app' } },
+      { type: 'cta', title: 'Want to be first?', subtitle: 'Join the waitlist and we’ll tell you when we launch in your city.', button: { label: 'Join the waitlist', href: '/waitlist' } },
     ] };
   const contact: WebsitePage = { id: 'p_contact', path: '/contact', kind: 'contact', title: 'Contact', nav: true, navOrder: 5,
     seo: { title: `Contact ${name}`, description: `Get in touch with ${name}.` },
@@ -321,7 +321,9 @@ function defaultSite(tenant: any): WebsiteSite {
     ] };
 
   // Extra custom pages declared by the template's cms_structure (reuse the manifest structure).
-  const known = new Set(['home', 'about', 'contact', 'blog', 'help', 'privacy', 'terms', 'menu', 'offers', 'restaurants', 'grocery', 'pharmacy', 'merchants', 'drivers', 'franchise', 'business', 'enterprise', 'careers', 'app']);
+  // 'app' stays reserved so a tenant's cms_structure can never mint a `/app` website page — that path is
+  // owned by the role application (see runtime.ts APP_ROUTE_PREFIX). 'waitlist' is the pre-launch page.
+  const known = new Set(['home', 'about', 'contact', 'blog', 'help', 'privacy', 'terms', 'menu', 'offers', 'restaurants', 'grocery', 'pharmacy', 'merchants', 'drivers', 'franchise', 'business', 'enterprise', 'careers', 'app', 'waitlist']);
   const customPages: WebsitePage[] = cmsPages.filter(p => !known.has(p)).map((p, i) => ({
     id: `p_${p}`, path: `/${p}`, kind: 'custom' as const, title: p.charAt(0).toUpperCase() + p.slice(1), nav: true, navOrder: 40 + i,
     seo: { title: `${p} — ${name}` }, sections: [{ type: 'richtext', heading: p, body: `The ${p} page. Edit its content in the Website Center.` }],

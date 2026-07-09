@@ -134,7 +134,7 @@ async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
     {
       const page = await browser.newPage();
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(1200);
       await shot(page, '00_splash_screen');
       await page.close();
@@ -144,7 +144,7 @@ async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
     {
       const page = await browser.newPage();
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       // Wait for splash to finish (splash lasts ~2.5s) then capture onboarding slide 1
       await delay(3500);
       await shot(page, '01_onboarding_slide1_lime');
@@ -170,7 +170,7 @@ async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
       page.on('pageerror', err => pageErrors.push(err.message));
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
       await page.evaluateOnNewDocument(INJECTED_SCRIPT);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4000);
       await shot(page, '04_home_screen');
       await page.evaluate(() => window.scrollBy(0, 120));
@@ -191,7 +191,7 @@ async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 window.__TARGET_SCREEN__ = 'wallet';
 `;
       await page.evaluateOnNewDocument(walletScript);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4000);
       // Now click wallet nav
       const walletBtn = await page.$('#nav_wallet');
@@ -211,7 +211,7 @@ window.__TARGET_SCREEN__ = 'wallet';
       page.on('pageerror', err => console.log('PAGE ERR:', err.message));
       await page.setViewport({ width: 393, height: 852, deviceScaleFactor: 2 });
       await page.evaluateOnNewDocument(INJECTED_SCRIPT);
-      await page.goto('http://localhost:4173/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      await page.goto('http://localhost:4173/app', { waitUntil: 'domcontentloaded', timeout: 15000 });
       await delay(4000);
       const profileBtn = await page.$('#nav_profile');
       console.log('Profile btn:', !!profileBtn);
