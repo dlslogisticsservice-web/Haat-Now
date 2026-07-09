@@ -66,7 +66,7 @@ const GROUPS: Group[] = [
     { key: 'onboarding', ar: 'تهيئة مستأجر', en: 'Onboarding', Icon: Sparkles, super: true },
     { key: 'integrations', ar: 'مركز التكاملات', en: 'Integrations', Icon: Plug, super: true },
     { key: 'registry', ar: 'سجل المنصّة', en: 'Platform Registry', Icon: Boxes, super: true },
-    { key: 'website', ar: 'مركز الموقع', en: 'Website Center', Icon: Globe, super: true },
+    { key: 'website', ar: 'استوديو الموقع', en: 'Website Studio', Icon: Globe, super: true },
   ] },
   { ar: 'النظام', en: 'System', items: [
     { key: 'notifications', ar: 'الإشعارات', en: 'Notifications', Icon: Bell },

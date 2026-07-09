@@ -46,8 +46,17 @@ export const PublicSiteApp: React.FC = () => {
 
   const { tenant, site } = useMemo(() => resolveSite(req), [req, tick]);
 
-  // Brand runtime — apply the tenant's theme/brand via the ONE theme engine.
-  useEffect(() => { applyBrand(tenant); }, [tenant, tick]);
+  // Brand runtime — apply the tenant's theme/brand via the ONE theme engine, plus the Website-Studio
+  // visual tokens (corner radius, accent) so Theme Studio changes propagate to the live site instantly.
+  useEffect(() => {
+    applyBrand(tenant);
+    try {
+      const root = document.documentElement.style;
+      if (tenant?.card_radius != null) root.setProperty('--card-radius', `${Number(tenant.card_radius)}px`);
+      if (tenant?.button_radius != null) root.setProperty('--button-radius', `${Number(tenant.button_radius)}px`);
+      if (tenant?.accent_color) root.setProperty('--color-tertiary-fixed', String(tenant.accent_color));
+    } catch { /* ignore */ }
+  }, [tenant, tick]);
 
   // Instant updates: publish event (same tab) + storage event (cross-tab). No rebuild, no redeploy.
   useEffect(() => {
