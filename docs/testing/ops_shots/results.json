@@ -1,0 +1,142 @@
+[
+  {
+    "section": "Merchants",
+    "id": "M1",
+    "name": "Realistic merchant + branch catalog seeded",
+    "pass": true,
+    "detail": "20 merchants · 35 branches · 150 products"
+  },
+  {
+    "section": "Drivers",
+    "id": "D1",
+    "name": "Driver fleet with vehicle types + statuses",
+    "pass": true,
+    "detail": "120 drivers · vehicles=[motorcycle,car,van] · statuses=[available,busy,assigned]"
+  },
+  {
+    "section": "Operations",
+    "id": "O1",
+    "name": "Order book across lifecycle statuses",
+    "pass": true,
+    "detail": "400 orders · statuses=[preparing,pending,cancelled,delivered,delivering,confirmed]"
+  },
+  {
+    "section": "Admin",
+    "id": "AD1",
+    "name": "Multi-tenant white-label data present",
+    "pass": true,
+    "detail": "8 tenants"
+  },
+  {
+    "section": "Customer",
+    "id": "C1",
+    "name": "Restaurant discovery: filter/sort + cards",
+    "pass": true,
+    "detail": "filterBar=true cards=28"
+  },
+  {
+    "section": "Customer",
+    "id": "C2",
+    "name": "Menu loads + add-to-cart works (sticky cart bar appears)",
+    "pass": true,
+    "detail": "items=3 added=2 stickyCartBar=true trust=true"
+  },
+  {
+    "section": "Customer",
+    "id": "C3",
+    "name": "Cart: summary + checkout CTA + trust",
+    "pass": true,
+    "detail": "summary=true trust=true"
+  },
+  {
+    "section": "Finance",
+    "id": "F1",
+    "name": "Coupon validation pipeline responds (localized decision)",
+    "pass": true,
+    "detail": "apply produced a status decision"
+  },
+  {
+    "section": "Finance",
+    "id": "F2",
+    "name": "Order total = subtotal − discount + delivery + fees + tax + tip",
+    "pass": true,
+    "detail": "computed=105.45 total=105.45 rows={\"subtotal\":83,\"delivery\":10,\"vat\":12.45,\"total\":105.45}"
+  },
+  {
+    "section": "Finance",
+    "id": "F3",
+    "name": "Price transparency (all fees shown, COD)",
+    "pass": true,
+    "detail": "breakdown + COD present"
+  },
+  {
+    "section": "Customer",
+    "id": "C4",
+    "name": "Guest COD checkout completes → order placed",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "section": "Customer",
+    "id": "C5",
+    "name": "Live tracking: status + ETA + timeline + map panel",
+    "pass": true,
+    "detail": "status=\"📝 Order received\" timeline=5"
+  },
+  {
+    "section": "Customer",
+    "id": "C6",
+    "name": "Saved address persists for reorder/next checkout",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "section": "Support",
+    "id": "S1",
+    "name": "Support request from an order responds",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "section": "Finance",
+    "id": "F4",
+    "name": "Refund request path responds",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "section": "Operations",
+    "id": "O2",
+    "name": "Customer cancellation path responds",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "section": "Recovery",
+    "id": "R1",
+    "name": "404 recovers gracefully with navigation",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "section": "Recovery",
+    "id": "R2",
+    "name": "Empty-cart state recovers with CTA",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "section": "Notifications",
+    "id": "N1",
+    "name": "Notification/receipt seams reachable (session receipt stored)",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "section": "Quality",
+    "id": "Q1",
+    "name": "No console/page errors during the full journey",
+    "pass": true,
+    "detail": ""
+  }
+]
