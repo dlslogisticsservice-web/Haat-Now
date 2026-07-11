@@ -12,6 +12,7 @@
 // Consumers: the Public Website Runtime (features/website/*) + (future) a Website Center admin console.
 // Future merge candidate: NO
 import { supabase } from '../lib/supabase';
+import { CATEGORY_IMAGES } from '../utils/categoryImages';
 
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
 const LS_KEY = 'haat_sb_website_v1';
@@ -113,6 +114,7 @@ function defaultSite(tenant: any): WebsiteSite {
   const homeSections: WebsiteBlock[] = [
     { type: 'hero', layout: 'center', title: 'Your city’s food, groceries & pharmacy — delivered',
       subtitle: 'HaaT Now is a new local delivery service launching soon. Order in a few taps, pay cash at your door, and track every delivery live.',
+      bgImage: CATEGORY_IMAGES.restaurant.cover, overlay: 0.64,
       search: true, searchPlaceholder: 'Search for a restaurant, dish or store', searchAction: '/restaurants',
       chips: [{ label: '🍔 Restaurants', path: '/restaurants' }, { label: '🛒 Grocery', path: '/grocery' }, { label: '💊 Pharmacy', path: '/pharmacy' }, { label: '🔥 Offers', path: '/offers' }],
       ctas: [{ label: 'Order now', href: '/menu', style: 'primary' }, { label: 'Join the waitlist', href: '/waitlist', style: 'secondary' }] },
@@ -143,7 +145,13 @@ function defaultSite(tenant: any): WebsiteSite {
       { title: 'Drive & earn →', body: 'Flexible hours and weekly payouts. Deliver on your schedule.', href: '/drivers' },
       { title: 'Own a franchise →', body: 'Bring HaaT Now to your city with a full launch playbook.', href: '/franchise' },
     ] },
-    { type: 'app_download', heading: 'The HaaT Now app is coming', subtitle: 'One-tap reordering, live tracking and launch-day offers — landing on iOS and Android soon. Join the waitlist to be first.' },
+    { type: 'features', heading: 'Even better in the app', items: [
+      { title: 'One-tap reorder', body: 'Your favourites, saved and a single tap away.', icon: '🔁' },
+      { title: 'Live map tracking', body: 'Watch your captain approach in real time.', icon: '🗺️' },
+      { title: 'Exclusive offers', body: 'App-only deals and launch-day discounts.', icon: '🎁' },
+      { title: 'Instant updates', body: 'Push alerts at every step of your order.', icon: '🔔' },
+    ] },
+    { type: 'app_download', heading: 'Get the HaaT Now app', subtitle: 'One-tap reordering, live tracking and launch-day offers — landing on iOS and Android. Join the waitlist and we’ll send the download link the day it drops.' },
     { type: 'cta', title: 'Hungry to get started?', subtitle: 'Order now, or join the waitlist for launch updates.', button: { label: 'Start an order', href: '/menu' } },
   );
 
@@ -154,19 +162,19 @@ function defaultSite(tenant: any): WebsiteSite {
   };
 
   // ── Category / discovery pages (flagship) ──
-  const categoryPage = (path: string, title: string, heading: string, sub: string, items: MerchantCard[], seoDesc: string): WebsitePage => ({
+  const categoryPage = (path: string, title: string, heading: string, sub: string, items: MerchantCard[], seoDesc: string, bgImage: string): WebsitePage => ({
     id: `p_${path.replace(/\//g, '')}`, path, kind: 'custom', title, nav: true, navOrder: 1,
-    seo: { title: `${title} — ${name}`, description: seoDesc },
+    seo: { title: `${title} — ${name}`, description: seoDesc, ogImage: bgImage },
     sections: [
-      { type: 'hero', layout: 'left', title: heading, subtitle: sub, search: true, searchAction: path, searchPlaceholder: `Search ${title.toLowerCase()}` },
+      { type: 'hero', layout: 'left', title: heading, subtitle: sub, bgImage, overlay: 0.6, search: true, searchAction: path, searchPlaceholder: `Search ${title.toLowerCase()}` },
       { type: 'merchants', heading: `${title} — preview lineup`, subtitle: 'Sample partners shown while real merchants onboard for launch.', layout: 'grid', items },
       { type: 'cta', title: 'Want launch updates?', subtitle: 'Join the waitlist and we’ll tell you when HaaT Now goes live in your city.', button: { label: 'Join the waitlist', href: '/waitlist' } },
     ],
   });
 
-  const restaurants = categoryPage('/restaurants', 'Restaurants', 'Order from the best restaurants', 'From street food to fine dining — delivered hot and fast.', [...FEATURED_RESTAURANTS, ...POPULAR, ...TRENDING], `From street food to fine dining, order from top local restaurants on ${name}. Fast delivery, live tracking and cash on delivery — launching in your city.`);
-  const grocery = categoryPage('/grocery', 'Grocery', 'Groceries in minutes', 'Fresh produce and daily essentials from local markets.', FEATURED_STORES.filter(s => s.cuisine !== 'Pharmacy'), `Fresh produce and daily essentials from neighbourhood markets, delivered by ${name}. Order groceries online with live tracking and cash on delivery.`);
-  const pharmacy = categoryPage('/pharmacy', 'Pharmacy', 'Pharmacy, delivered discreetly', 'Medicines, wellness and personal care to your door.', FEATURED_STORES.filter(s => s.cuisine === 'Pharmacy').concat(NEARBY.slice(0, 2)), `Medicines, wellness and personal care delivered discreetly by ${name}. Order from local pharmacies with live tracking and cash on delivery.`);
+  const restaurants = categoryPage('/restaurants', 'Restaurants', 'Order from the best restaurants', 'From street food to fine dining — delivered hot and fast.', [...FEATURED_RESTAURANTS, ...POPULAR, ...TRENDING], `From street food to fine dining, order from top local restaurants on ${name}. Fast delivery, live tracking and cash on delivery — launching in your city.`, CATEGORY_IMAGES.restaurant.cover);
+  const grocery = categoryPage('/grocery', 'Grocery', 'Groceries in minutes', 'Fresh produce and daily essentials from local markets.', FEATURED_STORES.filter(s => s.cuisine !== 'Pharmacy'), `Fresh produce and daily essentials from neighbourhood markets, delivered by ${name}. Order groceries online with live tracking and cash on delivery.`, CATEGORY_IMAGES.market.cover);
+  const pharmacy = categoryPage('/pharmacy', 'Pharmacy', 'Pharmacy, delivered discreetly', 'Medicines, wellness and personal care to your door.', FEATURED_STORES.filter(s => s.cuisine === 'Pharmacy').concat(NEARBY.slice(0, 2)), `Medicines, wellness and personal care delivered discreetly by ${name}. Order from local pharmacies with live tracking and cash on delivery.`, CATEGORY_IMAGES.pharmacy.cover);
   const offers: WebsitePage = { id: 'p_offers', path: '/offers', kind: 'custom', title: 'Offers', nav: true, navOrder: 2,
     seo: { title: `Offers & deals — ${name}`, description: `Discover ${name}'s best food, grocery and pharmacy offers. Join the waitlist to unlock your first-order launch deal in your city.` },
     sections: [
@@ -180,7 +188,7 @@ function defaultSite(tenant: any): WebsiteSite {
     seo: { title: `Partner with ${name} — grow your business`, description: `List your restaurant or store on ${name} and reach thousands of new customers with zero setup cost.` },
     sections: [
       { type: 'hero', layout: 'left', title: 'Grow your business with ' + name, subtitle: 'Reach new customers, boost orders and manage everything from one dashboard.', ctas: [{ label: 'Become a partner', href: '/contact', style: 'primary' }, { label: 'Talk to sales', href: '/contact', style: 'secondary' }] },
-      { type: 'stats', heading: 'Why merchants choose us', items: [{ value: '+30%', label: 'Avg order uplift' }, { value: '0', label: 'Setup fee' }, { value: '24/7', label: 'Partner support' }, { value: '48h', label: 'Go live time' }] },
+      { type: 'stats', heading: 'Built to help you sell more', items: [{ value: '0', label: 'Setup fee' }, { value: '48h', label: 'Go-live time' }, { value: '24/7', label: 'Partner support' }, { value: 'Day 1', label: 'Customers from launch' }] },
       { type: 'features', heading: 'Everything you need to sell more', items: [
         { title: 'More customers', body: 'Get discovered by hungry customers actively searching nearby.', icon: '📈' },
         { title: 'Smart dashboard', body: 'Menus, offers, hours and live orders in one place.', icon: '🧑‍🍳' },
@@ -189,7 +197,7 @@ function defaultSite(tenant: any): WebsiteSite {
       ] },
       { type: 'steps', heading: 'Live in 3 steps', items: [{ title: 'Sign up', body: 'Tell us about your business.', icon: '📝' }, { title: 'Add your menu', body: 'We help you onboard fast.', icon: '📋' }, { title: 'Start selling', body: 'Go live and receive orders.', icon: '🚀' }] },
       { type: 'faq', heading: 'Merchant FAQ', items: [{ q: 'How much does it cost?', a: 'No setup fee — a simple commission per completed order.' }, { q: 'How fast can I go live?', a: 'Most partners are live within 48 hours.' }, { q: 'Do I need my own drivers?', a: 'No — our captain network handles delivery for you.' }] },
-      { type: 'cta', title: 'Ready to grow?', subtitle: 'Join thousands of merchants already on the platform.', button: { label: 'Become a partner', href: '/contact' } },
+      { type: 'cta', title: 'Ready to grow?', subtitle: 'Be one of our founding partners and reach customers from day one.', button: { label: 'Become a partner', href: '/contact' } },
     ] };
   const drivers: WebsitePage = { id: 'p_drivers', path: '/drivers', kind: 'landing', title: 'Drive & Earn', nav: false, navOrder: 21,
     seo: { title: `Deliver with ${name} — flexible earnings`, description: `Earn on your own schedule as a ${name} captain. Weekly payouts, live navigation and full support.` },
@@ -276,11 +284,21 @@ function defaultSite(tenant: any): WebsiteSite {
   const about: WebsitePage = { id: 'p_about', path: '/about', kind: 'about', title: 'About', nav: true, navOrder: 3,
     seo: { title: `About ${name}`, description: `${name} is a modern delivery platform connecting customers, merchants and captains.` },
     sections: [
-      { type: 'hero', layout: 'left', title: 'About ' + name, subtitle: 'A modern delivery platform connecting customers, merchants and captains through one seamless experience.' },
-      { type: 'features', heading: 'What we stand for', items: [
-        { title: 'Speed', body: 'Fast, reliable delivery is the promise we intend to keep every day.', icon: '⚡' },
-        { title: 'Fairness', body: 'A fair deal for customers, merchants and captains alike.', icon: '⚖️' },
-        { title: 'Craft', body: 'A beautiful, effortless experience end to end.', icon: '✨' },
+      { type: 'hero', layout: 'left', title: 'About ' + name, subtitle: 'We’re building the delivery platform our region deserves — connecting neighbourhood restaurants, grocers and pharmacies with the people nearby, through one effortless experience.', bgImage: CATEGORY_IMAGES.market.cover, overlay: 0.62 },
+      { type: 'cards', heading: 'Our mission & vision', items: [
+        { title: 'Our mission', body: 'To make everyday delivery fast, fair and effortless — so anyone can get what they need from local businesses in minutes.' },
+        { title: 'Our vision', body: 'A connected region where every neighbourhood shop can reach every customer, and every customer can order with total confidence.' },
+      ] },
+      { type: 'features', heading: 'The values we build on', items: [
+        { title: 'Speed', body: 'Fast, reliable delivery is the promise we intend to keep on every single order.', icon: '⚡' },
+        { title: 'Fairness', body: 'Honest pricing for customers, fair commissions for merchants, and reliable pay for captains.', icon: '⚖️' },
+        { title: 'Trust', body: 'Transparent tracking, clear policies and real human support — no surprises, ever.', icon: '🛡️' },
+        { title: 'Craft', body: 'A beautiful, effortless experience end to end, obsessed over in every detail.', icon: '✨' },
+      ] },
+      { type: 'steps', heading: 'How we serve three sides', subtitle: 'One platform, built for everyone in the loop', items: [
+        { title: 'Customers', body: 'Order from local favourites, pay cash on delivery, and track every step live.', icon: '🧑‍🍳' },
+        { title: 'Merchants', body: 'Reach new customers with zero setup cost and a dashboard that runs your storefront.', icon: '🏪' },
+        { title: 'Captains', body: 'Earn on a flexible schedule with weekly payouts and smart, guided routing.', icon: '🛵' },
       ] },
       { type: 'richtext', heading: 'Where we are today', body: 'HaaT Now is pre-launch. We’re onboarding our first merchants and captains and preparing to go live city by city. We’d rather be transparent than show inflated numbers — so instead of vanity metrics, here’s our commitment: fast delivery, fair pricing and real support from day one.' },
       { type: 'cta', title: 'Want to be first?', subtitle: 'Join the waitlist and we’ll tell you when we launch in your city.', button: { label: 'Join the waitlist', href: '/waitlist' } },
@@ -319,11 +337,37 @@ function defaultSite(tenant: any): WebsiteSite {
       { type: 'richtext', body: `By using ${name} you agree to these terms. Orders are subject to merchant availability and delivery-area coverage. Prices, fees and offers may change. For the full agreement or any questions, contact ${support}.` },
       { type: 'cta', title: 'Questions about these terms?', subtitle: 'Get in touch any time.', button: { label: 'Contact us', href: '/contact' } },
     ] };
+  const refund: WebsitePage = { id: 'p_refund', path: '/refund-policy', kind: 'legal', title: 'Refund Policy', nav: false, navOrder: 32,
+    seo: { title: `Refund Policy — ${name}`, description: `How refunds work on ${name} — fair, fast and transparent.` },
+    sections: [
+      { type: 'hero', layout: 'left', title: 'Refund Policy', subtitle: 'Fair, fast and transparent — because things occasionally go wrong.' },
+      { type: 'richtext', body: `If an order arrives wrong, damaged or never arrives, you're covered. Report the issue from your order within 24 hours and our team will make it right — a refund to your original method, a credit, or a redelivery. Cash-on-delivery refunds are issued as HaaT credit or to your preferred method. We review every request quickly and fairly.` },
+      { type: 'faq', heading: 'Refund FAQ', items: [
+        { q: 'How do I request a refund?', a: 'Open the order and tap “Request refund”, or contact support with your order number.' },
+        { q: 'How long does it take?', a: 'Most requests are reviewed within 24 hours; approved refunds are issued promptly.' },
+        { q: 'What if my order never arrived?', a: 'You’re fully covered — report it and we’ll refund or redeliver.' },
+      ] },
+      { type: 'cta', title: 'Need help with an order?', subtitle: 'Our support team is here for you.', button: { label: 'Contact support', href: '/contact' } },
+    ] };
+  const delivery: WebsitePage = { id: 'p_delivery', path: '/delivery-policy', kind: 'legal', title: 'Delivery Policy', nav: false, navOrder: 33,
+    seo: { title: `Delivery Policy — ${name}`, description: `Delivery areas, times, fees and how ${name} gets your order to your door.` },
+    sections: [
+      { type: 'hero', layout: 'left', title: 'Delivery Policy', subtitle: 'How, where and when we deliver — clearly explained.' },
+      { type: 'richtext', body: `We deliver within each merchant's coverage area. Delivery fees and minimum orders are shown before you check out — no surprises. Estimated times are shown per store and updated live as your order moves. If your captain is delayed, you'll see it in live tracking and can contact support at any time. Contactless delivery is available on request.` },
+      { type: 'cta', title: 'Questions about delivery?', subtitle: 'We’re happy to help.', button: { label: 'Contact us', href: '/contact' } },
+    ] };
+  const cookies: WebsitePage = { id: 'p_cookies', path: '/cookie-policy', kind: 'legal', title: 'Cookie Policy', nav: false, navOrder: 34,
+    seo: { title: `Cookie Policy — ${name}`, description: `How ${name} uses cookies to keep the site working and improve your experience.` },
+    sections: [
+      { type: 'hero', layout: 'left', title: 'Cookie Policy', subtitle: 'The cookies we use, and why.' },
+      { type: 'richtext', body: `${name} uses essential cookies to keep the site working (like remembering your cart) and optional analytics cookies to understand what to improve. We don't use cookies to sell your data. You can manage cookies from your browser at any time. For questions, contact ${support}.` },
+      { type: 'cta', title: 'Questions about cookies?', subtitle: 'Reach out any time.', button: { label: 'Contact us', href: '/contact' } },
+    ] };
 
   // Extra custom pages declared by the template's cms_structure (reuse the manifest structure).
   // 'app' stays reserved so a tenant's cms_structure can never mint a `/app` website page — that path is
   // owned by the role application (see runtime.ts APP_ROUTE_PREFIX). 'waitlist' is the pre-launch page.
-  const known = new Set(['home', 'about', 'contact', 'blog', 'help', 'privacy', 'terms', 'menu', 'offers', 'restaurants', 'grocery', 'pharmacy', 'merchants', 'drivers', 'franchise', 'business', 'enterprise', 'careers', 'app', 'waitlist']);
+  const known = new Set(['home', 'about', 'contact', 'blog', 'help', 'privacy', 'terms', 'refund-policy', 'delivery-policy', 'cookie-policy', 'menu', 'offers', 'restaurants', 'grocery', 'pharmacy', 'merchants', 'drivers', 'franchise', 'business', 'enterprise', 'careers', 'app', 'waitlist']);
   const customPages: WebsitePage[] = cmsPages.filter(p => !known.has(p)).map((p, i) => ({
     id: `p_${p}`, path: `/${p}`, kind: 'custom' as const, title: p.charAt(0).toUpperCase() + p.slice(1), nav: true, navOrder: 40 + i,
     seo: { title: `${p} — ${name}` }, sections: [{ type: 'richtext', heading: p, body: `The ${p} page. Edit its content in the Website Center.` }],
@@ -338,7 +382,7 @@ function defaultSite(tenant: any): WebsiteSite {
     { id: 'b_tips', slug: 'delivery-tips', title: '5 tips for faster delivery', excerpt: 'Small things that get your order to you quicker.', body: [{ type: 'richtext', body: 'Keep your address precise, add a note for the captain, and order at off-peak times.' }], author: name, publishedAt: now(), tags: ['guide'], seo: { title: 'Delivery tips' } },
   ];
 
-  const allPages = [home, ...flagshipPages, about, blog, help, contact, privacy, terms, ...customPages];
+  const allPages = [home, ...flagshipPages, about, blog, help, contact, privacy, terms, refund, delivery, cookies, ...customPages];
   const partnerLinks = isFlagship
     ? [{ label: 'For Merchants', path: '/merchants' }, { label: 'Drive & Earn', path: '/drivers' }, { label: 'Franchise', path: '/franchise' }, { label: 'Business API', path: '/business' }, { label: 'Enterprise', path: '/enterprise' }]
     : [];
@@ -354,28 +398,37 @@ function defaultSite(tenant: any): WebsiteSite {
         { title: 'Support', links: [{ label: 'Help Center', path: '/help' }, { label: 'Offers', path: '/offers' }] },
       ],
       social: [{ label: 'Twitter', href: '#' }, { label: 'Instagram', href: '#' }, { label: 'TikTok', href: '#' }],
-      legalLinks: [{ label: 'Privacy', path: '/privacy' }, { label: 'Terms', path: '/terms' }],
+      legalLinks: [{ label: 'Privacy', path: '/privacy' }, { label: 'Terms', path: '/terms' }, { label: 'Refunds', path: '/refund-policy' }, { label: 'Cookies', path: '/cookie-policy' }],
       copyright: `© ${new Date().getFullYear()} ${name}. All rights reserved.`,
     },
     pages: allPages,
     blog: posts,
-    seoDefaults: { title: name, description: `${name} — order food, groceries and pharmacy from top local merchants. Fast delivery, live tracking and cash on delivery, launching in your city.` },
-    analytics: {}, cookie: { enabled: true, policyPath: '/privacy' },
+    seoDefaults: { title: name, description: `${name} — order food, groceries and pharmacy from top local merchants. Fast delivery, live tracking and cash on delivery, launching in your city.`, ogImage: CATEGORY_IMAGES.restaurant.cover },
+    analytics: {}, cookie: { enabled: true, policyPath: '/cookie-policy' },
     domain: `${slug}.haatnow.app`, sslStatus: 'active',
     updatedAt: now(),
   };
 }
 
 // ── Curated marketplace content for the flagship homepage (marketing showcase). ──
+// Production-quality photography reuses the app's verified CATEGORY_IMAGES (HTTP-200 checked,
+// Studio-editable per card). Sample partners stay clearly labelled until real merchants onboard.
+const FOOD_POOL = [...CATEGORY_IMAGES.restaurant.thumbs, ...CATEGORY_IMAGES.coffee.thumbs, ...CATEGORY_IMAGES.sweets.thumbs];
+const pickImg = (pool: string[], i: number) => pool[((i % pool.length) + pool.length) % pool.length];
+const foodImg = (i: number) => pickImg(FOOD_POOL, i);
+const storeImg = (c: MerchantCard, i: number) => pickImg(c.cuisine === 'Pharmacy' ? CATEGORY_IMAGES.pharmacy.thumbs : CATEGORY_IMAGES.market.thumbs, i);
+
+// Each marketplace category carries its own colour identity (tint) + emoji (Section 5).
 const CATEGORY_TILES: CategoryTile[] = [
-  { label: 'Restaurants', emoji: '🍔', href: '/restaurants' },
-  { label: 'Grocery', emoji: '🛒', href: '/grocery' },
-  { label: 'Pharmacy', emoji: '💊', href: '/pharmacy' },
-  { label: 'Coffee', emoji: '☕', href: '/restaurants?c=coffee' },
-  { label: 'Sweets', emoji: '🍰', href: '/restaurants?c=sweets' },
-  { label: 'Healthy', emoji: '🥗', href: '/restaurants?c=healthy' },
-  { label: 'Flowers', emoji: '💐', href: '/offers' },
-  { label: 'Parcels', emoji: '📦', href: '/offers' },
+  { label: 'Restaurants', emoji: '🍔', href: '/restaurants', tint: 'color-mix(in srgb, #f97316 22%, transparent)' },
+  { label: 'Grocery', emoji: '🛒', href: '/grocery', tint: 'color-mix(in srgb, #22c55e 22%, transparent)' },
+  { label: 'Pharmacy', emoji: '💊', href: '/pharmacy', tint: 'color-mix(in srgb, #06b6d4 22%, transparent)' },
+  { label: 'Coffee', emoji: '☕', href: '/restaurants?c=coffee', tint: 'color-mix(in srgb, #b45309 26%, transparent)' },
+  { label: 'Sweets', emoji: '🍰', href: '/restaurants?c=sweets', tint: 'color-mix(in srgb, #ec4899 22%, transparent)' },
+  { label: 'Healthy', emoji: '🥗', href: '/restaurants?c=healthy', tint: 'color-mix(in srgb, #84cc16 22%, transparent)' },
+  { label: 'Flowers', emoji: '💐', href: '/offers', tint: 'color-mix(in srgb, #a855f7 22%, transparent)' },
+  { label: 'Gifts', emoji: '🎁', href: '/offers', tint: 'color-mix(in srgb, #ef4444 22%, transparent)' },
+  { label: 'Parcels', emoji: '📦', href: '/offers', tint: 'color-mix(in srgb, #eab308 22%, transparent)' },
 ];
 const FLASH_DEALS: DealCard[] = [
   { title: '50% off your first order', merchant: 'HaaT Kitchen', emoji: '🍔', discount: '-50%', code: 'HAAT50', endsInMin: 90, href: '/restaurants' },
@@ -390,31 +443,31 @@ const FEATURED_RESTAURANTS: MerchantCard[] = [
   { name: 'Shawarma King', emoji: '🌯', cuisine: 'Levantine · Grills', rating: 4.6, reviews: 2100, eta: '15–25 min', fee: 'Free delivery', promo: 'BOGO', href: '/restaurants' },
   { name: 'Green Bowl', emoji: '🥗', cuisine: 'Healthy · Salads', rating: 4.7, reviews: 420, eta: '20–30 min', fee: 'SAR 6', href: '/restaurants' },
   { name: 'Sweet Tooth', emoji: '🍰', cuisine: 'Desserts · Bakery', rating: 4.8, reviews: 760, eta: '25–35 min', fee: 'SAR 7', href: '/restaurants' },
-];
+].map((c, i) => ({ ...c, image: foodImg(i) }));
 const FEATURED_STORES: MerchantCard[] = [
   { name: 'Fresh Market', emoji: '🛒', cuisine: 'Grocery', rating: 4.6, reviews: 540, eta: '20–35 min', fee: 'Free delivery', href: '/grocery' },
   { name: 'Daily Greens', emoji: '🥬', cuisine: 'Grocery', rating: 4.7, reviews: 310, eta: '25–40 min', fee: 'SAR 9', promo: '-15%', href: '/grocery' },
   { name: 'CarePlus Pharmacy', emoji: '💊', cuisine: 'Pharmacy', rating: 4.8, reviews: 220, eta: '15–25 min', fee: 'SAR 5', href: '/pharmacy' },
   { name: 'Wellness Point', emoji: '🧴', cuisine: 'Pharmacy', rating: 4.5, reviews: 180, eta: '20–30 min', fee: 'Free delivery', href: '/pharmacy' },
-];
+].map((c, i) => ({ ...c, image: storeImg(c, i) }));
 const POPULAR: MerchantCard[] = [
   { name: 'Taco Fiesta', emoji: '🌮', cuisine: 'Mexican', rating: 4.6, reviews: 890, eta: '20–30 min', fee: 'SAR 8', href: '/restaurants' },
   { name: 'Noodle Bar', emoji: '🍜', cuisine: 'Asian · Noodles', rating: 4.7, reviews: 510, eta: '25–35 min', fee: 'Free delivery', href: '/restaurants' },
   { name: 'Grill Master', emoji: '🍖', cuisine: 'BBQ · Grills', rating: 4.5, reviews: 1300, eta: '30–45 min', fee: 'SAR 12', href: '/restaurants' },
   { name: 'Bean & Brew', emoji: '☕', cuisine: 'Coffee', rating: 4.8, reviews: 670, eta: '15–20 min', fee: 'SAR 5', promo: '-10%', href: '/restaurants' },
-];
+].map((c, i) => ({ ...c, image: foodImg(i + 6) }));
 const TRENDING: MerchantCard[] = [
   { name: 'Poké Corner', emoji: '🍥', cuisine: 'Hawaiian · Poké', rating: 4.7, reviews: 240, eta: '25–35 min', fee: 'SAR 7', badge: 'New', href: '/restaurants' },
   { name: 'Falafel Street', emoji: '🧆', cuisine: 'Vegetarian', rating: 4.6, reviews: 430, eta: '15–25 min', fee: 'Free delivery', href: '/restaurants' },
   { name: 'Ice & Slice', emoji: '🍧', cuisine: 'Desserts', rating: 4.9, reviews: 150, eta: '20–30 min', fee: 'SAR 6', promo: '-25%', href: '/restaurants' },
   { name: 'Curry Leaf', emoji: '🍛', cuisine: 'Indian', rating: 4.7, reviews: 980, eta: '30–40 min', fee: 'SAR 10', href: '/restaurants' },
-];
+].map((c, i) => ({ ...c, image: foodImg(i + 3) }));
 const NEARBY: MerchantCard[] = [
   { name: 'Corner Bakery', emoji: '🥐', cuisine: 'Bakery · 0.4 km', rating: 4.5, reviews: 120, eta: '10–20 min', fee: 'SAR 4', distance: '0.4 km', href: '/restaurants' },
   { name: 'Mini Mart', emoji: '🏪', cuisine: 'Convenience · 0.6 km', rating: 4.3, reviews: 90, eta: '10–15 min', fee: 'Free delivery', distance: '0.6 km', href: '/grocery' },
   { name: 'Juice Lab', emoji: '🧃', cuisine: 'Juices · 0.8 km', rating: 4.8, reviews: 210, eta: '15–20 min', fee: 'SAR 5', distance: '0.8 km', href: '/restaurants' },
   { name: 'Night Pharmacy', emoji: '💊', cuisine: 'Pharmacy · 1.1 km', rating: 4.6, reviews: 60, eta: '15–25 min', fee: 'SAR 6', distance: '1.1 km', closed: true, href: '/pharmacy' },
-];
+].map((c, i) => ({ ...c, image: /pharm/i.test(c.cuisine || '') ? pickImg(CATEGORY_IMAGES.pharmacy.thumbs, i) : /convenience|mart/i.test(c.cuisine || '') ? pickImg(CATEGORY_IMAGES.market.thumbs, i) : foodImg(i) }));
 
 function ensureRecord(store: Store, tenant: any): Record_ {
   const id = String(tenant.id);
