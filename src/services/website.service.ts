@@ -117,7 +117,7 @@ function defaultSite(tenant: any): WebsiteSite {
       bgImage: CATEGORY_IMAGES.restaurant.cover, overlay: 0.64,
       search: true, searchPlaceholder: 'Search for a restaurant, dish or store', searchAction: '/restaurants',
       chips: [{ label: 'Restaurants', path: '/restaurants' }, { label: 'Grocery', path: '/grocery' }, { label: 'Pharmacy', path: '/pharmacy' }, { label: 'Offers', path: '/offers' }],
-      ctas: [{ label: 'Order now', href: '/menu', style: 'primary' }, { label: 'Join the waitlist', href: '/waitlist', style: 'secondary' }] },
+      ctas: [{ label: 'Start ordering', href: '/app', style: 'primary' }, { label: 'Join the waitlist', href: '/waitlist', style: 'secondary' }] },
     { type: 'features', heading: 'Why HaaT Now?', items: [
       { title: 'Everything, one place', body: 'Restaurants, grocery and pharmacy from your neighbourhood — in a single app.', icon: 'cart' },
       { title: 'Fair for everyone', body: 'Honest pricing for customers, fair commissions for merchants, weekly payouts for captains.', icon: 'scale' },
@@ -134,6 +134,26 @@ function defaultSite(tenant: any): WebsiteSite {
     );
   }
   homeSections.push(
+    { type: 'features', heading: 'Why choose HaaT Now', items: [
+      { title: 'Fast local delivery', body: 'Neighbourhood merchants and nearby captains mean your order arrives quickly.', icon: 'delivery' },
+      { title: 'Real-time tracking', body: 'Follow every order live, from the store to your door — no guessing.', icon: 'pin' },
+      { title: 'Cash on delivery', body: 'Order as a guest and pay cash at your door. No card or account required.', icon: 'cash' },
+      { title: 'Secure & private', body: 'Your details are used only to complete your delivery — never sold.', icon: 'shield' },
+      { title: '24/7 support', body: 'Real people ready to help with any order, any time.', icon: 'support' },
+      { title: 'Verified merchants', body: 'Every partner is reviewed before going live on the platform.', icon: 'verified' },
+    ] },
+    { type: 'stats', heading: 'Built to serve your whole city', items: [
+      { value: '3-in-1', label: 'Food · grocery · pharmacy' },
+      { value: '~30 min', label: 'Target delivery time' },
+      { value: 'COD', label: 'Pay your way' },
+      { value: '100%', label: 'Live order tracking' },
+    ] },
+    { type: 'richtext', body: 'The reviews below are illustrative examples of the experience we are building — real customer reviews will appear here at launch. (Editable in Website Studio.)' },
+    { type: 'testimonials', heading: 'Loved by our early community', items: [
+      { quote: 'Ordering felt effortless and I could watch my delivery the whole way. Exactly what our neighbourhood needed.', author: 'Early tester', role: 'Riyadh · illustrative' },
+      { quote: 'Cash on delivery with no account made it so easy to try. The tracking is genuinely useful.', author: 'Beta customer', role: 'Jeddah · illustrative' },
+      { quote: 'Fast, clear pricing, and real support when I had a question. A promising start.', author: 'Community member', role: 'Dammam · illustrative' },
+    ] },
     { type: 'steps', heading: 'How it works', subtitle: 'Three taps to your door', items: [
       { title: 'Browse & choose', body: 'Discover restaurants and stores near you, with clear ETAs and prices.', icon: 'search' },
       { title: 'Order & pay cash', body: 'Check out as a guest and pay cash on delivery — no account or card needed.', icon: 'cart' },
@@ -152,7 +172,7 @@ function defaultSite(tenant: any): WebsiteSite {
       { title: 'Instant updates', body: 'Push alerts at every step of your order.', icon: 'bell' },
     ] },
     { type: 'app_download', heading: 'Get the HaaT Now app', subtitle: 'One-tap reordering, live tracking and launch-day offers — landing on iOS and Android. Join the waitlist and we’ll send the download link the day it drops.' },
-    { type: 'cta', title: 'Hungry to get started?', subtitle: 'Order now, or join the waitlist for launch updates.', button: { label: 'Start an order', href: '/menu' } },
+    { type: 'cta', title: 'Hungry to get started?', subtitle: 'Order now, or join the waitlist for launch updates.', button: { label: 'Start ordering', href: '/app' } },
   );
 
   const home: WebsitePage = {

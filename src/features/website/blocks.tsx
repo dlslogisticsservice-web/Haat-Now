@@ -1,5 +1,5 @@
 import React from 'react';
-import { Star, Clock, Bike, Zap, Search } from 'lucide-react';
+import { Star, Clock, Bike, Search, Smartphone, QrCode, Copy, Check, Play } from 'lucide-react';
 import type { WebsiteBlock, WebsiteCta, MerchantCard, DealCard } from '../../services/website.service';
 import { WIcon, foodIconName } from './icons';
 
@@ -216,26 +216,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
         </section>
       );
     case 'app_download':
-      return (
-        <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
-          <div style={sectionWrap}>
-            <div style={{ position: 'relative', overflow: 'hidden', borderRadius: T.cardR, border: hairline, background: `linear-gradient(135deg, color-mix(in srgb, ${T.primary} 16%, var(--color-surface-container-high,#141a17)), var(--color-surface-container,#10160f))`, display: 'flex', flexWrap: 'wrap', gap: 28, alignItems: 'center', justifyContent: 'space-between', padding: 'clamp(28px,4vw,48px)' }}>
-              <span aria-hidden="true" className="hn-orb hn-orb-b" style={{ opacity: 0.5 }} />
-              <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
-                <Eyebrow>Get the app</Eyebrow>
-                <h2 style={{ ...hStyle, marginTop: 12 }}>{block.heading}</h2>
-                {block.subtitle && <p style={{ color: T.onVar, marginTop: 10, fontSize: 16, lineHeight: 1.55, maxWidth: 460 }}>{block.subtitle}</p>}
-                <div style={{ display: 'flex', gap: 12, marginTop: 22, flexWrap: 'wrap' }}>
-                  {block.iosUrl && <a href={block.iosUrl} target="_blank" rel="noreferrer" style={storeBtn}> App Store</a>}
-                  {block.androidUrl && <a href={block.androidUrl} target="_blank" rel="noreferrer" style={storeBtn}>▶ Google Play</a>}
-                  {!block.iosUrl && !block.androidUrl && <span style={{ ...storeBtn, opacity: 0.7, display: 'inline-flex', alignItems: 'center', gap: 8 }}><Zap size={16} />Coming soon</span>}
-                </div>
-              </div>
-              {block.image && <img src={block.image} alt={block.heading} loading="lazy" decoding="async" style={{ position: 'relative', maxHeight: 260, borderRadius: 20 }} />}
-            </div>
-          </div>
-        </section>
-      );
+      return <AppDownloadBlock block={block} />;
     case 'cta':
       return (
         <section style={{ padding: 'clamp(44px,6vw,80px) 0' }}>
@@ -625,6 +606,82 @@ function badge(kind: 'promo' | 'info' | 'code'): React.CSSProperties {
   return { ...base, background: T.primary, color: T.onPrimary, boxShadow: `0 6px 16px -6px color-mix(in srgb, ${T.primary} 80%, transparent)` };
 }
 
+// ── Premium App Download block: smart device detection · Android/iOS/Huawei · QR · copy link ──
+type Platform = 'android' | 'ios' | 'huawei' | 'other';
+function detectPlatform(): Platform {
+  if (typeof navigator === 'undefined') return 'other';
+  const ua = navigator.userAgent.toLowerCase();
+  if (/huawei|honor|hmscore|; harmonyos/.test(ua)) return 'huawei';
+  if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'other';
+}
+// A deterministic QR-style placeholder (real QR wires in when store links exist). Honest, self-contained.
+const QrPlaceholder: React.FC<{ size?: number }> = ({ size = 116 }) => {
+  const cells = 11;
+  const on = (r: number, c: number) => {
+    if ((r < 3 && c < 3) || (r < 3 && c > cells - 4) || (r > cells - 4 && c < 3)) return (r === 0 || r === 2 || c === 0 || c === 2 || (r === 1 && c === 1)) || (r >= cells - 3 && (r === cells - 1 || r === cells - 3 || (r === cells - 2 && c === 1))) || (c >= cells - 3 && (c === cells - 1 || c === cells - 3));
+    return ((r * 7 + c * 13 + r * c) % 3 === 0);
+  };
+  const s = size / cells;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Scan to download the app" style={{ borderRadius: 10, background: '#fff', padding: 6, boxSizing: 'content-box' }}>
+      {Array.from({ length: cells }).map((_r, r) => Array.from({ length: cells }).map((_c, c) => on(r, c) ? <rect key={`${r}-${c}`} x={c * s} y={r * s} width={s} height={s} fill="#0c2000" /> : null))}
+    </svg>
+  );
+};
+const AppDownloadBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'app_download' }> }> = ({ block }) => {
+  const [plat, setPlat] = React.useState<Platform>('other');
+  const [copied, setCopied] = React.useState(false);
+  React.useEffect(() => { setPlat(detectPlatform()); }, []);
+  const link = typeof window !== 'undefined' ? `${window.location.origin}/app` : '/app';
+  const copy = () => { try { navigator.clipboard.writeText(link).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1600); }); } catch { /* ignore */ } };
+  const stores: { key: Platform; brand: string; sub: string; href?: string }[] = [
+    { key: 'android', brand: 'Google Play', sub: 'Android', href: block.androidUrl },
+    { key: 'ios', brand: 'App Store', sub: 'iPhone & iPad', href: block.iosUrl },
+    { key: 'huawei', brand: 'AppGallery', sub: 'Huawei', href: undefined },
+  ];
+  const feats = ['Faster one-tap ordering', 'Live map tracking', 'Wallet & rewards', 'Push notifications'];
+  return (
+    <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
+      <div style={sectionWrap}>
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: T.cardR, border: hairline, background: `linear-gradient(135deg, color-mix(in srgb, ${T.primary} 16%, var(--color-surface-container-high,#141a17)), var(--color-surface-container,#10160f))`, padding: 'clamp(28px,4vw,48px)' }}>
+          <span aria-hidden="true" className="hn-orb hn-orb-b" style={{ opacity: 0.5 }} />
+          <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'minmax(0,1.4fr) auto', gap: 'clamp(20px,4vw,48px)', alignItems: 'center' }} className="hn-app-grid">
+            <div>
+              <Eyebrow>Get the app</Eyebrow>
+              <h2 style={{ ...hStyle, marginTop: 12 }}>{block.heading}</h2>
+              {block.subtitle && <p style={{ color: T.onVar, marginTop: 10, fontSize: 16, lineHeight: 1.55, maxWidth: 480 }}>{block.subtitle}</p>}
+              <ul style={{ listStyle: 'none', padding: 0, margin: '16px 0 0', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
+                {feats.map(f => <li key={f} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: T.on }}><Check size={15} color={T.primary} />{f}</li>)}
+              </ul>
+              <div style={{ display: 'flex', gap: 12, marginTop: 22, flexWrap: 'wrap' }}>
+                {stores.map(st => {
+                  const suggested = plat === st.key;
+                  const inner = (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '11px 18px', borderRadius: 14, fontWeight: 800, textDecoration: 'none', border: suggested ? `1px solid ${T.primary}` : hairline, background: suggested ? T.primary : T.surfHigh, color: suggested ? T.onPrimary : T.on }}>
+                      {st.key === 'android' ? <Play size={18} /> : <Smartphone size={18} />}
+                      <span style={{ display: 'grid', lineHeight: 1.05, textAlign: 'start' }}><span style={{ fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{st.href ? 'Download on' : 'Coming soon ·'} {st.sub}</span><span style={{ fontSize: 14 }}>{st.brand}</span></span>
+                    </span>
+                  );
+                  return st.href ? <a key={st.key} href={st.href} target="_blank" rel="noreferrer">{inner}</a> : <span key={st.key} style={{ opacity: st.href ? 1 : 0.85 }}>{inner}</span>;
+                })}
+              </div>
+              <button onClick={copy} className="hn-btn hn-btn-ghost" style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: T.btnR, border: hairline, background: 'transparent', color: T.on, fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
+                {copied ? <Check size={15} color={T.primary} /> : <Copy size={15} />}{copied ? 'Link copied' : 'Copy app link'}
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <QrPlaceholder />
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: T.onVar }}><QrCode size={13} />Scan to get the app</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 /** Injected once by the public site shell — motion + micro-interactions (reduced-motion safe). */
 export const BlockStyles: React.FC = () => (
   <style>{`
@@ -661,6 +718,7 @@ export const BlockStyles: React.FC = () => (
     .hn-fade-3 { animation: hn-fade-in .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .24s; }
     @keyframes hn-fade-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
     @media (max-width: 640px) { .hn-featured-media { display: none; } }
+    @media (max-width: 720px) { .hn-app-grid { grid-template-columns: 1fr !important; } }
     @media (prefers-reduced-motion: reduce) {
       .hn-lift, .hn-chip, .hn-zoom, .hn-btn, .hn-cat-icon, .hn-arrow, .hn-fade, .hn-fade-1, .hn-fade-2, .hn-fade-3, .hn-orb { transition: none !important; animation: none !important; }
     }
@@ -669,4 +727,3 @@ export const BlockStyles: React.FC = () => (
 
 const hStyle: React.CSSProperties = { fontSize: 'clamp(24px, 4vw, 34px)', fontWeight: 900, letterSpacing: '-0.025em', color: T.on, margin: 0, lineHeight: 1.1 };
 const cardStyle: React.CSSProperties = { background: T.surf, border: hairline, borderRadius: T.cardR, padding: 22, boxShadow: softShadow };
-const storeBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 22px', borderRadius: 14, background: T.on, color: 'var(--color-background, #111417)', fontWeight: 800, textDecoration: 'none', fontSize: 14 };

@@ -51,6 +51,32 @@ function param(search: string, key: string): string {
 
 const SAVED_CUSTOMER = 'haat_web_customer';
 const PENDING_COUPON = 'haat_web_coupon';
+const APP_PROMO_KEY = 'haat_app_promo_dismissed';
+
+/** Smart app-promotion modal — shown once at ~50% of checkout. Download or continue on web. */
+const AppPromoModal: React.FC<{ onDownload: () => void; onContinue: () => void }> = ({ onDownload, onContinue }) => {
+  const benefits = [
+    { icon: 'delivery', t: 'Faster one-tap ordering' }, { icon: 'pin', t: 'Real-time map tracking' },
+    { icon: 'gift', t: 'App-only rewards & offers' }, { icon: 'wallet', t: 'Wallet & saved payments' },
+    { icon: 'bell', t: 'Live push notifications' }, { icon: 'reorder', t: 'One-tap reorder' },
+  ];
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Get the HaaT Now app" className="wc-pop" style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,.6)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={onContinue}>
+      <div onClick={e => e.stopPropagation()} style={{ width: 'min(440px,96vw)', background: `radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, ${T.primary} 14%, transparent), ${T.surf} 60%)`, border: `1px solid color-mix(in srgb, ${T.primary} 30%, transparent)`, borderRadius: 22, padding: 24, boxShadow: '0 40px 90px -30px rgba(0,0,0,.85)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 800, background: `color-mix(in srgb, ${T.primary} 18%, transparent)`, color: T.primary }}><WIcon name="phone" size={14} />Continue in the app</span>
+        <h2 style={{ ...h2, fontSize: 22, margin: '14px 0 6px' }}>Finish faster in the HaaT Now app</h2>
+        <p style={{ color: muted, fontSize: 14.5, margin: '0 0 16px' }}>Get an exclusive discount on your next order — plus everything below, in one tap.</p>
+        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {benefits.map(b => <li key={b.t} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.on }}><WIcon name={b.icon} size={16} color={T.primary} />{b.t}</li>)}
+        </ul>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <button onClick={onDownload} className="wc-btn" style={{ ...btn(), width: '100%', height: 50 }}>Get the app</button>
+          <button onClick={onContinue} className="wc-btn" style={{ ...btn(false), width: '100%', minHeight: 44 }}>Continue on web</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /** Reusable, honest platform-guarantee trust strip (Section 8). Same guarantees the app makes. */
 const TRUST: { icon: string; label: string }[] = [
@@ -349,6 +375,19 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
   const [pay, setPay] = useState<'cod' | 'wallet' | 'card'>('cod');
   const [placing, setPlacing] = useState(false);
   const [err, setErr] = useState('');
+  // Smart app promotion — at ~50% of checkout (contact + address entered), invite once. Never repeats if dismissed.
+  const [appPromo, setAppPromo] = useState(false);
+  const promoShown = useRef(false);
+  useEffect(() => {
+    if (promoShown.current) return;
+    let dismissed = false; try { dismissed = localStorage.getItem(APP_PROMO_KEY) === '1'; } catch { /* ignore */ }
+    if (!dismissed && name.trim().length > 1 && address.trim().length >= 6) {
+      promoShown.current = true;
+      const id = window.setTimeout(() => setAppPromo(true), 500);
+      return () => window.clearTimeout(id);
+    }
+  }, [name, address]);
+  const dismissPromo = (remember: boolean) => { setAppPromo(false); if (remember) { try { localStorage.setItem(APP_PROMO_KEY, '1'); } catch { /* ignore */ } } };
 
   const tip: TipMode = tipPct > 0 ? { mode: 'percent', value: tipPct } : null;
   const bd = useMemo(() => breakdownFor(lines, { couponPercent: couponPct, tip }), [lines, couponPct, tipPct]);
@@ -458,6 +497,7 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}><TrustStrip compact /></div>
         <p style={{ textAlign: 'center', color: muted, fontSize: 12.5, marginTop: 2 }}><WIcon name="lock" size={13} style={{ verticalAlign: -2 }} /> Your details are used only to complete this delivery.</p>
       </div>
+      {appPromo && <AppPromoModal onDownload={() => { dismissPromo(true); try { window.location.assign('/app'); } catch { /* ignore */ } }} onContinue={() => dismissPromo(true)} />}
     </div>
   );
 };
