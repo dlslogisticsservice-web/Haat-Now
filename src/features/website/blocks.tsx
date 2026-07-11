@@ -327,32 +327,8 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
           </div>
         </section>
       );
-    case 'merchants': {
-      const rail = block.layout === 'rail';
-      // Grid layout promotes the first card to a full-width editorial "featured" card when there
-      // are enough merchants — creating the premium card variety (featured + standard grid).
-      const items = block.items;
-      const useFeatured = !rail && items.length >= 4;
-      const gridStyle: React.CSSProperties = rail
-        ? { display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(248px, 1fr)', gap: 16, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }
-        : { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))', gap: 16 };
-      return (
-        <section style={{ padding: 'clamp(28px,4vw,44px) 0' }}>
-          <div style={sectionWrap}>
-            <SectionHead
-              eyebrow={rail ? 'Featured' : undefined}
-              heading={block.heading || ''}
-              subtitle={block.subtitle}
-              action={block.viewAll && <a href={block.viewAll.href} onClick={e => { if (block.viewAll!.href.startsWith('/')) { e.preventDefault(); onNav(block.viewAll!.href); } }} className="hn-arrow" style={{ color: T.primary, fontSize: 14, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}>{block.viewAll.label} →</a>}
-            />
-            {useFeatured && <div style={{ marginTop: 26 }}><FeaturedMerchant m={items[0]} onNav={onNav} /></div>}
-            <div className={rail ? 'hn-rail' : undefined} role={rail ? 'group' : undefined} aria-label={rail ? (block.heading || 'Merchants') : undefined} tabIndex={rail ? 0 : undefined} style={{ ...gridStyle, marginTop: useFeatured ? 16 : 26 }}>
-              {(useFeatured ? items.slice(1) : items).map((m, i) => <MerchantTile key={i} m={m} snap={rail} onNav={onNav} />)}
-            </div>
-          </div>
-        </section>
-      );
-    }
+    case 'merchants':
+      return <MerchantsBlock block={block} onNav={onNav} />;
     case 'waitlist':
       return (
         <section style={{ padding: 'clamp(44px,6vw,80px) 0' }}>
@@ -491,6 +467,75 @@ const CardCover: React.FC<{ m: MerchantCard; height: number }> = ({ m, height })
     {m.closed && <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,.5)', backdropFilter: 'blur(1px)', color: '#fff', fontWeight: 800, fontSize: 14, letterSpacing: 0.5 }}>Closed</span>}
   </div>
 );
+
+// Parse the leading number out of an ETA string like "20–30 min" → 20 (for sort/filter).
+function etaMin(m: MerchantCard): number { const n = (m.eta || '').match(/\d+/); return n ? Number(n[0]) : 999; }
+type MerchFilter = 'all' | 'offers' | 'free' | 'top' | 'fast';
+const MERCH_FILTERS: { k: MerchFilter; label: string }[] = [
+  { k: 'all', label: 'All' }, { k: 'offers', label: '🔥 Offers' }, { k: 'free', label: '🛵 Free delivery' }, { k: 'top', label: '⭐ Top rated' }, { k: 'fast', label: '⚡ Fast' },
+];
+type MerchSort = 'recommended' | 'rating' | 'eta';
+
+/** Merchants section — Featured card + grid/rail, with client-side discovery filter + sort on the
+ *  existing card fields (grid layout only). No new data source; reuses the curated/live items. */
+const MerchantsBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'merchants' }>; onNav: (p: string) => void }> = ({ block, onNav }) => {
+  const rail = block.layout === 'rail';
+  const [filter, setFilter] = React.useState<MerchFilter>('all');
+  const [sort, setSort] = React.useState<MerchSort>('recommended');
+  const showControls = !rail && block.items.length >= 6;
+
+  const matches = (m: MerchantCard): boolean => {
+    switch (filter) {
+      case 'offers': return !!m.promo;
+      case 'free': return /free/i.test(m.fee || '');
+      case 'top': return (m.rating ?? 0) >= 4.7;
+      case 'fast': return etaMin(m) <= 25;
+      default: return true;
+    }
+  };
+  let items = showControls ? block.items.filter(matches) : block.items;
+  if (showControls && sort !== 'recommended') items = [...items].sort((a, b) => sort === 'rating' ? (b.rating ?? 0) - (a.rating ?? 0) : etaMin(a) - etaMin(b));
+
+  const useFeatured = !rail && !showControls && items.length >= 4; // keep the editorial hero for small curated grids
+  const gridStyle: React.CSSProperties = rail
+    ? { display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(248px, 1fr)', gap: 16, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }
+    : { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(248px, 1fr))', gap: 16 };
+  const chip = (active: boolean): React.CSSProperties => ({ padding: '8px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', border: active ? `1px solid ${T.primary}` : hairline, background: active ? `color-mix(in srgb, ${T.primary} 16%, transparent)` : T.surfHigh, color: active ? T.primary : T.on });
+
+  return (
+    <section style={{ padding: 'clamp(28px,4vw,44px) 0' }}>
+      <div style={sectionWrap}>
+        <SectionHead
+          eyebrow={rail ? 'Featured' : undefined}
+          heading={block.heading || ''}
+          subtitle={block.subtitle}
+          action={block.viewAll && <a href={block.viewAll.href} onClick={e => { if (block.viewAll!.href.startsWith('/')) { e.preventDefault(); onNav(block.viewAll!.href); } }} className="hn-arrow" style={{ color: T.primary, fontSize: 14, fontWeight: 800, textDecoration: 'none', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}>{block.viewAll.label} →</a>}
+        />
+        {showControls && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+            <div role="group" aria-label="Filter" className="hn-rail" style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2, flex: 1, minWidth: 0 }}>
+              {MERCH_FILTERS.map(f => <button key={f.k} onClick={() => setFilter(f.k)} aria-pressed={filter === f.k} className="hn-chip" style={chip(filter === f.k)}>{f.label}</button>)}
+            </div>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: T.onVar }}>
+              <span>Sort</span>
+              <select aria-label="Sort merchants" value={sort} onChange={e => setSort(e.target.value as MerchSort)} style={{ padding: '8px 10px', borderRadius: 10, border: hairline, background: T.surfHigh, color: T.on, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                <option value="recommended">Recommended</option><option value="rating">Top rated</option><option value="eta">Fastest</option>
+              </select>
+            </label>
+          </div>
+        )}
+        {useFeatured && <div style={{ marginTop: 26 }}><FeaturedMerchant m={items[0]} onNav={onNav} /></div>}
+        {items.length === 0 ? (
+          <p style={{ marginTop: 22, padding: '28px 0', textAlign: 'center', color: T.onVar }}>No stores match this filter yet — try another.</p>
+        ) : (
+          <div className={rail ? 'hn-rail' : undefined} role={rail ? 'group' : undefined} aria-label={rail ? (block.heading || 'Merchants') : undefined} tabIndex={rail ? 0 : undefined} style={{ ...gridStyle, marginTop: useFeatured ? 16 : (showControls ? 18 : 26) }}>
+            {(useFeatured ? items.slice(1) : items).map((m, i) => <MerchantTile key={i} m={m} snap={rail} onNav={onNav} />)}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
 
 const MerchantTile: React.FC<{ m: MerchantCard; snap?: boolean; onNav: (p: string) => void }> = ({ m, snap, onNav }) => {
   const inner = (
