@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   resolvePublicRequest, resolveSite, applyBrand, resolvePage, buildSeo, applySeo, trackPageview, isAppRoute,
 } from './runtime';
-import { BlockRenderer, BlockStyles } from './blocks';
+import { BlockRenderer, BlockStyles, SectionShell } from './blocks';
 import { loadLiveCommerce, type LiveCommerce } from './commerce';
 import { WebsiteCommerce } from './WebsiteCommerce';
 import type { WebsiteBlock, WebsiteSite } from '../../services/website.service';
@@ -261,7 +261,7 @@ export const PublicSiteApp: React.FC = () => {
 
         {resolved.page && resolved.page.kind !== 'blog_index' && (
           <div>{(live ? hydrateSections(resolved.page.sections, live) : resolved.page.sections).filter(s => s.enabled !== false).map((b, i) => (
-            <div key={i} className={visClass(b.visibility)}><BlockRenderer block={b} onNav={navigate} /></div>
+            <div key={i} className={visClass(b.visibility)}><SectionShell block={b}><BlockRenderer block={b} onNav={navigate} /></SectionShell></div>
           ))}</div>
         )}
       </main>

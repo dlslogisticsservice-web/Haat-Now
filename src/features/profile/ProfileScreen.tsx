@@ -754,7 +754,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                       </p>
                       <div className="premium-badge inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full" style={{ background: 'rgba(163,249,91,0.12)', border: '1px solid rgba(163,249,91,0.3)' }}>
                         <Crown size={11} color="var(--color-primary-fixed)" strokeWidth={2} style={{ filter: 'drop-shadow(0 0 4px rgba(163,249,91,0.6))' }} />
-                        <span style={{ color: 'var(--color-primary-fixed)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.04em' }}>Platinum Member</span>
+                        <span style={{ color: 'var(--color-primary-fixed)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.04em' }}>{t('profile.platinumMember')}</span>
                       </div>
                     </div>
                   </div>

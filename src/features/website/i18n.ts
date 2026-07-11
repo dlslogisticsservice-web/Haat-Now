@@ -415,6 +415,7 @@ function localizeBlock(b: any): any {
     if (typeof n[k] === 'string') n[k] = tr(n[k]);
   }
   if (Array.isArray(n.chips)) n.chips = n.chips.map((c: any) => ({ ...c, label: tr(c.label) }));
+  if (Array.isArray(n.features)) n.features = n.features.map(tr);
   if (n.button) n.button = { ...n.button, label: tr(n.button.label) };
   if (n.viewAll) n.viewAll = { ...n.viewAll, label: tr(n.viewAll.label) };
   if (Array.isArray(n.ctas)) n.ctas = n.ctas.map((c: any) => ({ ...c, label: tr(c.label) }));

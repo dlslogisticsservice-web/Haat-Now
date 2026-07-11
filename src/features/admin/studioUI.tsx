@@ -48,6 +48,22 @@ export const Chip: React.FC<{ label: string; on: boolean; onClick: () => void }>
 
 export const ItemDel: React.FC<{ onClick: () => void }> = ({ onClick }) => <button onClick={onClick} style={{ ...iconBtn, color: '#f87171', marginBottom: 2 }}><Trash2 size={14} /></button>;
 
+// Editable list of plain strings (feature bullets, tags…). Add / edit / remove inline.
+export const StringListField: React.FC<{ label: string; values: string[]; onChange: (v: string[]) => void; L: (a: string, e: string) => string }> = ({ label, values, onChange, L }) => (
+  <div>
+    <span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
+    <div className="space-y-1.5 mt-1">
+      {values.map((v, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <input value={v} onChange={e => onChange(values.map((x, j) => j === i ? e.target.value : x))} style={{ ...inputStyle, padding: '6px 8px', fontSize: 12 }} />
+          <ItemDel onClick={() => onChange(values.filter((_, j) => j !== i))} />
+        </div>
+      ))}
+      <button onClick={() => onChange([...values, ''])} className="text-[11px] font-bold cursor-pointer" style={{ padding: '6px 10px', borderRadius: 8, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: 'none' }}>+ {L('إضافة', 'Add')}</button>
+    </div>
+  </div>
+);
+
 // Media field — reuses the Media Library picker (assets.service). No free-text media entry.
 export const MediaField: React.FC<{ label: string; value: string; kind?: 'image' | 'video'; onChange: (u: string) => void; lang: 'ar' | 'en' }> = ({ label, value, kind = 'image', onChange, lang }) => {
   const [open, setOpen] = useState(false);

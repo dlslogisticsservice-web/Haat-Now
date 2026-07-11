@@ -4,7 +4,7 @@ import { notificationService } from './services/notification.service';
 import { sandboxStore } from './services/sandboxStore';
 import { cartService } from './services/cart.service';
 import { LoginScreen } from './features/auth/LoginScreen';
-import { AccountGateway, type AccountType } from './features/auth/AccountGateway';
+import { AccountGateway, detectGatewayMode, type AccountType, type GatewayMode } from './features/auth/AccountGateway';
 import { FeedbackHost } from './components/ui/feedback';
 import { AppGate } from './components/AppGate';
 import { HomeScreen } from './features/home/HomeScreen';
@@ -85,6 +85,7 @@ export default function App() {
   const [sessionValidating, setSessionValidating] = useState(true);
   // Pre-auth account-type gateway (Login → Choose Account → existing auth). RBAC still authoritative.
   const [acctType, setAcctType] = useState<AccountType | null>(null);
+  const [gatewayMode, setGatewayMode] = useState<GatewayMode>(() => detectGatewayMode());
 
   // ── Navigation ──────────────────────────────────────────────────
   const [currentScreen, setCurrentScreen] = useState<'home' | 'restaurant' | 'checkout' | 'orders' | 'wallet' | 'profile' | 'discover'>('home');
@@ -305,8 +306,12 @@ export default function App() {
   // ── Auth wall ────────────────────────────────────────────────────
   if (!session) {
     // Step 1: choose an account type (never opens Super Admin directly).
+    // Public gateway shows customer/merchant/driver only; internal roles live behind
+    // the private admin portal (admin./console. host or ?console=1).
     if (!acctType) {
-      return <AccountGateway lang={lang} onChoose={(t) => { setAcctType(t); try { localStorage.setItem('haat_intended_role', t); } catch { /* ignore */ } }} />;
+      return <AccountGateway lang={lang} mode={gatewayMode}
+        onChoose={(t) => { setAcctType(t); try { localStorage.setItem('haat_intended_role', t); } catch { /* ignore */ } }}
+        onEnterAdmin={() => { setGatewayMode('admin'); try { const u = new URL(window.location.href); u.searchParams.set('console', '1'); window.history.replaceState({}, '', u.toString()); } catch { /* ignore */ } }} />;
     }
     // Step 2: the existing authentication flow (phone/OTP). RBAC decides the real dashboard after login.
     return (

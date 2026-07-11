@@ -3,16 +3,18 @@ import {
   Globe, Eye, UploadCloud, RotateCcw, Plus, Trash2, ChevronUp, ChevronDown, History as HistoryIcon, Copy,
   GripVertical, Power, Monitor, Tablet, Smartphone, ImageIcon, Pencil, Undo2, Redo2, Check,
   Palette, FileText, PanelBottom, Navigation2, RotateCw, Settings2,
-  Wand2, MousePointerClick,
+  Wand2, MousePointerClick, Sliders, Lock, LockOpen, Sparkles, Languages, Search as SearchIcon,
 } from 'lucide-react';
 import { SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseUI';
 import { toast } from '../../components/ui/feedback';
 import { tenantService } from '../../services/tenant.service';
 import { websiteService, type WebsiteSite, type WebsitePage, type WebsiteBlock, type WebsiteBlockType, type WebsiteCta, type BlogPost } from '../../services/website.service';
-import { BlockRenderer } from '../website/blocks';
+import { BlockRenderer, SectionShell } from '../website/blocks';
 import { assetsService, BRAND_SLOTS, type AssetItem } from '../../experience/assets.service';
-import { card, inputStyle, iconBtn, swap, Field, Toggle, Btn, MediaField, MediaListField, ItemDel } from './studioUI';
+import { card, inputStyle, iconBtn, swap, Field, Toggle, Btn, MediaField, MediaListField, StringListField, ItemDel } from './studioUI';
 import { MarketingNav, MarketingPanel, MARKETING_MODULES, campaignOverlayFor, type MarketingModule } from './MarketingOS';
+import * as aiStudio from '../../services/aiStudio';
+import { localizeSite } from '../website/i18n';
 import { marketingService } from '../../services/marketing.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -24,7 +26,7 @@ import { marketingService } from '../../services/marketing.service';
 // an app-install campaign composer. Publish/rollback flow reuses websiteService versions.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StudioModule = 'pages' | 'nav' | 'footer' | 'blog' | 'theme' | 'brand' | 'media' | 'settings' | 'domain' | 'history';
+type StudioModule = 'pages' | 'assistant' | 'nav' | 'footer' | 'blog' | 'theme' | 'brand' | 'media' | 'settings' | 'domain' | 'history';
 type DeviceMode = 'desktop' | 'tablet' | 'mobile';
 type Orientation = 'portrait' | 'landscape';
 
@@ -39,6 +41,7 @@ const SECTION_TEMPLATES: { key: string; label: string; make: () => WebsiteBlockT
 
 const MODULES: { k: StudioModule; icon: any; ar: string; en: string; group: string }[] = [
   { k: 'pages', icon: FileText, ar: 'الصفحات', en: 'Pages', group: 'Content' },
+  { k: 'assistant', icon: Sparkles, ar: 'مساعد الذكاء', en: 'AI Assistant', group: 'Content' },
   { k: 'nav', icon: Navigation2, ar: 'التنقل', en: 'Navigation', group: 'Content' },
   { k: 'footer', icon: PanelBottom, ar: 'التذييل', en: 'Footer', group: 'Content' },
   { k: 'blog', icon: FileText, ar: 'المدونة', en: 'Blog', group: 'Content' },
@@ -153,7 +156,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
     const add = (blocks: WebsiteBlock[], label: string) => { setSections([...selectedPage.sections, ...blocks]); setModule('pages'); setSelIdx(selectedPage.sections.length); marketingService.audit(tenantId, user, 'ai.generate', label); toast.success(label); };
     const heroLike = (title: string, subtitle: string, cta: string, href: string): WebsiteBlock => ({ type: 'hero', title, subtitle, layout: 'center', overlay: 0.5, ctas: [{ label: cta, href, style: 'primary' }] });
     switch (recipe) {
-      case 'ramadan_home': return add([heroLike('Ramadan Kareem 🌙', 'Iftar delivered on time, every night — with special Ramadan offers.', 'Order iftar', '/restaurants'), { ...newBlock('deals'), heading: 'Ramadan offers' } as WebsiteBlock, newBlock('steps')], L('تم إنشاء أقسام رمضان', 'Ramadan sections added'));
+      case 'ramadan_home': return add([heroLike('Ramadan Kareem', 'Iftar delivered on time, every night — with special Ramadan offers.', 'Order iftar', '/restaurants'), { ...newBlock('deals'), heading: 'Ramadan offers' } as WebsiteBlock, newBlock('steps')], L('تم إنشاء أقسام رمضان', 'Ramadan sections added'));
       case 'black_friday': return add([heroLike('Black Friday — up to 50% off', 'One weekend only. Deals across restaurants, grocery and pharmacy.', 'Shop deals', '/offers'), { ...newBlock('deals'), heading: 'Black Friday deals' } as WebsiteBlock], L('تمت إضافة الجمعة البيضاء', 'Black Friday added'));
       case 'pharmacy_campaign': return add([heroLike('Pharmacy, delivered discreetly', 'Medicines and wellness to your door in minutes.', 'Order now', '/pharmacy'), { ...newBlock('merchants'), heading: 'Pharmacies near you' } as WebsiteBlock], L('تمت إضافة حملة الصيدلية', 'Pharmacy campaign added'));
       case 'rewrite_hero': {
@@ -164,6 +167,50 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
       }
       case 'improve_seo': { patch({ seoDefaults: { ...site.seoDefaults, title: `${site.siteName} — Food, grocery & pharmacy delivery`, description: `Order food, groceries and pharmacy from top local merchants with ${site.siteName}. Fast delivery, live tracking and cash on delivery.` } }); setModule('seostudio'); marketingService.audit(tenantId, user, 'ai.generate', 'improve_seo'); return toast.success(L('تم تحسين الـ SEO', 'SEO improved')); }
       case 'increase_conversions': { setModule('conversion'); return toast.success(L('افتح مركز التحويل لإضافة عنصر', 'Opened Conversion Center — add a widget')); }
+      default: return;
+    }
+  };
+
+  // ── AI Website Assistant — generates & transforms real CMS blocks (smart templates
+  //    + deterministic text transforms). Everything it produces is Studio-editable. ──
+  const handleAssist = (action: string) => {
+    if (!selectedPage) { toast.error(L('اختر صفحة أولاً', 'Select a page first')); return; }
+    const secs = selectedPage.sections;
+    const append = (blocks: WebsiteBlock[], msg: string) => { setSections([...secs, ...blocks]); setModule('pages'); setSelIdx(secs.length); marketingService.audit(tenantId, user, 'ai.assist', action); toast.success(msg); };
+    const replaceAt = (i: number, nb: WebsiteBlock, msg: string) => { setSections(secs.map((x, j) => j === i ? nb : x)); setModule('pages'); setSelIdx(i); marketingService.audit(tenantId, user, 'ai.assist', action); toast.success(msg); };
+    // Pick the working text block: current selection, else first block with editable prose.
+    const textIdx = (selIdx != null && secs[selIdx]) ? selIdx : secs.findIndex(s => typeof (s as any).body === 'string' || typeof (s as any).subtitle === 'string' || typeof (s as any).title === 'string');
+    switch (action) {
+      case 'hero': { const i = secs.findIndex(s => s.type === 'hero'); const nb = aiStudio.genHero(site, String(secs.length)); return i >= 0 ? replaceAt(i, { ...(secs[i] as any), ...nb }, L('أُعيدت صياغة الهيرو', 'Hero regenerated')) : append([nb], L('تمت إضافة هيرو', 'Hero added')); }
+      case 'cta': return append([aiStudio.genCTA(site)], L('تمت إضافة دعوة لإجراء', 'CTA added'));
+      case 'faq': return append([aiStudio.genFAQ()], L('تمت إضافة الأسئلة الشائعة', 'FAQ added'));
+      case 'landing': return append(aiStudio.genLanding(site), L('تم إنشاء صفحة هبوط', 'Landing page generated'));
+      case 'marketing': return append(aiStudio.genMarketing(), L('تمت إضافة أقسام تسويقية', 'Marketing sections added'));
+      case 'seo': { const s = aiStudio.improveSEO(site); patch({ seoDefaults: { ...site.seoDefaults, ...s } }); marketingService.audit(tenantId, user, 'ai.assist', 'seo'); return toast.success(L('تم تحسين الـ SEO', 'SEO improved')); }
+      case 'rewrite': {
+        if (textIdx < 0) return toast.error(L('لا يوجد نص لإعادة صياغته', 'No text to rewrite'));
+        const b: any = secs[textIdx]; const nb = { ...b };
+        for (const k of ['title', 'subtitle', 'heading', 'body']) if (typeof b[k] === 'string') nb[k] = aiStudio.tightenText(b[k]);
+        return replaceAt(textIdx, nb, L('أُعيدت الصياغة', 'Content rewritten'));
+      }
+      case 'readability': {
+        if (textIdx < 0) return toast.error(L('لا يوجد نص', 'No text found'));
+        const b: any = secs[textIdx]; const nb = { ...b };
+        for (const k of ['subtitle', 'body']) if (typeof b[k] === 'string') nb[k] = aiStudio.improveReadability(b[k]);
+        return replaceAt(textIdx, nb, L('تم تحسين القراءة', 'Readability improved'));
+      }
+      case 'conversion': { const cta = aiStudio.genCTA(site); return append([{ ...cta, style: aiStudio.CONVERSION_STYLE } as WebsiteBlock, newBlock('waitlist')], L('تمت إضافة عناصر رفع التحويل', 'Conversion boosters added')); }
+      case 'translate': {
+        // The public site is bilingual automatically (localizeSite). Audit this page's
+        // Arabic coverage and report which strings still fall back to English.
+        const walk = (o: any): string[] => Array.isArray(o) ? o.flatMap(walk) : (o && typeof o === 'object') ? Object.values(o).flatMap(walk) : (typeof o === 'string' ? [o] : []);
+        const arPage = localizeSite({ ...site, pages: [selectedPage] } as any, 'ar').pages[0];
+        const pending = walk(arPage.sections).filter(s => /[a-zA-Z]{3,}/.test(s) && !/^(\/|#|https?:)|\.(png|jpe?g|svg|webp|mp4)$/i.test(s)).length;
+        marketingService.audit(tenantId, user, 'ai.assist', 'translate');
+        return pending === 0
+          ? toast.success(L('عربية كاملة لهذه الصفحة ✓', 'Arabic coverage complete for this page ✓'))
+          : toast.success(L(`${pending} نص يعود للإنجليزية — حرّره ليظهر بالعربية`, `${pending} strings fall back to English — edit them to localise`));
+      }
       default: return;
     }
   };
@@ -286,7 +333,19 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
                       selectedIdx={module === 'pages' ? selIdx : null}
                       onSelect={(i) => { setModule('pages'); setSelIdx(i); }}
                       onEdit={(idx, patch) => { if (previewPage) setSections(previewPage.sections.map((x, j) => j === idx ? { ...x, ...patch } as WebsiteBlock : x)); }}
-                      onReorder={(from, to) => { if (previewPage) { const s = previewPage.sections.slice(); const [m] = s.splice(from, 1); s.splice(to, 0, m); setSections(s); setSelIdx(to); } }} />
+                      onReorder={(from, to) => { if (previewPage) { const s = previewPage.sections.slice(); const [m] = s.splice(from, 1); s.splice(to, 0, m); setSections(s); setSelIdx(to); } }}
+                      onAction={(idx, a) => {
+                        if (!previewPage) return;
+                        const s = previewPage.sections; const b = s[idx];
+                        if (a === 'edit') { setModule('pages'); setSelIdx(idx); return; }
+                        if (a === 'lock') { setSections(s.map((x, j) => j === idx ? { ...x, locked: !x.locked } : x)); return; }
+                        if (b.locked && (a === 'up' || a === 'down' || a === 'del')) { toast.error(L('القسم مقفل', 'Section is locked')); return; }
+                        if (a === 'up') { const to = Math.max(0, idx - 1); const n = s.slice(); const [m] = n.splice(idx, 1); n.splice(to, 0, m); setSections(n); setSelIdx(to); }
+                        else if (a === 'down') { const to = Math.min(s.length - 1, idx + 1); const n = s.slice(); const [m] = n.splice(idx, 1); n.splice(to, 0, m); setSections(n); setSelIdx(to); }
+                        else if (a === 'dup') { const n = s.slice(); n.splice(idx + 1, 0, JSON.parse(JSON.stringify(b))); setSections(n); setSelIdx(idx + 1); }
+                        else if (a === 'hide') { setSections(s.map((x, j) => j === idx ? { ...x, enabled: x.enabled === false ? true : false } : x)); }
+                        else if (a === 'del') { setSections(s.filter((_, j) => j !== idx)); setSelIdx(null); }
+                      }} />
                     {campaignOverlayFor(module, tenantId, isFlagship)}
                   </div>
                 </div>
@@ -303,6 +362,8 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
               onChange={(nb) => setSections(selectedPage.sections.map((x, j) => j === selIdx ? nb : x))}
               onVis={(k, on) => setSections(selectedPage.sections.map((x, j) => j === selIdx ? { ...x, visibility: { ...x.visibility, [k]: on } } : x))}
               onClose={() => setSelIdx(null)} />
+          ) : module === 'assistant' ? (
+            <AIAssistant L={L} onAssist={handleAssist} />
           ) : module === 'pages' && selectedPage ? (
             <PageProps page={selectedPage} L={L} onChange={setPage} onRemove={() => removePage(selectedPage.id)} />
           ) : module === 'theme' ? (
@@ -349,14 +410,28 @@ const SectionRow: React.FC<{ idx: number; block: WebsiteBlock; selected: boolean
 };
 const miniBtn: React.CSSProperties = { width: 22, height: 22, borderRadius: 6, background: 'transparent', border: 'none', color: 'var(--color-on-surface-variant)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 };
 
-// ── Live preview canvas (reuses the public BlockRenderer; click-to-select; header+footer) ──
-const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; device: DeviceMode; brand: Record<string, any> | null; selectedIdx: number | null; lang: 'ar' | 'en'; onSelect: (i: number) => void; onReorder: (from: number, to: number) => void; onEdit: (idx: number, patch: Partial<WebsiteBlock>) => void }> = ({ site, page, device, brand, selectedIdx, lang, onSelect, onReorder, onEdit }) => {
+// ── Live preview canvas (reuses the public BlockRenderer; click-to-select; floating
+//    toolbar + right-click context menu; respects per-section lock; header+footer) ──
+type SecAction = 'up' | 'down' | 'dup' | 'hide' | 'lock' | 'del' | 'edit';
+const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; device: DeviceMode; brand: Record<string, any> | null; selectedIdx: number | null; lang: 'ar' | 'en'; onSelect: (i: number) => void; onReorder: (from: number, to: number) => void; onEdit: (idx: number, patch: Partial<WebsiteBlock>) => void; onAction: (idx: number, a: SecAction) => void }> = ({ site, page, device, brand, selectedIdx, lang, onSelect, onReorder, onEdit, onAction }) => {
+  const [menu, setMenu] = useState<{ x: number; y: number; idx: number } | null>(null);
+  const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   if (!page) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-on-surface-variant)' }}>No page</div>;
   const sections = page.sections;
   const visible = (b: WebsiteBlock) => b.enabled !== false && (!b.visibility || (device === 'desktop' ? b.visibility.desktop !== false : device === 'tablet' ? b.visibility.tablet !== false : b.visibility.mobile !== false));
+  const openMenu = (e: React.MouseEvent, i: number) => { e.preventDefault(); e.stopPropagation(); const host = (e.currentTarget as HTMLElement).closest('#preview_frame') as HTMLElement | null; const r = host?.getBoundingClientRect(); setMenu({ x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0), idx: i }); onSelect(i); };
+  const menuItems: { a: SecAction; icon: any; ar: string; en: string; danger?: boolean }[] = [
+    { a: 'edit', icon: Pencil, ar: 'تحرير', en: 'Edit' },
+    { a: 'up', icon: ChevronUp, ar: 'تحريك لأعلى', en: 'Move up' },
+    { a: 'down', icon: ChevronDown, ar: 'تحريك لأسفل', en: 'Move down' },
+    { a: 'dup', icon: Copy, ar: 'تكرار', en: 'Duplicate' },
+    { a: 'hide', icon: Eye, ar: 'إخفاء/إظهار', en: 'Hide / show' },
+    { a: 'lock', icon: Lock, ar: 'قفل/فتح', en: 'Lock / unlock' },
+    { a: 'del', icon: Trash2, ar: 'حذف', en: 'Delete', danger: true },
+  ];
   return (
-    <div>
-      <style>{`#preview_frame .wsx-sec{position:relative;transition:box-shadow .12s ease}#preview_frame .wsx-sec:hover{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--color-primary-fixed) 55%,transparent)}#preview_frame .wsx-sec.sel{box-shadow:inset 0 0 0 2px var(--color-primary-fixed)}#preview_frame .wsx-bar{position:absolute;top:8px;inset-inline-end:8px;z-index:5;display:none;gap:4px}#preview_frame .wsx-sec:hover .wsx-bar,#preview_frame .wsx-sec.sel .wsx-bar{display:flex}#preview_frame .wsx-tag{position:absolute;top:8px;inset-inline-start:8px;z-index:5;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--color-primary-fixed);color:var(--color-on-primary-fixed);display:none}#preview_frame .wsx-sec.sel .wsx-tag{display:block}`}</style>
+    <div onClick={() => menu && setMenu(null)}>
+      <style>{`#preview_frame .wsx-sec{position:relative;transition:box-shadow .12s ease}#preview_frame .wsx-sec:hover{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--color-primary-fixed) 55%,transparent)}#preview_frame .wsx-sec.sel{box-shadow:inset 0 0 0 2px var(--color-primary-fixed)}#preview_frame .wsx-sec.locked{box-shadow:inset 0 0 0 2px color-mix(in srgb,#f5a623 55%,transparent)}#preview_frame .wsx-bar{position:absolute;top:8px;inset-inline-end:8px;z-index:5;display:none;gap:4px}#preview_frame .wsx-sec:hover .wsx-bar,#preview_frame .wsx-sec.sel .wsx-bar{display:flex}#preview_frame .wsx-tag{position:absolute;top:8px;inset-inline-start:8px;z-index:5;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--color-primary-fixed);color:var(--color-on-primary-fixed);display:none;align-items:center;gap:4px}#preview_frame .wsx-sec.sel .wsx-tag,#preview_frame .wsx-sec.locked .wsx-tag{display:inline-flex}`}</style>
       {/* Site header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderBottom: '1px solid var(--color-outline-variant, #2a3330)', background: 'color-mix(in srgb, var(--color-background,#0a0f0c) 85%, transparent)' }}>
         {brand?.logo_url ? <img src={brand.logo_url} alt="" style={{ height: 22 }} /> : <span style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--color-primary-fixed)' }} />}
@@ -366,17 +441,33 @@ const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; devic
       </div>
       {/* Sections */}
       {sections.map((b, i) => visible(b) ? (
-        <div key={i} className={`wsx-sec${selectedIdx === i ? ' sel' : ''}`} onClick={() => onSelect(i)}
-          draggable onDragStart={e => e.dataTransfer.setData('text/wsx', String(i))} onDragOver={e => { if (e.dataTransfer.types.includes('text/wsx')) e.preventDefault(); }} onDrop={e => { const from = Number(e.dataTransfer.getData('text/wsx')); if (!Number.isNaN(from)) onReorder(from, i); }}>
-          <span className="wsx-tag">{BLOCK_LABEL[b.type]}</span>
+        <div key={i} className={`wsx-sec${selectedIdx === i ? ' sel' : ''}${b.locked ? ' locked' : ''}`} onClick={() => onSelect(i)} onContextMenu={e => openMenu(e, i)}
+          draggable={!b.locked} onDragStart={e => { if (b.locked) { e.preventDefault(); return; } e.dataTransfer.setData('text/wsx', String(i)); }} onDragOver={e => { if (e.dataTransfer.types.includes('text/wsx')) e.preventDefault(); }} onDrop={e => { const from = Number(e.dataTransfer.getData('text/wsx')); if (!Number.isNaN(from)) onReorder(from, i); }}>
+          <span className="wsx-tag">{b.locked && <Lock size={9} />}{BLOCK_LABEL[b.type]}</span>
           <div className="wsx-bar">
-            <button onClick={e => { e.stopPropagation(); onReorder(i, Math.max(0, i - 1)); }} style={pvBtn}><ChevronUp size={13} /></button>
-            <button onClick={e => { e.stopPropagation(); onReorder(i, i + 1); }} style={pvBtn}><ChevronDown size={13} /></button>
+            <button title={L('تحرير', 'Edit')} onClick={e => { e.stopPropagation(); onAction(i, 'edit'); }} style={pvBtn}><Pencil size={12} /></button>
+            <button title={L('أعلى', 'Up')} onClick={e => { e.stopPropagation(); if (!b.locked) onReorder(i, Math.max(0, i - 1)); }} style={{ ...pvBtn, opacity: b.locked ? 0.4 : 1 }}><ChevronUp size={13} /></button>
+            <button title={L('أسفل', 'Down')} onClick={e => { e.stopPropagation(); if (!b.locked) onReorder(i, i + 1); }} style={{ ...pvBtn, opacity: b.locked ? 0.4 : 1 }}><ChevronDown size={13} /></button>
+            <button title={L('تكرار', 'Duplicate')} onClick={e => { e.stopPropagation(); onAction(i, 'dup'); }} style={pvBtn}><Copy size={12} /></button>
+            <button title={b.locked ? L('فتح', 'Unlock') : L('قفل', 'Lock')} onClick={e => { e.stopPropagation(); onAction(i, 'lock'); }} style={pvBtn}>{b.locked ? <Lock size={12} /> : <LockOpen size={12} />}</button>
+            <button title={L('حذف', 'Delete')} onClick={e => { e.stopPropagation(); onAction(i, 'del'); }} style={{ ...pvBtn, opacity: b.locked ? 0.4 : 1 }}><Trash2 size={12} /></button>
           </div>
-          {selectedIdx === i && <InlineEditor block={b} lang={lang} onEdit={(patch) => onEdit(i, patch)} />}
-          <BlockRenderer block={b} onNav={() => {}} />
+          {selectedIdx === i && !b.locked && <InlineEditor block={b} lang={lang} onEdit={(patch) => onEdit(i, patch)} />}
+          <SectionShell block={b}><BlockRenderer block={b} onNav={() => {}} /></SectionShell>
         </div>
       ) : null)}
+      {/* Right-click context menu */}
+      {menu && (
+        <div dir={lang === 'ar' ? 'rtl' : 'ltr'} onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: menu.y, insetInlineStart: menu.x, zIndex: 40, minWidth: 176, padding: 6, borderRadius: 12, background: 'color-mix(in srgb, var(--color-surface-container-highest,#141a13) 96%, transparent)', border: '1px solid var(--color-outline-variant)', boxShadow: '0 16px 48px rgba(0,0,0,.55)', backdropFilter: 'blur(10px)' }}>
+          {menuItems.map(m => (
+            <button key={m.a} id={`ctx_${m.a}`} onClick={() => { onAction(menu.idx, m.a); setMenu(null); }} className="w-full flex items-center gap-2 text-[12px] font-semibold px-2.5 py-1.5 rounded-md cursor-pointer"
+              style={{ color: m.danger ? '#f87171' : 'var(--color-on-surface)', background: 'transparent', textAlign: 'start' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-surface-container-high)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+              <m.icon size={13} />{L(m.ar, m.en)}
+            </button>
+          ))}
+        </div>
+      )}
       {/* Footer */}
       <div style={{ borderTop: '1px solid var(--color-outline-variant, #2a3330)', padding: '22px 18px', display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' }}>
         <span style={{ fontSize: 12, color: 'var(--color-on-surface-variant, #a7b0a6)' }}>{site.footer.copyright}</span>
@@ -452,9 +543,107 @@ const SectionProperties: React.FC<{ page: WebsitePage; idx: number; L: (a: strin
         </div>
         <p className="text-[10px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('التحكم بالجدولة والاستهداف يُدار من إعدادات الحملات.', 'Scheduling & audience targeting are managed from campaign settings.')}</p>
       </div>
+      <StyleControls block={block} L={L} onChange={onChange} />
     </div>
   );
 };
+
+// ── Studio Pro: per-section visual controls (spacing / radius / shadow / align /
+//    background / max-width / reveal animation / lock). Writes block.style. ──
+const StyleControls: React.FC<{ block: WebsiteBlock; L: (a: string, e: string) => string; onChange: (b: WebsiteBlock) => void }> = ({ block, L, onChange }) => {
+  const st = block.style || {};
+  const setStyle = (patch: Partial<NonNullable<WebsiteBlock['style']>>) => onChange({ ...block, style: { ...st, ...patch } });
+  const num = (label: string, key: keyof NonNullable<WebsiteBlock['style']>) => (
+    <label className="block">
+      <span className="text-[10px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
+      <input type="number" value={(st[key] as number | undefined) ?? ''} placeholder="—" id={`style_${String(key)}`}
+        onChange={e => setStyle({ [key]: e.target.value === '' ? undefined : Number(e.target.value) } as any)}
+        style={{ ...inputStyle, marginTop: 2, padding: '5px 7px', fontSize: 11 }} />
+    </label>
+  );
+  const seg = <T extends string>(label: string, key: keyof NonNullable<WebsiteBlock['style']>, opts: { v: T; t: string }[]) => (
+    <div>
+      <span className="text-[10px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>
+      <div className="flex gap-1 mt-1">
+        {opts.map(o => { const on = (st[key] ?? opts[0].v) === o.v; return (
+          <button key={o.v} id={`style_${String(key)}_${o.v}`} onClick={() => setStyle({ [key]: o.v } as any)} className="flex-1 text-[10px] py-1 rounded-md cursor-pointer"
+            style={{ background: on ? 'rgba(163,249,91,0.16)' : 'var(--color-surface-container-high)', color: on ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)', fontWeight: on ? 800 : 600 }}>{o.t}</button>
+        ); })}
+      </div>
+    </div>
+  );
+  return (
+    <div className="pt-2 space-y-2.5" style={{ borderTop: '1px solid var(--color-outline-variant)' }}>
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold inline-flex items-center gap-1.5" style={{ color: 'var(--color-on-surface-variant)' }}><Sliders size={12} />{L('التنسيق', 'Style')}</span>
+        <button id="style_lock" onClick={() => onChange({ ...block, locked: !block.locked })} title={L('قفل القسم', 'Lock section')}
+          className="text-[10px] px-2 py-1 rounded-md cursor-pointer inline-flex items-center gap-1"
+          style={{ background: block.locked ? 'rgba(163,249,91,0.16)' : 'var(--color-surface-container-high)', color: block.locked ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)', fontWeight: 700 }}>
+          {block.locked ? <Lock size={11} /> : <LockOpen size={11} />}{block.locked ? L('مقفل', 'Locked') : L('مفتوح', 'Unlocked')}
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {num(L('حشو علوي', 'Pad top'), 'padTop')}
+        {num(L('حشو سفلي', 'Pad bottom'), 'padBottom')}
+        {num(L('هامش علوي', 'Margin top'), 'marginTop')}
+        {num(L('هامش سفلي', 'Margin bottom'), 'marginBottom')}
+        {num(L('استدارة', 'Radius'), 'radius')}
+        {num(L('أقصى عرض', 'Max width'), 'maxWidth')}
+      </div>
+      {seg(L('الظل', 'Shadow'), 'shadow', [{ v: 'none', t: L('بلا', 'None') }, { v: 'sm', t: 'S' }, { v: 'md', t: 'M' }, { v: 'lg', t: 'L' }])}
+      {seg(L('المحاذاة', 'Align'), 'align', [{ v: 'left', t: L('يسار', 'L') }, { v: 'center', t: L('وسط', 'C') }, { v: 'right', t: L('يمين', 'R') }])}
+      {seg(L('الحركة', 'Animation'), 'animation', [{ v: 'none', t: L('بلا', 'None') }, { v: 'fade', t: L('تلاشي', 'Fade') }, { v: 'rise', t: L('صعود', 'Rise') }, { v: 'zoom', t: L('تكبير', 'Zoom') }])}
+      <label className="block">
+        <span className="text-[10px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('لون الخلفية', 'Background')}</span>
+        <div className="flex items-center gap-2 mt-1">
+          <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(st.bg || '') ? st.bg! : '#0a0f0c'} onChange={e => setStyle({ bg: e.target.value })} style={{ width: 36, height: 30, border: '1px solid var(--color-outline-variant)', borderRadius: 8, background: 'transparent', cursor: 'pointer' }} />
+          <input value={st.bg || ''} placeholder={L('افتراضي', 'default')} onChange={e => setStyle({ bg: e.target.value || undefined })} style={{ ...inputStyle, padding: '5px 7px', fontSize: 11 }} id="style_bg" />
+          {st.bg && <button onClick={() => setStyle({ bg: undefined })} className="text-[10px] px-1.5 py-1 rounded cursor-pointer" style={{ color: 'var(--color-on-surface-variant)' }}>✕</button>}
+        </div>
+      </label>
+      {(block.style && Object.keys(block.style).length > 0) && (
+        <button id="style_reset" onClick={() => onChange({ ...block, style: undefined })} className="w-full text-[10px] py-1.5 rounded-md cursor-pointer" style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)', fontWeight: 700 }}>{L('إعادة ضبط التنسيق', 'Reset style')}</button>
+      )}
+    </div>
+  );
+};
+
+// ── AI Website Assistant panel — one-click generators & transforms, all writing to
+//    the same CMS content model (Studio-editable results). Smart-template engine. ──
+const ASSIST_ACTIONS: { a: string; icon: any; ar: string; en: string; descAr: string; descEn: string }[] = [
+  { a: 'hero', icon: Wand2, ar: 'توليد هيرو', en: 'Generate Hero', descAr: 'قسم افتتاحي قوي بالبحث والدعوة للإجراء', descEn: 'Strong opening section with search & CTA' },
+  { a: 'rewrite', icon: Pencil, ar: 'إعادة صياغة', en: 'Rewrite Content', descAr: 'شدّ النص وأزل الحشو في القسم المحدد', descEn: 'Tighten copy & remove filler in the selected section' },
+  { a: 'faq', icon: FileText, ar: 'توليد الأسئلة', en: 'Generate FAQ', descAr: 'أسئلة شائعة جاهزة عن التوصيل والدفع', descEn: 'Ready FAQ about delivery & payment' },
+  { a: 'landing', icon: Sparkles, ar: 'صفحة هبوط', en: 'Generate Landing Page', descAr: 'صفحة كاملة: هيرو، مزايا، عروض، آراء، دعوة', descEn: 'Full page: hero, features, offers, testimonials, CTA' },
+  { a: 'cta', icon: MousePointerClick, ar: 'توليد دعوة لإجراء', en: 'Generate CTA', descAr: 'قسم ختامي يقود إلى التطبيق', descEn: 'Closing section that drives into the app' },
+  { a: 'seo', icon: SearchIcon, ar: 'تحسين SEO', en: 'Improve SEO', descAr: 'عنوان ووصف محسّنان لمحركات البحث', descEn: 'Optimised meta title & description' },
+  { a: 'readability', icon: FileText, ar: 'تحسين القراءة', en: 'Improve Readability', descAr: 'تقسيم الجمل الطويلة لتصبح أوضح', descEn: 'Split long sentences for clarity' },
+  { a: 'marketing', icon: Wand2, ar: 'أقسام تسويقية', en: 'Generate Marketing', descAr: 'عروض + خطوات كيف تعمل', descEn: 'Offers + how-it-works steps' },
+  { a: 'translate', icon: Languages, ar: 'فحص الترجمة', en: 'Translate / Audit', descAr: 'تدقيق تغطية العربية لهذه الصفحة', descEn: 'Audit Arabic coverage for this page' },
+  { a: 'conversion', icon: Sparkles, ar: 'رفع التحويل', en: 'Optimize Conversion', descAr: 'دعوة بارزة + قائمة انتظار', descEn: 'Prominent CTA + waitlist capture' },
+];
+const AIAssistant: React.FC<{ L: (a: string, e: string) => string; onAssist: (a: string) => void }> = ({ L, onAssist }) => (
+  <div className="space-y-3">
+    <div className="flex items-center gap-2">
+      <span className="inline-flex items-center gap-1.5 text-[13px] font-extrabold" style={{ color: 'var(--color-on-surface)' }}><Sparkles size={14} style={{ color: 'var(--color-primary-fixed)' }} />{L('مساعد الموقع الذكي', 'AI Website Assistant')}</span>
+    </div>
+    <p className="text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('توليد وتحسين المحتوى مباشرة داخل نظام إدارة الموقع. كل نتيجة قابلة للتحرير.', 'Generate & refine content directly in the CMS. Every result is fully editable.')}</p>
+    <div className="space-y-1.5">
+      {ASSIST_ACTIONS.map(x => (
+        <button key={x.a} id={`assist_${x.a}`} onClick={() => onAssist(x.a)} className="w-full flex items-start gap-2.5 p-2.5 rounded-xl cursor-pointer text-start"
+          style={{ background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)' }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary-fixed)'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-outline-variant)'; }}>
+          <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 9, display: 'grid', placeItems: 'center', color: 'var(--color-primary-fixed)', background: 'color-mix(in srgb, var(--color-primary-fixed) 14%, transparent)' }}><x.icon size={15} /></span>
+          <span className="min-w-0">
+            <span className="block text-[12.5px] font-bold" style={{ color: 'var(--color-on-surface)' }}>{L(x.ar, x.en)}</span>
+            <span className="block text-[10.5px] mt-0.5" style={{ color: 'var(--color-on-surface-variant)' }}>{L(x.descAr, x.descEn)}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+    <p className="text-[10px] pt-1" style={{ color: 'var(--color-on-surface-variant)', borderTop: '1px solid var(--color-outline-variant)' }}>{L('يعمل بمحرك قوالب ذكية وتحويلات نصية حتمية — بدون خدمة خارجية.', 'Powered by a smart-template + deterministic-transform engine — no external service.')}</p>
+  </div>
+);
 
 const PageProps: React.FC<{ page: WebsitePage; L: (a: string, e: string) => string; onChange: (p: WebsitePage) => void; onRemove: () => void }> = ({ page, L, onChange, onRemove }) => {
   const up = (p: Partial<WebsitePage>) => onChange({ ...page, ...p });
@@ -640,7 +829,7 @@ function newBlock(t: WebsiteBlockType): WebsiteBlock {
     case 'testimonials': return { type: 'testimonials', heading: 'What people say', items: [{ quote: 'Amazing service.', author: 'Jane Doe', role: 'Customer' }] };
     case 'partners': return { type: 'partners', heading: 'Trusted by', logos: [] };
     case 'gallery': return { type: 'gallery', heading: 'Gallery', images: [] };
-    case 'app_download': return { type: 'app_download', heading: 'Get the app', subtitle: 'Order in one tap.', iosUrl: '', androidUrl: '' };
+    case 'app_download': return { type: 'app_download', heading: 'Get the app', subtitle: 'Order in one tap.', iosUrl: '', androidUrl: '', huaweiUrl: '', features: ['Faster one-tap ordering', 'Live map tracking', 'Wallet & rewards', 'Push notifications'], screenshots: [] };
     case 'faq': return { type: 'faq', heading: 'FAQ', items: [{ q: 'Question?', a: 'Answer.' }] };
     case 'contact': return { type: 'contact', heading: 'Contact', email: '' };
     case 'cta': return { type: 'cta', title: 'Call to action', button: { label: 'Get started', href: '/contact' } };
@@ -732,6 +921,11 @@ const BlockEditor: React.FC<{ block: WebsiteBlock; onChange: (b: WebsiteBlock) =
       <Field label={L('العنوان', 'Heading')} value={block.heading} onChange={v => onChange({ ...block, heading: v })} />
       <Field label={L('العنوان الفرعي', 'Subtitle')} value={block.subtitle || ''} onChange={v => onChange({ ...block, subtitle: v })} />
       <div className="grid grid-cols-2 gap-2"><Field label="iOS URL" value={block.iosUrl || ''} onChange={v => onChange({ ...block, iosUrl: v })} /><Field label="Android URL" value={block.androidUrl || ''} onChange={v => onChange({ ...block, androidUrl: v })} /></div>
+      <Field label={L('رابط AppGallery (هواوي)', 'AppGallery URL (Huawei)')} value={block.huaweiUrl || ''} onChange={v => onChange({ ...block, huaweiUrl: v })} />
+      <p className="text-[10px]" style={{ color: 'var(--color-on-surface-variant)' }}>{L('اترك الرابط فارغاً لعرض حالة «قريباً».', 'Leave a store URL empty to show a “Coming soon” state.')}</p>
+      <div className="grid grid-cols-2 gap-2"><Field label={L('رقم SMS (اختياري)', 'SMS number (optional)')} value={block.sms || ''} onChange={v => onChange({ ...block, sms: v })} /><Field label={L('بريد (اختياري)', 'Email (optional)')} value={block.email || ''} onChange={v => onChange({ ...block, email: v })} /></div>
+      <StringListField label={L('مزايا التطبيق', 'App feature highlights')} values={block.features || []} onChange={v => onChange({ ...block, features: v })} L={L} />
+      <MediaListField label={L('لقطات شاشة التطبيق', 'App screenshots')} values={block.screenshots || []} onChange={v => onChange({ ...block, screenshots: v })} lang={lang} />
       <MediaField label={L('صورة', 'Image')} value={block.image || ''} onChange={u => onChange({ ...block, image: u })} lang={lang} />
     </div>);
     case 'faq': return (<div className="space-y-2">

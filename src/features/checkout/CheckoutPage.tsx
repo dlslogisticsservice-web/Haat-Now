@@ -527,7 +527,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     style={{ background: 'rgba(163,249,91,0.15)', border: '1px solid rgba(163,249,91,0.3)', backdropFilter: 'blur(10px)' }}
                   >
                     <BadgeCheck size={14} strokeWidth={2} color="var(--color-primary-fixed)" />
-                    <span style={{ color: 'var(--color-primary-fixed)', fontSize: '11px', fontWeight: 700 }}>Premium Ingredient</span>
+                    <span style={{ color: 'var(--color-primary-fixed)', fontSize: '11px', fontWeight: 700 }}>{lang === 'ar' ? 'مكوّن فاخر' : 'Premium Ingredient'}</span>
                   </div>
                   <div className="absolute bottom-3 right-3 left-3 flex flex-col gap-1" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
                     {cartItems.slice(0, 2).map((item, idx) => (

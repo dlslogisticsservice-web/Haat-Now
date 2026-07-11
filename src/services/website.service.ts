@@ -22,8 +22,16 @@ const TENANTS_KEY = 'haat_crud_tenants';
 export type WebsitePageKind = 'landing' | 'about' | 'contact' | 'blog_index' | 'help_index' | 'legal' | 'custom';
 export interface BlockVisibility { desktop?: boolean; tablet?: boolean; mobile?: boolean }
 export interface WebsiteCta { label: string; href: string; style?: 'primary' | 'secondary' }
-// Every section carries per-section controls: enable/disable + responsive visibility.
-interface BlockBase { enabled?: boolean; visibility?: BlockVisibility }
+// Per-section visual controls (Studio Pro): spacing, radius, shadow, background,
+// alignment, max-width and a reveal animation. All optional — unset = theme default.
+export interface BlockStyle {
+  padTop?: number; padBottom?: number; marginTop?: number; marginBottom?: number;
+  radius?: number; shadow?: 'none' | 'sm' | 'md' | 'lg'; align?: 'left' | 'center' | 'right';
+  maxWidth?: number; bg?: string; animation?: 'none' | 'fade' | 'rise' | 'zoom';
+}
+// Every section carries per-section controls: enable/disable, responsive visibility,
+// visual style and a lock (prevents accidental edits/moves in the Studio).
+interface BlockBase { enabled?: boolean; visibility?: BlockVisibility; style?: BlockStyle; locked?: boolean }
 // Marketplace card models (Featured Restaurants / Stores / Popular / Trending / Nearby).
 export interface MerchantCard { name: string; emoji?: string; image?: string; cuisine?: string; rating?: number; reviews?: number; eta?: string; fee?: string; distance?: string; badge?: string; promo?: string; href?: string; closed?: boolean }
 export interface DealCard { title: string; merchant?: string; emoji?: string; image?: string; discount?: string; code?: string; endsInMin?: number; href?: string }
@@ -39,7 +47,7 @@ export type WebsiteBlock = BlockBase & (
   | { type: 'partners'; heading?: string; logos: string[] }
   | { type: 'cta'; title: string; subtitle?: string; button: { label: string; href: string } }
   | { type: 'gallery'; heading?: string; images: string[] }
-  | { type: 'app_download'; heading: string; subtitle?: string; iosUrl?: string; androidUrl?: string; image?: string }
+  | { type: 'app_download'; heading: string; subtitle?: string; iosUrl?: string; androidUrl?: string; huaweiUrl?: string; image?: string; features?: string[]; screenshots?: string[]; sms?: string; email?: string }
   | { type: 'faq'; heading?: string; items: { q: string; a: string }[] }
   | { type: 'contact'; heading?: string; email?: string; phone?: string; address?: string }
   // ── Marketplace blocks (Launch Sprint 1) ──

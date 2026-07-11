@@ -1,7 +1,36 @@
 import React from 'react';
-import { Star, Clock, Bike, Search, Smartphone, QrCode, Copy, Check, Play } from 'lucide-react';
-import type { WebsiteBlock, WebsiteCta, MerchantCard, DealCard } from '../../services/website.service';
+import { Star, Clock, Bike, Search, Smartphone, QrCode, Copy, Check, Play, Mail, MessageSquare } from 'lucide-react';
+import type { WebsiteBlock, WebsiteCta, MerchantCard, DealCard, BlockStyle } from '../../services/website.service';
 import { WIcon, foodIconName } from './icons';
+import { getLocale } from './i18n';
+
+// ── Studio Pro: per-section visual shell (spacing / radius / shadow / bg / align /
+//    max-width / reveal animation). Wraps any block; unset fields inherit the theme. ──
+const SHADOW_MAP: Record<string, string> = {
+  none: 'none', sm: '0 4px 14px -6px rgba(0,0,0,.30)',
+  md: '0 14px 40px -18px rgba(0,0,0,.45)', lg: '0 30px 70px -28px rgba(0,0,0,.60)',
+};
+export function hasBlockStyle(block: WebsiteBlock): boolean {
+  const st = (block as { style?: BlockStyle }).style;
+  return !!st && Object.values(st).some(v => v !== undefined && v !== null && v !== '' && v !== 'none');
+}
+export const SectionShell: React.FC<{ block: WebsiteBlock; children: React.ReactNode }> = ({ block, children }) => {
+  const st = (block as { style?: BlockStyle }).style;
+  if (!st) return <>{children}</>;
+  const style: React.CSSProperties = {
+    paddingTop: st.padTop, paddingBottom: st.padBottom,
+    marginTop: st.marginTop, marginBottom: st.marginBottom,
+    borderRadius: st.radius || undefined,
+    boxShadow: st.shadow && st.shadow !== 'none' ? SHADOW_MAP[st.shadow] : undefined,
+    background: st.bg || undefined,
+    textAlign: st.align,
+    maxWidth: st.maxWidth || undefined,
+    marginInline: st.maxWidth ? 'auto' : undefined,
+    overflow: st.radius ? 'hidden' : undefined,
+  };
+  const anim = st.animation && st.animation !== 'none' ? `hn-anim hn-anim-${st.animation}` : '';
+  return <div className={anim} style={style}>{children}</div>;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HaaT · Premium marketplace render layer (Visual Excellence v2).
@@ -630,6 +659,7 @@ const QrPlaceholder: React.FC<{ size?: number }> = ({ size = 116 }) => {
     </svg>
   );
 };
+const sendBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: 14, border: hairline, background: 'transparent', color: T.on, fontWeight: 700, fontSize: 13.5, textDecoration: 'none', cursor: 'pointer' };
 const AppDownloadBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'app_download' }> }> = ({ block }) => {
   const [plat, setPlat] = React.useState<Platform>('other');
   const [copied, setCopied] = React.useState(false);
@@ -639,9 +669,25 @@ const AppDownloadBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'app_dow
   const stores: { key: Platform; brand: string; sub: string; href?: string }[] = [
     { key: 'android', brand: 'Google Play', sub: 'Android', href: block.androidUrl },
     { key: 'ios', brand: 'App Store', sub: 'iPhone & iPad', href: block.iosUrl },
-    { key: 'huawei', brand: 'AppGallery', sub: 'Huawei', href: undefined },
+    { key: 'huawei', brand: 'AppGallery', sub: 'Huawei', href: block.huaweiUrl },
   ];
-  const feats = ['Faster one-tap ordering', 'Live map tracking', 'Wallet & rewards', 'Push notifications'];
+  const ar = getLocale() === 'ar';
+  const TX = {
+    eyebrow: ar ? 'حمّل التطبيق' : 'Get the app',
+    downloadOn: ar ? 'حمّل على' : 'Download on',
+    comingSoon: ar ? 'قريباً ·' : 'Coming soon ·',
+    copy: ar ? 'نسخ رابط التطبيق' : 'Copy app link',
+    copied: ar ? 'تم نسخ الرابط' : 'Link copied',
+    email: ar ? 'أرسل الرابط بريدياً' : 'Email me the link',
+    sms: ar ? 'أرسل الرابط برسالة' : 'Text me the link',
+    scan: ar ? 'امسح للتحميل' : 'Scan to get the app',
+  };
+  const DEFAULT_FEATS = ar ? ['طلب أسرع بلمسة', 'تتبّع مباشر على الخريطة', 'محفظة ومكافآت', 'إشعارات فورية'] : ['Faster one-tap ordering', 'Live map tracking', 'Wallet & rewards', 'Push notifications'];
+  const feats = (block.features && block.features.length) ? block.features : DEFAULT_FEATS;
+  const shots = block.screenshots?.filter(Boolean) || [];
+  // Send-me-the-link: mailto / sms carry the app link. Studio-editable recipients optional.
+  const mailHref = `mailto:${block.email || ''}?subject=${encodeURIComponent('Get the app')}&body=${encodeURIComponent(link)}`;
+  const smsHref = `sms:${block.sms || ''}${/android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '') ? '?' : '&'}body=${encodeURIComponent(link)}`;
   return (
     <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
       <div style={sectionWrap}>
@@ -649,7 +695,7 @@ const AppDownloadBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'app_dow
           <span aria-hidden="true" className="hn-orb hn-orb-b" style={{ opacity: 0.5 }} />
           <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'minmax(0,1.4fr) auto', gap: 'clamp(20px,4vw,48px)', alignItems: 'center' }} className="hn-app-grid">
             <div>
-              <Eyebrow>Get the app</Eyebrow>
+              <Eyebrow>{TX.eyebrow}</Eyebrow>
               <h2 style={{ ...hStyle, marginTop: 12 }}>{block.heading}</h2>
               {block.subtitle && <p style={{ color: T.onVar, marginTop: 10, fontSize: 16, lineHeight: 1.55, maxWidth: 480 }}>{block.subtitle}</p>}
               <ul style={{ listStyle: 'none', padding: 0, margin: '16px 0 0', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
@@ -661,21 +707,32 @@ const AppDownloadBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'app_dow
                   const inner = (
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '11px 18px', borderRadius: 14, fontWeight: 800, textDecoration: 'none', border: suggested ? `1px solid ${T.primary}` : hairline, background: suggested ? T.primary : T.surfHigh, color: suggested ? T.onPrimary : T.on }}>
                       {st.key === 'android' ? <Play size={18} /> : <Smartphone size={18} />}
-                      <span style={{ display: 'grid', lineHeight: 1.05, textAlign: 'start' }}><span style={{ fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{st.href ? 'Download on' : 'Coming soon ·'} {st.sub}</span><span style={{ fontSize: 14 }}>{st.brand}</span></span>
+                      <span style={{ display: 'grid', lineHeight: 1.05, textAlign: 'start' }}><span style={{ fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{st.href ? TX.downloadOn : TX.comingSoon} {st.sub}</span><span style={{ fontSize: 14 }}>{st.brand}</span></span>
                     </span>
                   );
                   return st.href ? <a key={st.key} href={st.href} target="_blank" rel="noreferrer">{inner}</a> : <span key={st.key} style={{ opacity: st.href ? 1 : 0.85 }}>{inner}</span>;
                 })}
               </div>
-              <button onClick={copy} className="hn-btn hn-btn-ghost" style={{ marginTop: 14, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 16px', borderRadius: T.btnR, border: hairline, background: 'transparent', color: T.on, fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
-                {copied ? <Check size={15} color={T.primary} /> : <Copy size={15} />}{copied ? 'Link copied' : 'Copy app link'}
-              </button>
+              <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                <button onClick={copy} className="hn-btn hn-btn-ghost" style={sendBtn}>
+                  {copied ? <Check size={15} color={T.primary} /> : <Copy size={15} />}{copied ? TX.copied : TX.copy}
+                </button>
+                <a href={mailHref} className="hn-btn hn-btn-ghost" style={sendBtn}><Mail size={15} />{TX.email}</a>
+                <a href={smsHref} className="hn-btn hn-btn-ghost" style={sendBtn}><MessageSquare size={15} />{TX.sms}</a>
+              </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <QrPlaceholder />
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: T.onVar }}><QrCode size={13} />Scan to get the app</span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: T.onVar }}><QrCode size={13} />{TX.scan}</span>
             </div>
           </div>
+          {shots.length > 0 && (
+            <div className="hn-rail" style={{ position: 'relative', display: 'flex', gap: 14, overflowX: 'auto', marginTop: 'clamp(20px,3vw,32px)', paddingBottom: 6, scrollSnapType: 'x mandatory' }}>
+              {shots.map((src, i) => (
+                <img key={i} src={src} alt={`App screenshot ${i + 1}`} loading="lazy" style={{ height: 340, width: 'auto', flexShrink: 0, borderRadius: 26, border: hairline, background: T.surfHigh, objectFit: 'cover', scrollSnapAlign: 'start', boxShadow: '0 20px 50px -24px rgba(0,0,0,.6)' }} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -713,6 +770,12 @@ export const BlockStyles: React.FC = () => (
     @keyframes hn-drift-a { to { transform: translate(60px, 40px) scale(1.12); } }
     @keyframes hn-drift-b { to { transform: translate(-50px, 50px) scale(1.08); } }
     .hn-fade { animation: hn-fade-in .6s cubic-bezier(.22,1,.36,1) both; }
+    .hn-anim-fade { animation: hn-fade-in .7s cubic-bezier(.22,1,.36,1) both; }
+    .hn-anim-rise { animation: hn-anim-rise .7s cubic-bezier(.22,1,.36,1) both; }
+    .hn-anim-zoom { animation: hn-anim-zoom .7s cubic-bezier(.22,1,.36,1) both; }
+    @keyframes hn-anim-rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+    @keyframes hn-anim-zoom { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .hn-anim-fade, .hn-anim-rise, .hn-anim-zoom { animation: none !important; } }
     .hn-fade-1 { animation: hn-fade-in .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .05s; }
     .hn-fade-2 { animation: hn-fade-in .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .14s; }
     .hn-fade-3 { animation: hn-fade-in .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .24s; }
