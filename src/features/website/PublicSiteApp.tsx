@@ -6,6 +6,8 @@ import { BlockRenderer, BlockStyles } from './blocks';
 import { loadLiveCommerce, type LiveCommerce } from './commerce';
 import { WebsiteCommerce } from './WebsiteCommerce';
 import type { WebsiteBlock, WebsiteSite } from '../../services/website.service';
+import { Compass } from 'lucide-react';
+import { HaatLogo } from './icons';
 
 /** Replace merchants/deals blocks with LIVE catalog data (reused services), rotating the
  *  live merchant list across sections so themed rails stay distinct. Curated content is kept
@@ -170,8 +172,8 @@ export const PublicSiteApp: React.FC = () => {
       {/* Header / navigation */}
       <header style={{ position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(8px)', background: 'color-mix(in srgb, var(--color-background, #0a0f0c) 82%, transparent)', borderBottom: '1px solid var(--color-outline-variant, #2a3330)' }}>
         <div style={{ maxWidth: 1120, margin: '0 auto', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
-          <a href="/" onClick={e => { e.preventDefault(); navigate('/'); }} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'inherit' }}>
-            {tenant?.logo_url ? <img src={tenant.logo_url} alt="" style={{ height: 28 }} /> : <span style={{ width: 28, height: 28, borderRadius: 8, background: 'var(--color-primary-fixed, #a3f95b)' }} />}
+          <a href="/" onClick={e => { e.preventDefault(); navigate('/'); }} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'inherit' }} aria-label={`${site.siteName} home`}>
+            {tenant?.logo_url ? <img src={tenant.logo_url} alt={site.siteName} style={{ height: 28 }} /> : <HaatLogo height={28} showWordmark={false} />}
             <strong style={{ fontSize: 17 }}>{site.siteName}</strong>
           </a>
           <nav id="site_nav" style={{ marginInlineStart: 'auto', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -210,7 +212,7 @@ export const PublicSiteApp: React.FC = () => {
         )}
         {!isCommerce && resolved.notFound && (
           <section style={{ maxWidth: 640, margin: '0 auto', padding: '96px 20px', textAlign: 'center' }}>
-            <div aria-hidden="true" style={{ fontSize: 56, lineHeight: 1 }}>🧭</div>
+            <div style={{ color: 'var(--color-primary-fixed, #a3f95b)' }}><Compass size={56} strokeWidth={1.5} aria-hidden="true" /></div>
             <h1 style={{ fontSize: 'clamp(30px,5vw,44px)', fontWeight: 800, marginTop: 12 }}>This page took a wrong turn</h1>
             <p style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', marginTop: 10, fontSize: 16 }}>We couldn’t find what you were looking for on {site.siteName}. Try one of these:</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 22 }}>

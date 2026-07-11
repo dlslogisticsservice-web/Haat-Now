@@ -1,5 +1,7 @@
 import React from 'react';
+import { Star, Clock, Bike, Zap, Search } from 'lucide-react';
 import type { WebsiteBlock, WebsiteCta, MerchantCard, DealCard } from '../../services/website.service';
+import { WIcon, foodIconName } from './icons';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HaaT · Premium marketplace render layer (Visual Excellence v2).
@@ -120,7 +122,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
               {block.items.map((it, i) => (
                 <div key={i} className="hn-lift" style={{ ...cardStyle, position: 'relative', overflow: 'hidden' }}>
                   <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: `radial-gradient(120% 100% at 0% 0%, color-mix(in srgb, ${T.primary} 8%, transparent), transparent 55%)`, opacity: 0.9 }} />
-                  {it.icon && <div aria-hidden="true" style={{ position: 'relative', width: 52, height: 52, borderRadius: 15, display: 'grid', placeItems: 'center', fontSize: 26, marginBottom: 16, background: `color-mix(in srgb, ${T.primary} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${T.primary} 28%, transparent)` }}>{it.icon}</div>}
+                  {it.icon && <div style={{ position: 'relative', width: 52, height: 52, borderRadius: 15, display: 'grid', placeItems: 'center', color: T.primary, marginBottom: 16, background: `color-mix(in srgb, ${T.primary} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${T.primary} 28%, transparent)` }}><WIcon name={it.icon} size={24} /></div>}
                   <h3 style={{ position: 'relative', fontSize: 18, fontWeight: 800, color: T.on, margin: 0, letterSpacing: '-0.01em' }}>{it.title}</h3>
                   <p style={{ position: 'relative', color: T.onVar, marginTop: 8, fontSize: 14.5, lineHeight: 1.6 }}>{it.body}</p>
                 </div>
@@ -226,7 +228,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
                 <div style={{ display: 'flex', gap: 12, marginTop: 22, flexWrap: 'wrap' }}>
                   {block.iosUrl && <a href={block.iosUrl} target="_blank" rel="noreferrer" style={storeBtn}> App Store</a>}
                   {block.androidUrl && <a href={block.androidUrl} target="_blank" rel="noreferrer" style={storeBtn}>▶ Google Play</a>}
-                  {!block.iosUrl && !block.androidUrl && <span style={{ ...storeBtn, opacity: 0.7 }}>📱 Coming soon</span>}
+                  {!block.iosUrl && !block.androidUrl && <span style={{ ...storeBtn, opacity: 0.7, display: 'inline-flex', alignItems: 'center', gap: 8 }}><Zap size={16} />Coming soon</span>}
                 </div>
               </div>
               {block.image && <img src={block.image} alt={block.heading} loading="lazy" decoding="async" style={{ position: 'relative', maxHeight: 260, borderRadius: 20 }} />}
@@ -308,7 +310,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
                 <a key={i} href={c.href} onClick={e => { if (c.href.startsWith('/')) { e.preventDefault(); onNav(c.href); } }}
                   className="hn-cat" aria-label={c.label}
                   style={{ ...cardStyle, padding: '22px 12px', textAlign: 'center', textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                  <span className="hn-cat-icon" aria-hidden="true" style={{ width: 58, height: 58, borderRadius: 18, display: 'grid', placeItems: 'center', fontSize: 28, background: c.tint || `color-mix(in srgb, ${T.primary} 12%, ${T.surfHigh})`, border: `1px solid color-mix(in srgb, ${T.primary} 20%, transparent)`, transition: 'transform .2s ease' }}>{c.emoji || '🍽️'}</span>
+                  <span className="hn-cat-icon" style={{ width: 58, height: 58, borderRadius: 18, display: 'grid', placeItems: 'center', color: T.on, background: c.tint || `color-mix(in srgb, ${T.primary} 12%, ${T.surfHigh})`, border: `1px solid color-mix(in srgb, ${T.primary} 20%, transparent)`, transition: 'transform .2s ease' }}><WIcon name={c.icon || foodIconName(c.label)} size={26} strokeWidth={1.8} /></span>
                   <span style={{ fontSize: 14, fontWeight: 700, color: T.on }}>{c.label}</span>
                 </a>
               ))}
@@ -354,7 +356,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
               {block.items.map((s, i) => (
                 <div key={i} style={{ position: 'relative', textAlign: 'center' }}>
                   <div aria-hidden="true" style={{ position: 'relative', width: 62, height: 62, borderRadius: 20, margin: '0 auto', display: 'grid', placeItems: 'center', fontSize: 28, background: `color-mix(in srgb, ${T.primary} 14%, ${T.surfHigh})`, border: `1px solid color-mix(in srgb, ${T.primary} 28%, transparent)`, boxShadow: `0 10px 30px -12px color-mix(in srgb, ${T.primary} 50%, transparent)` }}>
-                    {s.icon || i + 1}
+                    {s.icon ? <WIcon name={s.icon} size={26} /> : i + 1}
                     <span style={{ position: 'absolute', top: -8, right: -8, width: 24, height: 24, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 900, background: T.primary, color: T.onPrimary }}>{i + 1}</span>
                   </div>
                   <h3 style={{ fontSize: 18, fontWeight: 800, color: T.on, marginTop: 16, letterSpacing: '-0.01em' }}>{s.title}</h3>
@@ -383,12 +385,12 @@ function renderHeroTitle(title: string, onMedia: boolean): React.ReactNode {
 
 const TrustRow: React.FC<{ onMedia: boolean }> = ({ onMedia }) => {
   const col = onMedia ? 'rgba(255,255,255,0.9)' : T.onVar;
-  const items = [{ icon: '💵', label: 'Cash on delivery' }, { icon: '📍', label: 'Live order tracking' }, { icon: '⚡', label: 'Fast local delivery' }];
+  const items = [{ icon: 'cash', label: 'Cash on delivery' }, { icon: 'pin', label: 'Live order tracking' }, { icon: 'delivery', label: 'Fast local delivery' }];
   return (
     <div style={{ marginTop: 34, display: 'flex', gap: 22, flexWrap: 'wrap', justifyContent: 'center' }}>
       {items.map(it => (
         <span key={it.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 600, color: col }}>
-          <span aria-hidden="true" style={{ fontSize: 16 }}>{it.icon}</span>{it.label}
+          <WIcon name={it.icon} size={17} />{it.label}
         </span>
       ))}
     </div>
@@ -413,7 +415,7 @@ const Waitlist: React.FC<{ placeholder?: string; cta?: string; note?: string }> 
   };
   if (done) return (
     <div role="status" style={{ marginTop: 24, padding: 20, borderRadius: T.cardR, background: `color-mix(in srgb, ${T.primary} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${T.primary} 26%, transparent)` }}>
-      <p style={{ fontWeight: 800, fontSize: 18, color: T.on, margin: 0 }}>You're on the list 🎉</p>
+      <p style={{ fontWeight: 800, fontSize: 18, color: T.on, margin: 0, display: 'inline-flex', alignItems: 'center', gap: 8 }}><WIcon name="celebrate" size={18} color={T.primary} />You're on the list</p>
       <p style={{ color: T.onVar, fontSize: 14.5, margin: '6px 0 0' }}>We'll email you the moment HaaT Now goes live in your city.</p>
     </div>
   );
@@ -435,7 +437,7 @@ const HeroSearch: React.FC<{ placeholder?: string; action?: string; center?: boo
   const submit = (e: React.FormEvent) => { e.preventDefault(); const to = q.trim() ? `${action}?q=${encodeURIComponent(q.trim())}` : action; onNav(to); };
   return (
     <form role="search" onSubmit={submit} className="hn-field" style={{ marginTop: 30, display: 'flex', gap: 8, maxWidth: 600, marginInline: center ? 'auto' : undefined, background: 'color-mix(in srgb, var(--color-surface-container, #10160f) 78%, transparent)', border: hairline, borderRadius: T.btnR, padding: 8, boxShadow: '0 18px 50px -18px rgba(0,0,0,.6)', backdropFilter: 'blur(14px) saturate(1.3)', WebkitBackdropFilter: 'blur(14px) saturate(1.3)' }}>
-      <span aria-hidden="true" style={{ display: 'grid', placeItems: 'center', paddingInlineStart: 12, fontSize: 18 }}>🔎</span>
+      <span style={{ display: 'grid', placeItems: 'center', paddingInlineStart: 12, color: T.onVar }}><Search size={18} /></span>
       <input value={q} onChange={e => setQ(e.target.value)} aria-label="Search for restaurants, groceries and stores" placeholder={placeholder || 'Search restaurants, groceries, pharmacies…'}
         style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: T.on, fontSize: 16, padding: '12px 4px' }} />
       <button type="submit" className="hn-btn-primary" style={{ padding: '13px 26px', borderRadius: 'calc(var(--button-radius, 14px) - 4px)', border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: 15, background: T.primary, color: T.onPrimary }}>Search</button>
@@ -448,11 +450,11 @@ const MetaRow: React.FC<{ m: MerchantCard }> = ({ m }) => (
   <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13, color: T.onVar }}>
     {typeof m.rating === 'number' && (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 999, fontWeight: 800, color: T.on, background: T.surfHigh, border: hairline }}>
-        <span aria-hidden="true" style={{ color: '#ffc93c' }}>★</span>{m.rating.toFixed(1)}{m.reviews ? <span style={{ fontWeight: 500, color: T.onVar }}>({m.reviews}+)</span> : null}
+        <Star size={13} fill="#ffc93c" color="#ffc93c" />{m.rating.toFixed(1)}{m.reviews ? <span style={{ fontWeight: 500, color: T.onVar }}>({m.reviews}+)</span> : null}
       </span>
     )}
-    {m.eta && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><span aria-hidden="true">🕒</span>{m.eta}</span>}
-    {m.fee && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: /free/i.test(m.fee) ? T.primary : T.onVar, fontWeight: /free/i.test(m.fee) ? 700 : 500 }}><span aria-hidden="true">🛵</span>{m.fee}</span>}
+    {m.eta && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={13} />{m.eta}</span>}
+    {m.fee && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: /free/i.test(m.fee) ? T.primary : T.onVar, fontWeight: /free/i.test(m.fee) ? 700 : 500 }}><Bike size={13} />{m.fee}</span>}
     {m.distance && <span>· {m.distance}</span>}
   </div>
 );
@@ -460,7 +462,7 @@ const MetaRow: React.FC<{ m: MerchantCard }> = ({ m }) => (
 const CardCover: React.FC<{ m: MerchantCard; height: number }> = ({ m, height }) => (
   <div className="hn-cover" style={{ position: 'relative', height, background: m.image ? undefined : gradientFor(m.name), display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
     {m.image && <img className="hn-zoom" src={m.image} alt={m.name} loading="lazy" decoding="async" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-    {!m.image && <span aria-hidden="true" style={{ fontSize: 52, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,.4))' }}>{m.emoji || '🍴'}</span>}
+    {!m.image && <WIcon name={foodIconName(`${m.name} ${m.cuisine || ''}`)} size={46} color="#ffffff" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 6px 14px rgba(0,0,0,.4))' }} />}
     <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(0,0,0,.05) 40%, rgba(0,0,0,.4))' }} />
     {m.promo && <span style={badge('promo')}>{m.promo}</span>}
     {m.badge && <span style={badge('info')}>{m.badge}</span>}
@@ -472,7 +474,7 @@ const CardCover: React.FC<{ m: MerchantCard; height: number }> = ({ m, height })
 function etaMin(m: MerchantCard): number { const n = (m.eta || '').match(/\d+/); return n ? Number(n[0]) : 999; }
 type MerchFilter = 'all' | 'offers' | 'free' | 'top' | 'fast';
 const MERCH_FILTERS: { k: MerchFilter; label: string }[] = [
-  { k: 'all', label: 'All' }, { k: 'offers', label: '🔥 Offers' }, { k: 'free', label: '🛵 Free delivery' }, { k: 'top', label: '⭐ Top rated' }, { k: 'fast', label: '⚡ Fast' },
+  { k: 'all', label: 'All' }, { k: 'offers', label: 'Offers' }, { k: 'free', label: 'Free delivery' }, { k: 'top', label: 'Top rated' }, { k: 'fast', label: 'Fast' },
 ];
 type MerchSort = 'recommended' | 'rating' | 'eta';
 
@@ -559,7 +561,7 @@ const FeaturedMerchant: React.FC<{ m: MerchantCard; onNav: (p: string) => void }
     <div className="hn-lift hn-media-card" style={{ ...cardStyle, padding: 0, overflow: 'hidden', display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(0, 1fr)', minHeight: 232 }}>
       <div className="hn-featured-media"><CardCover m={m} height={232} /></div>
       <div style={{ padding: 'clamp(20px,3vw,32px)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '5px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', background: `color-mix(in srgb, ${T.primary} 16%, transparent)`, color: T.primary, marginBottom: 14 }}>★ Featured</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', padding: '5px 12px', borderRadius: 999, fontSize: 11.5, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', background: `color-mix(in srgb, ${T.primary} 16%, transparent)`, color: T.primary, marginBottom: 14 }}><Star size={12} fill={T.primary} color={T.primary} />Featured</span>
         <h3 style={{ fontSize: 'clamp(22px,3vw,30px)', fontWeight: 900, color: T.on, margin: 0, letterSpacing: '-0.02em' }}>{m.name}</h3>
         {m.cuisine && <p style={{ color: T.onVar, fontSize: 15.5, margin: '8px 0 0' }}>{m.cuisine}</p>}
         <MetaRow m={m} />
@@ -577,7 +579,7 @@ const DealTile: React.FC<{ d: DealCard; onNav: (p: string) => void }> = ({ d, on
     <div className="hn-lift" style={{ ...cardStyle, padding: 0, overflow: 'hidden', scrollSnapAlign: 'start', height: '100%' }}>
       <div style={{ position: 'relative', height: 140, background: d.image ? undefined : gradientFor(d.merchant || d.title), display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
         {d.image && <img className="hn-zoom" src={d.image} alt={d.title} loading="lazy" decoding="async" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-        {!d.image && <span aria-hidden="true" style={{ fontSize: 48, filter: 'drop-shadow(0 6px 14px rgba(0,0,0,.4))' }}>{d.emoji || '🎁'}</span>}
+        {!d.image && <WIcon name="gift" size={44} color="#ffffff" strokeWidth={1.5} style={{ filter: 'drop-shadow(0 6px 14px rgba(0,0,0,.4))' }} />}
         <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,.35))' }} />
         {d.discount && <span style={badge('promo')}>{d.discount}</span>}
         {typeof d.endsInMin === 'number' && d.endsInMin > 0 && <Countdown minutes={d.endsInMin} />}
@@ -607,7 +609,7 @@ const Countdown: React.FC<{ minutes: number }> = ({ minutes }) => {
   const h = Math.floor(left / 3600), m = Math.floor((left % 3600) / 60), s = left % 60;
   const pad = (n: number) => String(n).padStart(2, '0');
   const label = h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
-  return <span style={{ position: 'absolute', bottom: 10, insetInlineStart: 10, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 800, background: 'rgba(0,0,0,.62)', backdropFilter: 'blur(6px)', color: '#fff' }} aria-label={`Ends in ${label}`}>⏱ {label}</span>;
+  return <span style={{ position: 'absolute', bottom: 10, insetInlineStart: 10, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 800, background: 'rgba(0,0,0,.62)', backdropFilter: 'blur(6px)', color: '#fff' }} aria-label={`Ends in ${label}`}><Clock size={12} />{label}</span>;
 };
 
 /** Deterministic premium gradient from a string (no external images needed). */

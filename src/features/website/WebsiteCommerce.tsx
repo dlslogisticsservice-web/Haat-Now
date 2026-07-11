@@ -14,6 +14,7 @@ import {
   placeWebsiteOrder, getTracking, cancelWebsiteOrder, reorderWebsite, requestRefund, contactSupport,
   guestIdentity, TIP_PRESETS, type MenuItem, type WebsiteCartLine, type WebsiteTracking,
 } from './checkout';
+import { WIcon, foodIconName } from './icons';
 import { tipOptions } from '../../website-platform/finance/pricing';
 import { buildReceipt, renderReceiptHtml } from '../../website-platform/finance/receipt';
 
@@ -40,17 +41,7 @@ function menuTile(seed: string): string {
   let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
   return `linear-gradient(135deg, hsl(${h} 58% 44%), hsl(${(h + 40) % 360} 62% 30%))`;
 }
-function menuEmoji(category?: string, name?: string): string {
-  const s = `${category || ''} ${name || ''}`.toLowerCase();
-  if (/عصير|مشروب|juice|drink|coffee|قهو|شاي|tea/.test(s)) return '🥤';
-  if (/دجاج|مندي|chicken|كبسة|rice|أرز/.test(s)) return '🍛';
-  if (/برجر|burger/.test(s)) return '🍔';
-  if (/بيتزا|pizza/.test(s)) return '🍕';
-  if (/حلو|sweet|dessert|كيك|cake/.test(s)) return '🍰';
-  if (/دواء|صيدل|pharma|medic/.test(s)) return '💊';
-  if (/خضار|بقال|grocer|market/.test(s)) return '🛒';
-  return '🍽️';
-}
+const menuIcon = (category?: string, name?: string): string => foodIconName(`${category || ''} ${name || ''}`);
 
 export interface WebsiteCommerceProps { path: string; search: string; brandName: string; onNavigate: (to: string) => void }
 
@@ -63,14 +54,14 @@ const PENDING_COUPON = 'haat_web_coupon';
 
 /** Reusable, honest platform-guarantee trust strip (Section 8). Same guarantees the app makes. */
 const TRUST: { icon: string; label: string }[] = [
-  { icon: '💵', label: 'Cash on delivery' }, { icon: '📍', label: 'Live order tracking' },
-  { icon: '↩️', label: 'Easy refunds' }, { icon: '🎧', label: 'Support when you need it' },
+  { icon: 'cash', label: 'Cash on delivery' }, { icon: 'pin', label: 'Live order tracking' },
+  { icon: 'reorder', label: 'Easy refunds' }, { icon: 'support', label: 'Support when you need it' },
 ];
 const TrustStrip: React.FC<{ compact?: boolean }> = ({ compact }) => (
   <ul aria-label="Customer guarantees" style={{ display: 'flex', flexWrap: 'wrap', gap: compact ? 10 : 16, listStyle: 'none', padding: 0, margin: 0 }}>
     {TRUST.map(t => (
       <li key={t.label} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: muted }}>
-        <span aria-hidden="true">{t.icon}</span>{t.label}
+        <WIcon name={t.icon} size={15} />{t.label}
       </li>
     ))}
   </ul>
@@ -163,12 +154,12 @@ const MenuView: React.FC<{ search: string; brandName: string; onNavigate: (to: s
         <div style={{ ...wrap, paddingTop: 24, paddingBottom: 24 }}>
           <button onClick={() => onNavigate('/restaurants')} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '7px 14px', fontSize: 13 }}>← All restaurants</button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 16 }}>
-            <span aria-hidden="true" style={{ width: 72, height: 72, flexShrink: 0, borderRadius: 20, display: 'grid', placeItems: 'center', fontSize: 36, background: menuTile(brandName || 'HaaT'), boxShadow: softShadow }}>🍽️</span>
+            <span aria-hidden="true" style={{ width: 72, height: 72, flexShrink: 0, borderRadius: 20, display: 'grid', placeItems: 'center', fontSize: 36, background: menuTile(brandName || 'HaaT'), boxShadow: softShadow }}><WIcon name="utensils" size={34} color="#fff" /></span>
             <div style={{ minWidth: 0 }}>
               <h1 style={{ ...h2, margin: 0, fontSize: 'clamp(24px,4vw,32px)' }}>{brandName || 'Order online'}</h1>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                {['⭐ New on HaaT', '🕒 25–35 min', '🛵 Delivery available', '✅ No minimum order'].map(x => (
-                  <span key={x} className="wc-chip" style={{ padding: '5px 11px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: T.surf, border: hairline, color: T.onVar }}>{x}</span>
+                {[{ i: 'star', t: 'New on HaaT' }, { i: 'clock', t: '25–35 min' }, { i: 'delivery', t: 'Delivery available' }, { i: 'check', t: 'No minimum order' }].map(x => (
+                  <span key={x.t} className="wc-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 999, fontSize: 12.5, fontWeight: 700, background: T.surf, border: hairline, color: T.onVar }}><WIcon name={x.i} size={13} />{x.t}</span>
                 ))}
               </div>
             </div>
@@ -194,7 +185,7 @@ const MenuView: React.FC<{ search: string; brandName: string; onNavigate: (to: s
           <div style={{ display: 'grid', gap: 12 }}>{Array.from({ length: 5 }).map((_v, i) => <Shimmer key={i} />)}</div>
         ) : items.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 44 }} aria-hidden="true">🍽️</div>
+            <div aria-hidden="true"><WIcon name="utensils" size={44} /></div>
             <p style={{ fontWeight: 800, fontSize: 18, color: T.on, margin: '10px 0 6px' }}>Menu coming soon</p>
             <p style={{ color: muted, margin: '0 0 18px' }}>This store's live menu will appear here at launch. Browse other stores in the meantime.</p>
             <button onClick={() => onNavigate('/restaurants')} className="wc-btn" style={btn()}>Browse restaurants</button>
@@ -209,7 +200,7 @@ const MenuView: React.FC<{ search: string; brandName: string; onNavigate: (to: s
                     const q = qtyOf(it.id);
                     return (
                       <div key={it.id} className={`wc-row${added === it.id ? ' wc-added' : ''}`} style={{ ...card, display: 'flex', alignItems: 'center', gap: 16, padding: 14 }}>
-                        <span aria-hidden="true" style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 16, display: 'grid', placeItems: 'center', fontSize: 30, background: menuTile(it.name) }}>{menuEmoji(it.category, it.name)}</span>
+                        <span aria-hidden="true" style={{ width: 64, height: 64, flexShrink: 0, borderRadius: 16, display: 'grid', placeItems: 'center', fontSize: 30, background: menuTile(it.name) }}><WIcon name={menuIcon(it.category, it.name)} size={28} color="#fff" strokeWidth={1.7} /></span>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             <p style={{ fontWeight: 800, margin: 0, fontSize: 16, color: T.on }}>{it.name}</p>
@@ -266,7 +257,7 @@ const CartView: React.FC<{ onNavigate: (to: string) => void }> = ({ onNavigate }
     <div style={wrap}>
       <h1 style={h2}>Your cart</h1>
       <div style={{ ...card, textAlign: 'center', padding: 44 }}>
-        <div style={{ fontSize: 48 }} aria-hidden="true">🛒</div>
+        <div aria-hidden="true"><WIcon name="cart" size={48} /></div>
         <p style={{ fontWeight: 800, fontSize: 18, color: T.on, margin: '12px 0 4px' }}>Your cart is empty</p>
         <p style={{ color: muted, margin: '0 0 20px' }}>Add a few items to get started — pay cash on delivery, no account needed.</p>
         <button onClick={() => onNavigate('/menu')} className="wc-btn" style={btn()}>Browse the menu</button>
@@ -281,7 +272,7 @@ const CartView: React.FC<{ onNavigate: (to: string) => void }> = ({ onNavigate }
         {lines.map(l => (
           <div key={l.id} className="wc-row" style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
-              <span aria-hidden="true" style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 14, display: 'grid', placeItems: 'center', fontSize: 26, background: menuTile(l.name) }}>{menuEmoji(undefined, l.name)}</span>
+              <span aria-hidden="true" style={{ width: 52, height: 52, flexShrink: 0, borderRadius: 14, display: 'grid', placeItems: 'center', fontSize: 26, background: menuTile(l.name) }}><WIcon name={menuIcon(undefined, l.name)} size={26} color="#fff" strokeWidth={1.7} /></span>
               <div style={{ minWidth: 0 }}>
                 <p style={{ fontWeight: 800, margin: 0, color: T.on, fontSize: 15.5 }}>{l.name}</p>
                 <p style={{ color: muted, fontSize: 13.5, margin: '3px 0 0' }}>SAR {l.price.toFixed(2)} · <strong style={{ color: T.on }}>SAR {(l.price * l.quantity).toFixed(2)}</strong></p>
@@ -300,7 +291,7 @@ const CartView: React.FC<{ onNavigate: (to: string) => void }> = ({ onNavigate }
           <div style={{ display: 'grid', gap: 10 }}>
             {recs.map(it => (
               <div key={it.id} className="wc-row" style={{ ...card, display: 'flex', alignItems: 'center', gap: 12, padding: 12 }}>
-                <span aria-hidden="true" style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', fontSize: 22, background: menuTile(it.name) }}>{menuEmoji(it.category, it.name)}</span>
+                <span aria-hidden="true" style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 12, display: 'grid', placeItems: 'center', fontSize: 22, background: menuTile(it.name) }}><WIcon name={menuIcon(it.category, it.name)} size={28} color="#fff" strokeWidth={1.7} /></span>
                 <div style={{ flex: 1, minWidth: 0 }}><p style={{ fontWeight: 700, margin: 0, fontSize: 14.5, color: T.on }}>{it.name}</p><span style={{ color: T.primary, fontWeight: 800, fontSize: 13.5 }}>SAR {it.price.toFixed(2)}</span></div>
                 <button aria-label={`Add ${it.name}`} onClick={() => addRec(it)} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '8px 16px', fontSize: 13.5 }}>+ Add</button>
               </div>
@@ -311,7 +302,7 @@ const CartView: React.FC<{ onNavigate: (to: string) => void }> = ({ onNavigate }
 
       {/* Delivery expectation */}
       <div style={{ ...card, marginTop: 16, display: 'flex', alignItems: 'center', gap: 12, padding: 14 }}>
-        <span aria-hidden="true" style={{ fontSize: 22 }}>🛵</span>
+        <WIcon name="delivery" size={22} />
         <div><p style={{ margin: 0, fontWeight: 700, color: T.on, fontSize: 14 }}>Fast local delivery</p><p style={{ margin: '2px 0 0', color: muted, fontSize: 12.5 }}>Most orders arrive in about 25–40 minutes. Track every step live.</p></div>
       </div>
 
@@ -332,7 +323,7 @@ const Steps: React.FC<{ active: number }> = ({ active }) => {
       {steps.map((s, i) => (
         <React.Fragment key={s}>
           <li style={{ display: 'flex', alignItems: 'center', gap: 8 }} aria-current={i === active ? 'step' : undefined}>
-            <span style={{ display: 'grid', placeItems: 'center', width: 26, height: 26, borderRadius: 999, fontSize: 13, fontWeight: 800, background: i <= active ? T.primary : T.surfHigh, color: i <= active ? T.onPrimary : T.onVar, border: i <= active ? 'none' : hairline }}>{i < active ? '✓' : i + 1}</span>
+            <span style={{ display: 'grid', placeItems: 'center', width: 26, height: 26, borderRadius: 999, fontSize: 13, fontWeight: 800, background: i <= active ? T.primary : T.surfHigh, color: i <= active ? T.onPrimary : T.onVar, border: i <= active ? 'none' : hairline }}>{i < active ? <WIcon name="check" size={14} /> : i + 1}</span>
             <span style={{ fontSize: 13.5, fontWeight: 700, color: i <= active ? T.on : T.onVar }}>{s}</span>
           </li>
           {i < steps.length - 1 && <span aria-hidden="true" style={{ flex: 1, height: 2, borderRadius: 2, background: i < active ? T.primary : T.line }} />}
@@ -365,7 +356,7 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
   const addressOk = address.trim().length >= 8;
 
   if (lines.length === 0) return (
-    <div style={wrap}><h1 style={h2}>Checkout</h1><div style={{ ...card, textAlign: 'center', padding: 40 }}><div style={{ fontSize: 44 }} aria-hidden="true">🛒</div><p style={{ color: muted, margin: '10px 0 18px' }}>Your cart is empty.</p><button onClick={() => onNavigate('/menu')} className="wc-btn" style={btn()}>Browse the menu</button></div></div>
+    <div style={wrap}><h1 style={h2}>Checkout</h1><div style={{ ...card, textAlign: 'center', padding: 40 }}><div aria-hidden="true"><WIcon name="cart" size={44} /></div><p style={{ color: muted, margin: '10px 0 18px' }}>Your cart is empty.</p><button onClick={() => onNavigate('/menu')} className="wc-btn" style={btn()}>Browse the menu</button></div></div>
   );
 
   const submitCoupon = async () => {
@@ -395,7 +386,7 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
 
   const sectionTitle = (icon: string, text: string) => (
     <p style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, fontSize: 16, margin: '0 0 14px', color: T.on }}>
-      <span aria-hidden="true" style={{ width: 32, height: 32, borderRadius: 10, display: 'grid', placeItems: 'center', fontSize: 16, background: `color-mix(in srgb, ${T.primary} 14%, transparent)` }}>{icon}</span>{text}
+      <span style={{ width: 32, height: 32, borderRadius: 10, display: 'grid', placeItems: 'center', color: T.primary, background: `color-mix(in srgb, ${T.primary} 14%, transparent)` }}><WIcon name={icon} size={17} /></span>{text}
     </p>
   );
 
@@ -405,31 +396,31 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
       <Steps active={1} />
       <div style={{ display: 'grid', gap: 14 }}>
         <section style={card}>
-          {sectionTitle('📍', 'Contact & delivery')}
-          {saved.address && <p style={{ color: T.primary, fontSize: 12.5, fontWeight: 700, margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true">⭐</span>Details filled from your last order</p>}
+          {sectionTitle('pin', 'Contact & delivery')}
+          {saved.address && <p style={{ color: T.primary, fontSize: 12.5, fontWeight: 700, margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}><WIcon name="star" size={13} />Details filled from your last order</p>}
           <div style={{ display: 'grid', gap: 10 }}>
             <div className="wc-field" style={{ ...input, padding: 0, display: 'flex' }}><input id="co_name" style={{ ...input, border: 'none', background: 'transparent' }} placeholder="Full name" value={name} onChange={e => setName(e.target.value)} aria-label="Full name" autoComplete="name" /></div>
             <div className="wc-field" style={{ ...input, padding: 0, display: 'flex' }}><input id="co_phone" style={{ ...input, border: 'none', background: 'transparent' }} placeholder="Phone (optional)" value={phone} onChange={e => setPhone(e.target.value)} aria-label="Phone" autoComplete="tel" inputMode="tel" /></div>
             <div className="wc-field" style={{ ...input, padding: 0, display: 'flex', alignItems: 'center' }}>
               <input id="co_address" style={{ ...input, border: 'none', background: 'transparent' }} placeholder="Delivery address" value={address} onChange={e => setAddress(e.target.value)} aria-label="Delivery address" autoComplete="street-address" />
-              {addressOk && <span aria-hidden="true" style={{ paddingInlineEnd: 12, color: T.primary, fontWeight: 800 }}>✓</span>}
+              {addressOk && <span aria-hidden="true" style={{ paddingInlineEnd: 12, color: T.primary, fontWeight: 800, display: 'grid', placeItems: 'center' }}><WIcon name="check" size={16} /></span>}
             </div>
             <div className="wc-field" style={{ ...input, padding: 0, display: 'flex' }}><input id="co_instructions" style={{ ...input, border: 'none', background: 'transparent' }} placeholder="Delivery instructions (e.g. leave at door)" value={instructions} onChange={e => setInstructions(e.target.value)} aria-label="Delivery instructions" /></div>
           </div>
-          <p style={{ color: muted, fontSize: 12.5, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true">🔓</span>Checking out as guest — no app or account required.</p>
+          <p style={{ color: muted, fontSize: 12.5, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}><WIcon name="unlock" size={13} />Checking out as guest — no app or account required.</p>
         </section>
 
         <section style={card}>
-          {sectionTitle('🎟️', 'Promo code')}
+          {sectionTitle('ticket', 'Promo code')}
           <div className="wc-field" style={{ display: 'flex', gap: 8, borderRadius: 12, border: hairline, background: T.surfHigh, padding: 6 }}>
             <input id="co_coupon" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: T.on, fontSize: 15, padding: '8px 10px' }} placeholder="Enter promo code" value={couponCode} onChange={e => setCouponCode(e.target.value)} aria-label="Promo code" />
             <button id="apply_coupon" onClick={submitCoupon} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '9px 18px' }}>Apply</button>
           </div>
-          {couponMsg && <p role="status" style={{ color: couponPct > 0 ? T.primary : muted, fontSize: 13.5, fontWeight: couponPct > 0 ? 700 : 400, marginTop: 10 }}>{couponPct > 0 ? '✓ ' : ''}{couponMsg}</p>}
+          {couponMsg && <p role="status" style={{ color: couponPct > 0 ? T.primary : muted, fontSize: 13.5, fontWeight: couponPct > 0 ? 700 : 400, marginTop: 10 }}>{couponMsg}</p>}
         </section>
 
         <section style={card}>
-          {sectionTitle('💚', 'Tip your captain')}
+          {sectionTitle('heart', 'Tip your captain')}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {tips.map(t => {
               const on = tipPct === t.percent;
@@ -440,18 +431,18 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
         </section>
 
         <section style={card}>
-          {sectionTitle('💳', 'Payment')}
+          {sectionTitle('card', 'Payment')}
           <div style={{ display: 'grid', gap: 10 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', padding: '12px 14px', borderRadius: 12, border: `1px solid ${pay === 'cod' ? T.primary : T.line}`, background: pay === 'cod' ? `color-mix(in srgb, ${T.primary} 10%, transparent)` : 'transparent', color: T.on, fontWeight: 700 }}>
               <input id="pay_cod" type="radio" name="pay" checked={pay === 'cod'} onChange={() => setPay('cod')} style={{ accentColor: 'var(--color-primary-fixed, #a3f95b)' }} />
-              <span aria-hidden="true" style={{ fontSize: 20 }}>💵</span>
+              <WIcon name="cash" size={20} />
               <span style={{ flex: 1 }}>Cash on Delivery</span>
               <span style={{ fontSize: 11.5, fontWeight: 800, padding: '3px 9px', borderRadius: 999, background: `color-mix(in srgb, ${T.primary} 18%, transparent)`, color: T.primary }}>RECOMMENDED</span>
             </label>
             {(['card', 'wallet'] as const).map(m => (
               <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, border: hairline, color: muted, opacity: 0.6 }}>
                 <input type="radio" name="pay" disabled />
-                <span aria-hidden="true" style={{ fontSize: 20 }}>{m === 'card' ? '💳' : '👛'}</span>
+                <WIcon name={m === 'card' ? 'card' : 'wallet'} size={20} />
                 <span style={{ flex: 1 }}>{m === 'card' ? 'Card' : 'Wallet'}</span>
                 <span style={{ fontSize: 11 }}>Coming soon</span>
               </label>
@@ -460,12 +451,12 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
         </section>
 
         <BreakdownCard bd={bd} />
-        {err && <p role="alert" style={{ color: '#f87171', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true">⚠️</span>{err}</p>}
+        {err && <p role="alert" style={{ color: '#f87171', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><WIcon name="warning" size={14} />{err}</p>}
         <button id="place_order" disabled={placing} onClick={place} className="wc-btn" style={{ ...btn(), width: '100%', height: 56, fontSize: 16.5, opacity: placing ? 0.6 : 1 }}>
           {placing ? 'Placing order…' : `Place order · SAR ${bd.total.toFixed(2)}`}
         </button>
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 4 }}><TrustStrip compact /></div>
-        <p style={{ textAlign: 'center', color: muted, fontSize: 12.5, marginTop: 2 }}>🔒 Your details are used only to complete this delivery.</p>
+        <p style={{ textAlign: 'center', color: muted, fontSize: 12.5, marginTop: 2 }}><WIcon name="lock" size={13} style={{ verticalAlign: -2 }} /> Your details are used only to complete this delivery.</p>
       </div>
     </div>
   );
@@ -473,7 +464,7 @@ const CheckoutView: React.FC<{ brandName: string; onNavigate: (to: string) => vo
 
 // ── Order success + live tracking ─────────────────────────────────────────────────
 const STATUS_LABEL: Record<string, string> = { pending: 'Order received', accepted: 'Accepted by store', preparing: 'Preparing your order', on_the_way: 'On the way', delivered: 'Delivered', cancelled: 'Cancelled' };
-const STATUS_ICON: Record<string, string> = { pending: '📝', accepted: '✅', preparing: '👨‍🍳', on_the_way: '🛵', delivered: '🎉', cancelled: '✖️' };
+const STATUS_ICON: Record<string, string> = { pending: 'note', accepted: 'check', preparing: 'chef', on_the_way: 'delivery', delivered: 'celebrate', cancelled: 'close' };
 const TRACK_FLOW = ['pending', 'accepted', 'preparing', 'on_the_way', 'delivered'];
 
 const OrderView: React.FC<{ search: string; brandName: string; onNavigate: (to: string) => void }> = ({ search, brandName, onNavigate }) => {
@@ -518,34 +509,34 @@ const OrderView: React.FC<{ search: string; brandName: string; onNavigate: (to: 
     <div style={wrap}>
       {/* Success hero */}
       <div id="order_success" className="wc-pop" style={{ ...card, textAlign: 'center', marginBottom: 16, padding: 32, background: `radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, ${T.primary} 12%, transparent), ${T.surf} 65%)` }}>
-        <div className="wc-pulse" style={{ width: 72, height: 72, margin: '0 auto', borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 38, background: T.primary, color: T.onPrimary }} aria-hidden="true">✓</div>
+        <div className="wc-pulse" style={{ width: 72, height: 72, margin: '0 auto', borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 38, background: T.primary, color: T.onPrimary }} aria-hidden="true"><WIcon name="check" size={38} strokeWidth={3} /></div>
         <h1 style={{ ...h2, margin: '18px 0 4px' }}>Order placed!</h1>
         <p style={{ color: muted, margin: 0 }}>Order <strong style={{ color: T.on }}>#{orderId.toUpperCase()}</strong> — thank you for ordering with {brandName}.</p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
-          <button id="download_receipt" onClick={downloadReceipt} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '10px 18px' }}>🧾 Receipt</button>
-          <button onClick={() => onNavigate('/menu')} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '10px 18px' }}>🔁 Order again</button>
+          <button id="download_receipt" onClick={downloadReceipt} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '10px 18px' }}><WIcon name="receipt" size={15} />Receipt</button>
+          <button onClick={() => onNavigate('/menu')} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '10px 18px' }}><WIcon name="reorder" size={15} />Order again</button>
         </div>
       </div>
 
       {/* Live tracking */}
       <section style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <p style={{ fontWeight: 800, fontSize: 16, margin: 0, color: T.on, display: 'flex', alignItems: 'center', gap: 8 }}><span aria-hidden="true">📡</span>Live tracking</p>
+          <p style={{ fontWeight: 800, fontSize: 16, margin: 0, color: T.on, display: 'flex', alignItems: 'center', gap: 8 }}><WIcon name="signal" size={16} />Live tracking</p>
           {t?.etaMinutes ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 999, fontWeight: 800, fontSize: 13, background: `color-mix(in srgb, ${T.primary} 14%, transparent)`, color: T.primary }}>ETA ~{t.etaMinutes} min{arrival ? ` · ${arrival}` : ''}</span> : null}
         </div>
 
         {/* Map-ready panel (real map wires in when driver GPS is available). */}
         <div aria-hidden="true" style={{ position: 'relative', height: 132, borderRadius: 14, marginTop: 16, overflow: 'hidden', border: hairline, background: `radial-gradient(120% 120% at 20% 10%, color-mix(in srgb, ${T.primary} 12%, ${T.surfHigh}), ${T.surf})` }}>
           <div style={{ position: 'absolute', inset: 0, backgroundImage: `linear-gradient(color-mix(in srgb, ${T.line} 50%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, ${T.line} 50%, transparent) 1px, transparent 1px)`, backgroundSize: '28px 28px', opacity: 0.5 }} />
-          <div style={{ position: 'absolute', left: '14%', top: '62%', fontSize: 20 }}>🏪</div>
-          <div style={{ position: 'absolute', right: '14%', top: '30%', fontSize: 20 }}>🏠</div>
-          <div style={{ position: 'absolute', left: `${18 + pct * 0.62}%`, top: `${60 - pct * 0.3}%`, fontSize: 22, transition: 'left .6s ease, top .6s ease' }}>🛵</div>
+          <div style={{ position: 'absolute', left: '14%', top: '62%', fontSize: 20 }}><WIcon name="store" size={20} /></div>
+          <div style={{ position: 'absolute', right: '14%', top: '30%', fontSize: 20 }}><WIcon name="home" size={20} /></div>
+          <div style={{ position: 'absolute', left: `${18 + pct * 0.62}%`, top: `${60 - pct * 0.3}%`, fontSize: 22, transition: 'left .6s ease, top .6s ease' }}><WIcon name="delivery" size={22} /></div>
           <span style={{ position: 'absolute', bottom: 8, insetInlineStart: 10, fontSize: 11, fontWeight: 700, color: muted, background: 'color-mix(in srgb, var(--color-background,#0a0f0c) 60%, transparent)', padding: '2px 8px', borderRadius: 999 }}>Live map at launch</span>
         </div>
 
         {!t ? <div style={{ marginTop: 16, display: 'grid', gap: 10 }}><Shimmer h={28} /><Shimmer h={60} /></div> : cancelled ? (
           <div style={{ marginTop: 16, padding: 16, borderRadius: 14, background: T.surfHigh, border: hairline }}>
-            <span id="track_status" style={{ fontSize: 17, fontWeight: 800, color: '#f87171' }}>✖️ {STATUS_LABEL.cancelled}</span>
+            <span id="track_status" style={{ fontSize: 17, fontWeight: 800, color: '#f87171' }}><WIcon name="close" size={16} /> {STATUS_LABEL.cancelled}</span>
           </div>
         ) : (
           <>
@@ -554,7 +545,7 @@ const OrderView: React.FC<{ search: string; brandName: string; onNavigate: (to: 
             </div>
             <span id="track_status" role="status" style={{ fontSize: 20, fontWeight: 900, color: T.primary, letterSpacing: '-0.01em' }}>{STATUS_ICON[t.status]} {STATUS_LABEL[t.status] || t.status}</span>
             {t.driver && <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, padding: 14, borderRadius: 14, background: T.surfHigh, border: hairline }}>
-              <span aria-hidden="true" style={{ width: 44, height: 44, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 22, background: `color-mix(in srgb, ${T.primary} 16%, transparent)` }}>🛵</span>
+              <span style={{ width: 44, height: 44, borderRadius: 999, display: 'grid', placeItems: 'center', color: T.primary, background: `color-mix(in srgb, ${T.primary} 16%, transparent)` }}><WIcon name="delivery" size={22} /></span>
               <div style={{ flex: 1 }}><p style={{ margin: 0, fontWeight: 800, color: T.on, fontSize: 14.5 }}>{t.driver.name}</p><p style={{ margin: '2px 0 0', color: muted, fontSize: 13 }}>is handling your delivery · contactless available</p></div>
             </div>}
 
@@ -565,7 +556,7 @@ const OrderView: React.FC<{ search: string; brandName: string; onNavigate: (to: 
                 return (
                   <li key={st} style={{ display: 'flex', gap: 14, alignItems: 'flex-start', paddingBottom: i < TRACK_FLOW.length - 1 ? 18 : 0 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', alignSelf: 'stretch' }}>
-                      <span className={current ? 'wc-pulse' : undefined} aria-hidden="true" style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 800, background: done || current ? T.primary : T.surfHigh, color: done || current ? T.onPrimary : T.onVar, border: done || current ? 'none' : hairline }}>{done ? '✓' : current ? '•' : i + 1}</span>
+                      <span className={current ? 'wc-pulse' : undefined} aria-hidden="true" style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 999, display: 'grid', placeItems: 'center', fontSize: 13, fontWeight: 800, background: done || current ? T.primary : T.surfHigh, color: done || current ? T.onPrimary : T.onVar, border: done || current ? 'none' : hairline }}>{done ? <WIcon name="check" size={15} /> : current ? '\u2022' : i + 1}</span>
                       {i < TRACK_FLOW.length - 1 && <span style={{ width: 2, flex: 1, minHeight: 20, background: done ? T.primary : T.line, marginTop: 2 }} />}
                     </div>
                     <div style={{ paddingTop: 3 }}>
@@ -576,7 +567,7 @@ const OrderView: React.FC<{ search: string; brandName: string; onNavigate: (to: 
                 );
               })}
             </ol>
-            <p style={{ color: muted, fontSize: 12.5, marginTop: 16, display: 'flex', alignItems: 'center', gap: 6 }}><span aria-hidden="true">🔔</span>We'll update this page at every step — keep it open to follow along.</p>
+            <p style={{ color: muted, fontSize: 12.5, marginTop: 16, display: 'flex', alignItems: 'center', gap: 6 }}><WIcon name="bell" size={13} />We'll update this page at every step — keep it open to follow along.</p>
           </>
         )}
 
@@ -584,7 +575,7 @@ const OrderView: React.FC<{ search: string; brandName: string; onNavigate: (to: 
           <button onClick={doCancel} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '9px 16px', fontSize: 13.5 }}>Cancel</button>
           <button onClick={doReorder} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '9px 16px', fontSize: 13.5 }}>Reorder</button>
           <button onClick={doRefund} className="wc-btn" style={{ ...btn(false), minHeight: 0, padding: '9px 16px', fontSize: 13.5 }}>Request refund</button>
-          <button onClick={doSupport} className="wc-btn" style={{ ...btn(), minHeight: 0, padding: '9px 16px', fontSize: 13.5 }}>🎧 Support</button>
+          <button onClick={doSupport} className="wc-btn" style={{ ...btn(), minHeight: 0, padding: '9px 16px', fontSize: 13.5 }}><WIcon name="support" size={14} />Support</button>
         </div>
         {note && <p role="status" style={{ color: T.primary, fontSize: 14, marginTop: 12, fontWeight: 600 }}>{note}</p>}
       </section>
