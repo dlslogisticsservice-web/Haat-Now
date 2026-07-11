@@ -13,6 +13,7 @@
 // Future merge candidate: NO
 import { supabase } from '../lib/supabase';
 import { CATEGORY_IMAGES } from '../utils/categoryImages';
+import { LEGAL_DOCS } from '../config/legal';
 
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
 const LS_KEY = 'haat_sb_website_v1';
@@ -112,7 +113,7 @@ function defaultSite(tenant: any): WebsiteSite {
   if (name.toLowerCase() === 'haat now') name = 'HaaT Now';
   const slug: string = tenant.slug || 'site';
   const support = tenant.support_email || 'hello@haatnow.app';
-  const phone: string = tenant.support_phone || '+966 11 000 0000';
+  const phone: string = tenant.support_phone || '+20 100 000 0000';
   const cmsPages: string[] = Array.isArray(tenant?.cms_structure?.pages) ? tenant.cms_structure.pages : [];
   // The flagship HaaT Now site is the premium reference implementation (full marketplace
   // content). White-label tenants get the same premium shell without HaaT-specific merchants.
@@ -158,9 +159,9 @@ function defaultSite(tenant: any): WebsiteSite {
     ] },
     { type: 'richtext', body: 'The reviews below are illustrative examples of the experience we are building — real customer reviews will appear here at launch. (Editable in Website Studio.)' },
     { type: 'testimonials', heading: 'Loved by our early community', items: [
-      { quote: 'Ordering felt effortless and I could watch my delivery the whole way. Exactly what our neighbourhood needed.', author: 'Early tester', role: 'Riyadh · illustrative' },
-      { quote: 'Cash on delivery with no account made it so easy to try. The tracking is genuinely useful.', author: 'Beta customer', role: 'Jeddah · illustrative' },
-      { quote: 'Fast, clear pricing, and real support when I had a question. A promising start.', author: 'Community member', role: 'Dammam · illustrative' },
+      { quote: 'Ordering felt effortless and I could watch my delivery the whole way. Exactly what our neighbourhood needed.', author: 'Early tester', role: 'Cairo · illustrative' },
+      { quote: 'Cash on delivery with no account made it so easy to try. The tracking is genuinely useful.', author: 'Beta customer', role: 'Giza · illustrative' },
+      { quote: 'Fast, clear pricing, and real support when I had a question. A promising start.', author: 'Community member', role: 'Alexandria · illustrative' },
     ] },
     { type: 'steps', heading: 'How it works', subtitle: 'Three taps to your door', items: [
       { title: 'Browse & choose', body: 'Discover restaurants and stores near you, with clear ETAs and prices.', icon: 'search' },
@@ -351,51 +352,23 @@ function defaultSite(tenant: any): WebsiteSite {
       ] },
       { type: 'cta', title: 'Still need help?', subtitle: 'Our team is happy to assist.', button: { label: 'Contact us', href: '/contact' } },
     ] };
-  const privacy: WebsitePage = { id: 'p_privacy', path: '/privacy', kind: 'legal', title: 'Privacy Policy', nav: false, navOrder: 30,
-    seo: { title: `Privacy Policy — ${name}`, noindex: false },
+  // Production legal documents — generated from the single bilingual source of truth
+  // (config/legal.ts). CMS builds the English pages; the website i18n layer registers
+  // the Arabic bodies so the same pages render in either language. No CMS/i18n drift.
+  const legalPages: WebsitePage[] = LEGAL_DOCS.map(d => ({
+    id: `p_${d.key.replace(/-/g, '_')}`, path: d.path, kind: 'legal' as const, title: d.titleEn, nav: false, navOrder: d.navOrder,
+    seo: { title: `${d.titleEn} — ${name}`, description: d.seoDescEn },
     sections: [
-      { type: 'hero', layout: 'left', title: 'Privacy Policy', subtitle: 'How we collect, use and protect your data.' },
-      { type: 'richtext', body: `${name} respects your privacy. We collect only the data needed to provide the service, protect it with industry-standard security, and never sell it. You can request access or deletion of your data at any time by contacting ${support}.` },
-      { type: 'cta', title: 'Questions about your data?', subtitle: 'We’re here to help.', button: { label: 'Contact us', href: '/contact' } },
-    ] };
-  const terms: WebsitePage = { id: 'p_terms', path: '/terms', kind: 'legal', title: 'Terms of Service', nav: false, navOrder: 31,
-    seo: { title: `Terms of Service — ${name}` },
-    sections: [
-      { type: 'hero', layout: 'left', title: 'Terms of Service', subtitle: `The terms that apply when you use ${name}.` },
-      { type: 'richtext', body: `By using ${name} you agree to these terms. Orders are subject to merchant availability and delivery-area coverage. Prices, fees and offers may change. For the full agreement or any questions, contact ${support}.` },
-      { type: 'cta', title: 'Questions about these terms?', subtitle: 'Get in touch any time.', button: { label: 'Contact us', href: '/contact' } },
-    ] };
-  const refund: WebsitePage = { id: 'p_refund', path: '/refund-policy', kind: 'legal', title: 'Refund Policy', nav: false, navOrder: 32,
-    seo: { title: `Refund Policy — ${name}`, description: `How refunds work on ${name} — fair, fast and transparent.` },
-    sections: [
-      { type: 'hero', layout: 'left', title: 'Refund Policy', subtitle: 'Fair, fast and transparent — because things occasionally go wrong.' },
-      { type: 'richtext', body: `If an order arrives wrong, damaged or never arrives, you're covered. Report the issue from your order within 24 hours and our team will make it right — a refund to your original method, a credit, or a redelivery. Cash-on-delivery refunds are issued as HaaT credit or to your preferred method. We review every request quickly and fairly.` },
-      { type: 'faq', heading: 'Refund FAQ', items: [
-        { q: 'How do I request a refund?', a: 'Open the order and tap “Request refund”, or contact support with your order number.' },
-        { q: 'How long does it take?', a: 'Most requests are reviewed within 24 hours; approved refunds are issued promptly.' },
-        { q: 'What if my order never arrived?', a: 'You’re fully covered — report it and we’ll refund or redeliver.' },
-      ] },
-      { type: 'cta', title: 'Need help with an order?', subtitle: 'Our support team is here for you.', button: { label: 'Contact support', href: '/contact' } },
-    ] };
-  const delivery: WebsitePage = { id: 'p_delivery', path: '/delivery-policy', kind: 'legal', title: 'Delivery Policy', nav: false, navOrder: 33,
-    seo: { title: `Delivery Policy — ${name}`, description: `Delivery areas, times, fees and how ${name} gets your order to your door.` },
-    sections: [
-      { type: 'hero', layout: 'left', title: 'Delivery Policy', subtitle: 'How, where and when we deliver — clearly explained.' },
-      { type: 'richtext', body: `We deliver within each merchant's coverage area. Delivery fees and minimum orders are shown before you check out — no surprises. Estimated times are shown per store and updated live as your order moves. If your captain is delayed, you'll see it in live tracking and can contact support at any time. Contactless delivery is available on request.` },
-      { type: 'cta', title: 'Questions about delivery?', subtitle: 'We’re happy to help.', button: { label: 'Contact us', href: '/contact' } },
-    ] };
-  const cookies: WebsitePage = { id: 'p_cookies', path: '/cookie-policy', kind: 'legal', title: 'Cookie Policy', nav: false, navOrder: 34,
-    seo: { title: `Cookie Policy — ${name}`, description: `How ${name} uses cookies to keep the site working and improve your experience.` },
-    sections: [
-      { type: 'hero', layout: 'left', title: 'Cookie Policy', subtitle: 'The cookies we use, and why.' },
-      { type: 'richtext', body: `${name} uses essential cookies to keep the site working (like remembering your cart) and optional analytics cookies to understand what to improve. We don't use cookies to sell your data. You can manage cookies from your browser at any time. For questions, contact ${support}.` },
-      { type: 'cta', title: 'Questions about cookies?', subtitle: 'Reach out any time.', button: { label: 'Contact us', href: '/contact' } },
-    ] };
+      { type: 'hero', layout: 'left', title: d.titleEn, subtitle: d.subtitleEn },
+      { type: 'richtext', body: d.bodyEn },
+      { type: 'cta', title: 'Still have a question?', subtitle: 'Our team is here to help.', button: { label: 'Contact us', href: '/contact' } },
+    ],
+  }));
 
   // Extra custom pages declared by the template's cms_structure (reuse the manifest structure).
   // 'app' stays reserved so a tenant's cms_structure can never mint a `/app` website page — that path is
   // owned by the role application (see runtime.ts APP_ROUTE_PREFIX). 'waitlist' is the pre-launch page.
-  const known = new Set(['home', 'about', 'contact', 'blog', 'help', 'privacy', 'terms', 'refund-policy', 'delivery-policy', 'cookie-policy', 'menu', 'offers', 'restaurants', 'grocery', 'pharmacy', 'merchants', 'drivers', 'franchise', 'business', 'enterprise', 'careers', 'app', 'waitlist']);
+  const known = new Set(['home', 'about', 'contact', 'blog', 'help', 'privacy', 'terms', 'refund-policy', 'cancellation-policy', 'delivery-policy', 'cookie-policy', 'merchant-agreement', 'driver-agreement', 'menu', 'offers', 'restaurants', 'grocery', 'pharmacy', 'merchants', 'drivers', 'franchise', 'business', 'enterprise', 'careers', 'app', 'waitlist']);
   const customPages: WebsitePage[] = cmsPages.filter(p => !known.has(p)).map((p, i) => ({
     id: `p_${p}`, path: `/${p}`, kind: 'custom' as const, title: p.charAt(0).toUpperCase() + p.slice(1), nav: true, navOrder: 40 + i,
     seo: { title: `${p} — ${name}` }, sections: [{ type: 'richtext', heading: p, body: `The ${p} page. Edit its content in the Website Center.` }],
@@ -410,7 +383,7 @@ function defaultSite(tenant: any): WebsiteSite {
     { id: 'b_tips', slug: 'delivery-tips', title: '5 tips for faster delivery', excerpt: 'Small things that get your order to you quicker.', body: [{ type: 'richtext', body: 'Keep your address precise, add a note for the captain, and order at off-peak times.' }], author: name, publishedAt: now(), tags: ['guide'], seo: { title: 'Delivery tips' } },
   ];
 
-  const allPages = [home, ...flagshipPages, about, blog, help, contact, privacy, terms, refund, delivery, cookies, ...customPages];
+  const allPages = [home, ...flagshipPages, about, blog, help, contact, ...legalPages, ...customPages];
   const partnerLinks = isFlagship
     ? [{ label: 'For Merchants', path: '/merchants' }, { label: 'Drive & Earn', path: '/drivers' }, { label: 'Franchise', path: '/franchise' }, { label: 'Business API', path: '/business' }, { label: 'Enterprise', path: '/enterprise' }]
     : [];
@@ -425,8 +398,9 @@ function defaultSite(tenant: any): WebsiteSite {
         ...(partnerLinks.length ? [{ title: 'Partners', links: partnerLinks }] : []),
         { title: 'Support', links: [{ label: 'Help Center', path: '/help' }, { label: 'Offers', path: '/offers' }] },
       ],
-      social: [{ label: 'Twitter', href: '#' }, { label: 'Instagram', href: '#' }, { label: 'TikTok', href: '#' }],
-      legalLinks: [{ label: 'Privacy', path: '/privacy' }, { label: 'Terms', path: '/terms' }, { label: 'Refunds', path: '/refund-policy' }, { label: 'Cookies', path: '/cookie-policy' }],
+      // Official brand handles (business must claim/verify each account before launch).
+      social: [{ label: 'Facebook', href: 'https://facebook.com/haatnow' }, { label: 'Instagram', href: 'https://instagram.com/haatnow' }, { label: 'TikTok', href: 'https://tiktok.com/@haatnow' }, { label: 'X', href: 'https://x.com/haatnow' }],
+      legalLinks: [{ label: 'Privacy', path: '/privacy' }, { label: 'Terms', path: '/terms' }, { label: 'Refunds', path: '/refund-policy' }, { label: 'Cancellation', path: '/cancellation-policy' }, { label: 'Cookies', path: '/cookie-policy' }, { label: 'Merchant Agreement', path: '/merchant-agreement' }, { label: 'Driver Agreement', path: '/driver-agreement' }],
       copyright: `© ${new Date().getFullYear()} ${name}. All rights reserved.`,
     },
     pages: allPages,

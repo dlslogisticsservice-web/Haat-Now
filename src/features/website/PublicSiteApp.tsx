@@ -282,6 +282,14 @@ export const PublicSiteApp: React.FC = () => {
                 </ul>
               </div>
             ))}
+            {lsite!.footer.social?.length > 0 && (
+              <div>
+                <p style={{ fontWeight: 700, fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--color-on-surface-variant, #a7b0a6)' }}>{locale === 'ar' ? 'تابعنا' : 'Follow us'}</p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: '10px 0 0', display: 'grid', gap: 6 }}>
+                  {lsite!.footer.social.map(s => <li key={s.label}><a href={s.href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-on-surface, #cfd6c9)', fontSize: 14, textDecoration: 'none' }}>{s.label}</a></li>)}
+                </ul>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center', marginTop: 28, paddingTop: 16, borderTop: '1px solid var(--color-outline-variant, #2a3330)' }}>
             <span style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', fontSize: 13 }}>{lsite!.footer.copyright}</span>

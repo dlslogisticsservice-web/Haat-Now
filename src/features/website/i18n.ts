@@ -1,4 +1,5 @@
 import type { WebsiteSite } from '../../services/website.service';
+import { LEGAL_DOCS } from '../../config/legal';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Website localization (EN ⇄ العربية). Runtime language switch with RTL, persistence
@@ -136,6 +137,7 @@ const AR: Record<string, string> = {
   'Company': 'الشركة', 'Careers': 'الوظائف', 'Partners': 'الشركاء', 'Support': 'الدعم',
   'For Merchants': 'للتجّار', 'Drive & Earn': 'قُد واربح', 'Franchise': 'الامتياز', 'Business API': 'واجهة الأعمال', 'Enterprise': 'المؤسسات',
   'Help Center': 'مركز المساعدة', 'Privacy': 'الخصوصية', 'Terms': 'الشروط', 'Refunds': 'الاستردادات', 'Cookies': 'الكوكيز',
+  'Cancellation': 'الإلغاء', 'Merchant Agreement': 'اتفاقية التاجر', 'Driver Agreement': 'اتفاقية الكابتن', 'Still have a question?': 'لا يزال لديك سؤال؟', 'Our team is here to help.': 'فريقنا هنا للمساعدة.',
   // ── Home extras (merchants/deals/waitlist copy) ──
   'Sample partners shown while real merchants onboard for launch.': 'شركاء تجريبيون معروضون بينما يجري ضم تجّار حقيقيين للإطلاق.',
   'Want launch updates?': 'تريد تحديثات الإطلاق؟',
@@ -389,6 +391,10 @@ const AR: Record<string, string> = {
   'New': 'جديد',
   'Edit this page in the Website Center.': 'عدّل هذه الصفحة من مركز الموقع.',
 };
+
+// Register the bilingual legal documents (single source of truth in config/legal.ts)
+// so the CMS-authored English legal pages render in Arabic through the same dictionary.
+for (const d of LEGAL_DOCS) { AR[d.titleEn] = d.titleAr; AR[d.subtitleEn] = d.subtitleAr; AR[d.bodyEn] = d.bodyAr; }
 
 const tr = (v: unknown): unknown => (typeof v === 'string' ? (AR[v] ?? v) : v);
 
