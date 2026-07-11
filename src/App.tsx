@@ -376,7 +376,7 @@ export default function App() {
                 className="flex items-center justify-center gap-1 active:scale-95 transition-transform"
                 style={{ height: '38px', padding: '0 10px', borderRadius: '19px', background: 'rgba(163,249,91,0.1)', border: '1px solid rgba(163,249,91,0.25)', flexShrink: 0, cursor: 'pointer' }}
                 id="lang_toggle_btn"
-                aria-label="language"
+                aria-label={t('common.language')}
               >
                 <Globe size={14} color="var(--color-primary-fixed)" strokeWidth={2} />
                 <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--color-primary-fixed)' }}>{lang === 'ar' ? 'EN' : 'ع'}</span>
@@ -460,7 +460,7 @@ export default function App() {
               {(() => {
                 const isActive = currentScreen === 'discover';
                 return (
-                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => setCurrentScreen('discover')} id="nav_discover" aria-label="discover">
+                  <button className={`nav-item${isActive ? ' nav-item--active' : ''}`} onClick={() => setCurrentScreen('discover')} id="nav_discover" aria-label={t('nav.discover')}>
                     <span className="nav-item__indicator" />
                     <span className="nav-item__icon-wrap">
                       <Search size={22} color={isActive ? 'var(--color-primary-fixed)' : 'var(--color-on-surface-variant)'} strokeWidth={isActive ? 2.5 : 1.75} />

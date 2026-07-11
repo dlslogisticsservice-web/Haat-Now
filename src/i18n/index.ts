@@ -13,7 +13,7 @@ import type { Dialect } from '../config/countries';
 export const STORAGE_LANG_KEY = 'haat_lang';
 
 const ar = {
-  nav: { home: 'الرئيسية', orders: 'طلباتي', cart: 'سلتي', wallet: 'المحفظة', profile: 'حسابي' },
+  nav: { home: 'الرئيسية', orders: 'طلباتي', cart: 'سلتي', wallet: 'المحفظة', profile: 'حسابي', discover: 'اكتشف' },
   common: {
     all: 'الكل', search: 'ماذا تريد اليوم؟ مطاعم، أكلات، متاجر...', viewAll: 'عرض الكل', more: 'المزيد',
     openNow: 'مفتوح الآن', free: 'مجاني', deliverTo: 'التوصيل إلى', language: 'اللغة',
@@ -81,7 +81,7 @@ const ar = {
 };
 
 const en = {
-  nav: { home: 'Home', orders: 'Orders', cart: 'Cart', wallet: 'Wallet', profile: 'Profile' },
+  nav: { home: 'Home', orders: 'Orders', cart: 'Cart', wallet: 'Wallet', profile: 'Profile', discover: 'Discover' },
   common: {
     all: 'All', search: 'What are you craving? Restaurants, food, stores…', viewAll: 'View all', more: 'More',
     openNow: 'Open now', free: 'Free', deliverTo: 'Deliver to', language: 'Language',
@@ -170,5 +170,16 @@ i18n.use(initReactI18next).init({
   fallbackLng: 'ar',
   interpolation: { escapeValue: false },
 });
+
+// Keep the root <html lang>/<dir> in sync with the active language — required for
+// screen readers, SEO and correct RTL/LTR bidi across the whole app shell.
+function syncDocumentLang(lng: string) {
+  if (typeof document === 'undefined') return;
+  const isAr = lng?.startsWith('ar');
+  document.documentElement.lang = isAr ? 'ar' : 'en';
+  document.documentElement.dir = isAr ? 'rtl' : 'ltr';
+}
+syncDocumentLang(saved);
+i18n.on('languageChanged', syncDocumentLang);
 
 export default i18n;

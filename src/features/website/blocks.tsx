@@ -687,7 +687,9 @@ const AppDownloadBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'app_dow
   const shots = block.screenshots?.filter(Boolean) || [];
   // Send-me-the-link: mailto / sms carry the app link. Studio-editable recipients optional.
   const mailHref = `mailto:${block.email || ''}?subject=${encodeURIComponent('Get the app')}&body=${encodeURIComponent(link)}`;
-  const smsHref = `sms:${block.sms || ''}${/android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '') ? '?' : '&'}body=${encodeURIComponent(link)}`;
+  // iOS uses `&body`, Android uses `?body`; with no recipient a leading `?` is always valid.
+  const smsSep = block.sms ? (/android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '') ? '?' : '&') : '?';
+  const smsHref = `sms:${block.sms || ''}${smsSep}body=${encodeURIComponent(link)}`;
   return (
     <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
       <div style={sectionWrap}>
