@@ -282,9 +282,10 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
               : (
                 <div style={{ width: device === 'desktop' ? '100%' : frameW, maxWidth: '100%', transition: 'width .25s ease' }}>
                   <div style={{ ...themeVars(brand), background: 'var(--color-background, #0a0f0c)', border: '1px solid var(--color-outline-variant)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 20px 60px -30px rgba(0,0,0,.6)', position: 'relative' }} id="preview_frame">
-                    <LivePreview site={site} page={previewPage} device={device} brand={brand}
+                    <LivePreview site={site} page={previewPage} device={device} brand={brand} lang={lang}
                       selectedIdx={module === 'pages' ? selIdx : null}
                       onSelect={(i) => { setModule('pages'); setSelIdx(i); }}
+                      onEdit={(idx, patch) => { if (previewPage) setSections(previewPage.sections.map((x, j) => j === idx ? { ...x, ...patch } as WebsiteBlock : x)); }}
                       onReorder={(from, to) => { if (previewPage) { const s = previewPage.sections.slice(); const [m] = s.splice(from, 1); s.splice(to, 0, m); setSections(s); setSelIdx(to); } }} />
                     {campaignOverlayFor(module, tenantId, isFlagship)}
                   </div>
@@ -349,7 +350,7 @@ const SectionRow: React.FC<{ idx: number; block: WebsiteBlock; selected: boolean
 const miniBtn: React.CSSProperties = { width: 22, height: 22, borderRadius: 6, background: 'transparent', border: 'none', color: 'var(--color-on-surface-variant)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 };
 
 // ── Live preview canvas (reuses the public BlockRenderer; click-to-select; header+footer) ──
-const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; device: DeviceMode; brand: Record<string, any> | null; selectedIdx: number | null; onSelect: (i: number) => void; onReorder: (from: number, to: number) => void }> = ({ site, page, device, brand, selectedIdx, onSelect, onReorder }) => {
+const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; device: DeviceMode; brand: Record<string, any> | null; selectedIdx: number | null; lang: 'ar' | 'en'; onSelect: (i: number) => void; onReorder: (from: number, to: number) => void; onEdit: (idx: number, patch: Partial<WebsiteBlock>) => void }> = ({ site, page, device, brand, selectedIdx, lang, onSelect, onReorder, onEdit }) => {
   if (!page) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--color-on-surface-variant)' }}>No page</div>;
   const sections = page.sections;
   const visible = (b: WebsiteBlock) => b.enabled !== false && (!b.visibility || (device === 'desktop' ? b.visibility.desktop !== false : device === 'tablet' ? b.visibility.tablet !== false : b.visibility.mobile !== false));
@@ -372,6 +373,7 @@ const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; devic
             <button onClick={e => { e.stopPropagation(); onReorder(i, Math.max(0, i - 1)); }} style={pvBtn}><ChevronUp size={13} /></button>
             <button onClick={e => { e.stopPropagation(); onReorder(i, i + 1); }} style={pvBtn}><ChevronDown size={13} /></button>
           </div>
+          {selectedIdx === i && <InlineEditor block={b} lang={lang} onEdit={(patch) => onEdit(i, patch)} />}
           <BlockRenderer block={b} onNav={() => {}} />
         </div>
       ) : null)}
@@ -384,6 +386,53 @@ const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; devic
   );
 };
 const pvBtn: React.CSSProperties = { width: 26, height: 26, borderRadius: 8, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' };
+
+// ── In-canvas inline editor — click a section, edit its headline text & swap its
+//    banner/video/logo/image directly on the live preview. Updates flow back through
+//    the same setSections history (undo/redo/publish) as the right-rail editor. ──
+const INLINE_TEXT: { field: string; ar: string; en: string; area?: boolean }[] = [
+  { field: 'title', ar: 'العنوان', en: 'Title' },
+  { field: 'heading', ar: 'العنوان', en: 'Heading' },
+  { field: 'subtitle', ar: 'العنوان الفرعي', en: 'Subtitle', area: true },
+  { field: 'body', ar: 'النص', en: 'Body', area: true },
+];
+const INLINE_MEDIA: { field: string; ar: string; en: string; kind: 'image' | 'video' }[] = [
+  { field: 'bgImage', ar: 'صورة البانر', en: 'Banner image', kind: 'image' },
+  { field: 'bgVideo', ar: 'فيديو الخلفية', en: 'Background video', kind: 'video' },
+  { field: 'image', ar: 'الصورة', en: 'Image', kind: 'image' },
+];
+const InlineEditor: React.FC<{ block: WebsiteBlock; lang: 'ar' | 'en'; onEdit: (patch: Partial<WebsiteBlock>) => void }> = ({ block, lang, onEdit }) => {
+  const L = (a: string, e: string) => (lang === 'ar' ? a : e);
+  const b = block as any;
+  const texts = INLINE_TEXT.filter(t => typeof b[t.field] === 'string');
+  const media = INLINE_MEDIA.filter(m => m.field in b || (block.type === 'hero' && (m.field === 'bgImage' || m.field === 'bgVideo')));
+  const cta = b.cta && typeof b.cta.label === 'string' ? b.cta : b.button && typeof b.button.label === 'string' ? b.button : null;
+  const ctaKey = b.cta ? 'cta' : 'button';
+  return (
+    <div onClick={e => e.stopPropagation()} dir={lang === 'ar' ? 'rtl' : 'ltr'}
+      style={{ position: 'absolute', top: 40, insetInlineStart: 8, zIndex: 6, width: 'min(340px, 82%)', maxHeight: '78%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: 12, borderRadius: 14, background: 'color-mix(in srgb, var(--color-surface-container-highest,#141a13) 92%, transparent)', border: '1px solid var(--color-primary-fixed)', boxShadow: '0 12px 40px rgba(0,0,0,.5)', backdropFilter: 'blur(10px)' }}>
+      <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--color-primary-fixed)' }}>{L('تحرير مباشر', 'Inline edit')} · {BLOCK_LABEL[block.type]}</span>
+      {texts.map(t => t.area ? (
+        <label key={t.field} style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-on-surface-variant)' }}>{L(t.ar, t.en)}
+          <textarea id={`inline_${t.field}`} value={b[t.field]} onChange={e => onEdit({ [t.field]: e.target.value } as any)} rows={2} style={{ ...inputStyle, marginTop: 3, resize: 'vertical', width: '100%' }} />
+        </label>
+      ) : (
+        <label key={t.field} style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-on-surface-variant)' }}>{L(t.ar, t.en)}
+          <input id={`inline_${t.field}`} value={b[t.field]} onChange={e => onEdit({ [t.field]: e.target.value } as any)} style={{ ...inputStyle, marginTop: 3, width: '100%' }} />
+        </label>
+      ))}
+      {cta && (
+        <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-on-surface-variant)' }}>{L('زر الإجراء', 'Button label')}
+          <input id="inline_cta" value={cta.label} onChange={e => onEdit({ [ctaKey]: { ...cta, label: e.target.value } } as any)} style={{ ...inputStyle, marginTop: 3, width: '100%' }} />
+        </label>
+      )}
+      {media.map(m => (
+        <MediaField key={m.field} label={L(m.ar, m.en)} value={b[m.field] || ''} kind={m.kind} onChange={u => onEdit({ [m.field]: u } as any)} lang={lang} />
+      ))}
+      {!texts.length && !media.length && !cta && <span style={{ fontSize: 11.5, color: 'var(--color-on-surface-variant)' }}>{L('عدّل عناصر هذا القسم من اللوحة الجانبية.', 'Edit this section’s items from the side panel.')}</span>}
+    </div>
+  );
+};
 
 // ── Right: section properties (reuses BlockEditor) + section controls ──
 const SectionProperties: React.FC<{ page: WebsitePage; idx: number; L: (a: string, e: string) => string; lang: 'ar' | 'en'; onChange: (b: WebsiteBlock) => void; onVis: (k: 'desktop' | 'tablet' | 'mobile', on: boolean) => void; onClose: () => void }> = ({ page, idx, L, lang, onChange, onVis }) => {

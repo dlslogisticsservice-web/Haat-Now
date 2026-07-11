@@ -4,6 +4,7 @@ import { notificationService } from './services/notification.service';
 import { sandboxStore } from './services/sandboxStore';
 import { cartService } from './services/cart.service';
 import { LoginScreen } from './features/auth/LoginScreen';
+import { AccountGateway, type AccountType } from './features/auth/AccountGateway';
 import { FeedbackHost } from './components/ui/feedback';
 import { AppGate } from './components/AppGate';
 import { HomeScreen } from './features/home/HomeScreen';
@@ -82,6 +83,8 @@ export default function App() {
   // ── Auth state ──────────────────────────────────────────────────
   const [session, setSession] = useState<{ id: string; phone_number: string; role: string } | null>(null);
   const [sessionValidating, setSessionValidating] = useState(true);
+  // Pre-auth account-type gateway (Login → Choose Account → existing auth). RBAC still authoritative.
+  const [acctType, setAcctType] = useState<AccountType | null>(null);
 
   // ── Navigation ──────────────────────────────────────────────────
   const [currentScreen, setCurrentScreen] = useState<'home' | 'restaurant' | 'checkout' | 'orders' | 'wallet' | 'profile' | 'discover'>('home');
@@ -214,6 +217,8 @@ export default function App() {
     await authService.signOut();
     rbacService.clearLiveIdentity();
     setSession(null);
+    setAcctType(null); // return to the account-type gateway, never straight to a role's login
+    try { localStorage.removeItem('haat_intended_role'); } catch { /* ignore */ }
     setIsSideMenuOpen(false);
   };
 
@@ -299,8 +304,17 @@ export default function App() {
 
   // ── Auth wall ────────────────────────────────────────────────────
   if (!session) {
+    // Step 1: choose an account type (never opens Super Admin directly).
+    if (!acctType) {
+      return <AccountGateway lang={lang} onChoose={(t) => { setAcctType(t); try { localStorage.setItem('haat_intended_role', t); } catch { /* ignore */ } }} />;
+    }
+    // Step 2: the existing authentication flow (phone/OTP). RBAC decides the real dashboard after login.
     return (
       <div className="min-h-screen">
+        <button onClick={() => setAcctType(null)} id="auth_back" className="fixed z-50 top-3 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold cursor-pointer"
+          style={{ insetInlineStart: 12, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid var(--color-outline-variant)' }}>
+          <ChevronRight size={16} style={{ transform: lang === 'ar' ? 'none' : 'scaleX(-1)' }} />{lang === 'ar' ? 'حساب آخر' : 'Different account'}
+        </button>
         <ExperienceLogin fallback={<LoginScreen onLoginSuccess={handleLoginSuccess} />} />
       </div>
     );

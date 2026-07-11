@@ -19,8 +19,12 @@ async function newCtx(browser) {
   page.on('console', m => { if (m.type() === 'error') { const t = m.text(); if (!/Failed to load resource|favicon|net::ERR|status of 4|status of 5|google|maps|supabase\.co/i.test(t)) errors.push('console: ' + t.slice(0, 160)); } });
   return { ctx, page, errors };
 }
-async function login(page, phone) {
+async function login(page, phone, account = 'customer') {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  // Step 1 — account-type gateway (Login → Choose Account → auth). RBAC still decides the real role.
+  await page.waitForSelector('#account_gateway', { timeout: 20000 });
+  await page.click(`#acct_${account}`);
+  // Step 2 — existing phone/OTP auth.
   await page.waitForSelector('#phone_input', { timeout: 20000 });
   await page.type('#phone_input', phone, { delay: 6 });
   await page.click('#send_otp_btn');
@@ -84,13 +88,19 @@ const exists = (page, sel) => page.$(sel).then(e => !!e);
         if (handle && track) {
           const hb = await handle.boundingBox(); const tb = await track.boundingBox();
           const y = hb.y + hb.height / 2;
-          await page.mouse.move(hb.x + hb.width / 2, y); await page.mouse.down();
+          const startX = hb.x + hb.width / 2;
           const endX = tb.x + tb.width - 20;
-          for (let x = hb.x + hb.width / 2; x <= endX; x += 18) { await page.mouse.move(x, y); await sleep(18); }
-          await page.mouse.move(endX, y); await sleep(60);
-          await page.mouse.up();
+          // The swipe knob uses Pointer Events with setPointerCapture; under mobile/touch
+          // emulation drive it via a real CDP touch sequence (touch → pointer events).
+          const cdp = await page.target().createCDPSession();
+          const tp = (x) => ([{ x, y, radiusX: 6, radiusY: 6, force: 1, id: 1 }]);
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: tp(startX) });
+          for (let x = startX; x <= endX; x += 16) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: tp(x) }); await sleep(16); }
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: tp(endX) }); await sleep(60);
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
           await sleep(3500);
           placed = await page.evaluate(() => /تم تأكيد الطلب|Order confirmed/i.test(document.body.innerText));
+          await cdp.detach().catch(() => {});
         }
       } catch (e) {}
       rec('C8', 'Payment / place order (swipe)', placed, placed ? '' : 'swipe did not confirm');

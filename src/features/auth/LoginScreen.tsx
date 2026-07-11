@@ -5,6 +5,7 @@ import {
   ChevronDown, Smartphone,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { HaatLogo } from '../website/icons';
 
 const GOOGLE_LOGO = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBDbupKZkEB-5NrKOCMTxGgYZHrReUAdgg-BvQGyYALDpBHdLIlTIw_BDQl0pm1tgugDEDWPmLCr6oLrK2gFJj3gLCtWwTXehYGzwV6__C73Bc24EKFFUhUPpLkOu8TVwLu7rRwflBQ1gh6LbqkeZAM-m_eIiY2AqxwG1GRuZAkpOHYYgC7JprOYcLsKIahr54pbgN8shms5WwaJ7YPVH3LeYys8MggBrciMyeWdSnZI9ThpbkYRboqcCdfoS21q96ynnYlxxmRiHhs';
 
@@ -122,28 +123,10 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
       >
 
         {/* Brand identity */}
-        <div className="mb-8 text-center animate-fade-in-up">
-          <h1
-            dir="ltr"
-            className="text-display-lg tracking-tighter font-bold"
-            style={{ letterSpacing: '-0.04em', fontWeight: 800, lineHeight: 1 }}
-          >
-            <span style={{
-              background: 'linear-gradient(180deg, #e8e9eb 0%, #b1b2b4 50%, #7d7f83 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}>HAAT</span>
-            {' '}
-            <span style={{ display: 'inline-block', filter: 'drop-shadow(0 0 20px rgba(158,212,66,0.55)) drop-shadow(0 0 60px rgba(158,212,66,0.25))' }}>
-              <span style={{
-                background: 'linear-gradient(180deg, #c4e562 0%, #9ed442 50%, #7fb822 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}>NOW</span>
-            </span>
-          </h1>
+        <div className="mb-8 text-center animate-fade-in-up flex flex-col items-center">
+          <span dir="ltr" style={{ filter: 'drop-shadow(0 0 22px rgba(158,212,66,0.35))' }}>
+            <HaatLogo height={44} />
+          </span>
           <p
             className="mt-3"
             style={{ color: 'var(--color-on-surface-variant)', fontSize: '13px', letterSpacing: '0.14em', opacity: 0.75 }}

@@ -11,14 +11,14 @@
     "id": "D1",
     "name": "Driver fleet with vehicle types + statuses",
     "pass": true,
-    "detail": "120 drivers · vehicles=[motorcycle,car,van] · statuses=[available,busy,assigned]"
+    "detail": "120 drivers · vehicles=[motorcycle,car,van] · statuses=[available,assigned,busy]"
   },
   {
     "section": "Operations",
     "id": "O1",
     "name": "Order book across lifecycle statuses",
     "pass": true,
-    "detail": "400 orders · statuses=[preparing,pending,cancelled,delivered,delivering,confirmed]"
+    "detail": "400 orders · statuses=[cancelled,delivered,delivering,preparing,pending,confirmed]"
   },
   {
     "section": "Admin",
@@ -32,7 +32,7 @@
     "id": "C1",
     "name": "Restaurant discovery: filter/sort + cards",
     "pass": true,
-    "detail": "filterBar=true cards=28"
+    "detail": "filterBar=true cards=29"
   },
   {
     "section": "Customer",
@@ -81,7 +81,7 @@
     "id": "C5",
     "name": "Live tracking: status + ETA + timeline + map panel",
     "pass": true,
-    "detail": "status=\"📝 Order received\" timeline=5"
+    "detail": "status=\"note Order received\" timeline=5"
   },
   {
     "section": "Customer",
