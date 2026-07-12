@@ -385,13 +385,16 @@ function defaultSite(tenant: any): WebsiteSite {
 
   const allPages = [home, ...flagshipPages, about, blog, help, contact, ...legalPages, ...customPages];
   const partnerLinks = isFlagship
-    ? [{ label: 'For Merchants', path: '/merchants' }, { label: 'Drive & Earn', path: '/drivers' }, { label: 'Franchise', path: '/franchise' }, { label: 'Business API', path: '/business' }, { label: 'Enterprise', path: '/enterprise' }]
+    ? [{ label: 'Become a Merchant', path: '/partners/merchant' }, { label: 'Delivery / Fleet', path: '/partners/fleet' }, { label: 'Become a Driver', path: '/partners/driver' }, { label: 'Affiliate Partner', path: '/partners/affiliate' }, { label: 'Franchise', path: '/partners/franchise' }, { label: 'Enterprise', path: '/partners/enterprise' }, { label: 'Careers', path: '/partners/careers' }]
     : [];
 
   return {
     tenantId: String(tenant.id), slug, siteName: name,
     status: 'published', maintenance: false,
-    navigation: allPages.filter(p => p.nav).sort((a, b) => a.navOrder - b.navOrder).map(p => ({ label: p.title, path: p.path })),
+    navigation: [
+      ...allPages.filter(p => p.nav).sort((a, b) => a.navOrder - b.navOrder).map(p => ({ label: p.title, path: p.path })),
+      ...(isFlagship ? [{ label: 'Partner Center', path: '/partners' }] : []),
+    ],
     footer: {
       columns: [
         { title: 'Company', links: [{ label: 'About', path: '/about' }, { label: 'Careers', path: '/careers' }, { label: 'Blog', path: '/blog' }, { label: 'Contact', path: '/contact' }] },
@@ -480,7 +483,7 @@ const NEARBY: MerchantCard[] = [
 // stamps every record; when the compiled content is newer we re-seed the published
 // content (and an untouched draft) so every environment converges on the code.
 // BUMP SEED_VERSION whenever defaultSite() content changes.
-export const SEED_VERSION = '2026-07-12.1';
+export const SEED_VERSION = '2026-07-12.2';
 
 /** Stable structural signature of a site's published content (env-parity checks). */
 export function siteContentSignature(s: WebsiteSite | null): string {

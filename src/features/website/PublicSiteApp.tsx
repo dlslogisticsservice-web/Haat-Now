@@ -3,6 +3,7 @@ import {
   resolvePublicRequest, resolveSite, applyBrand, resolvePage, buildSeo, applySeo, trackPageview, isAppRoute,
 } from './runtime';
 import { BlockRenderer, BlockStyles, SectionShell } from './blocks';
+import { PartnerCenter } from './partners/PartnerCenter';
 import { loadLiveCommerce, type LiveCommerce } from './commerce';
 import { WebsiteCommerce } from './WebsiteCommerce';
 import type { WebsiteBlock, WebsiteSite } from '../../services/website.service';
@@ -108,6 +109,9 @@ export const PublicSiteApp: React.FC = () => {
   const basePath = qi >= 0 ? path.slice(0, qi) : path;
   const commerceSearch = qi >= 0 ? path.slice(qi) : '';
   const isCommerce = ['/menu', '/cart', '/checkout', '/order'].some(p => basePath === p || basePath.startsWith(p + '/'));
+  // Partner Center is a first-class website section (its own route tree; not a CMS page).
+  const isPartners = basePath === '/partners' || basePath.startsWith('/partners/');
+  const partnerSlug = isPartners && basePath.length > '/partners/'.length ? basePath.slice('/partners/'.length) : null;
 
   // Localized view of the site (Arabic ⇄ English); the same CMS content renders in either language.
   const lsite = useMemo(() => (site ? localizeSite(site, locale) : null), [site, locale]);
@@ -220,7 +224,8 @@ export const PublicSiteApp: React.FC = () => {
         {isCommerce && (
           <WebsiteCommerce path={basePath} search={commerceSearch} brandName={site.siteName} onNavigate={navigate} />
         )}
-        {!isCommerce && resolved.notFound && (
+        {isPartners && <PartnerCenter slug={partnerSlug} lang={locale} onNav={navigate} />}
+        {!isCommerce && !isPartners && resolved.notFound && (
           <section style={{ maxWidth: 640, margin: '0 auto', padding: '96px 20px', textAlign: 'center' }}>
             <div style={{ color: 'var(--color-primary-fixed, #a3f95b)' }}><Compass size={56} strokeWidth={1.5} aria-hidden="true" /></div>
             <h1 style={{ fontSize: 'clamp(30px,5vw,44px)', fontWeight: 800, marginTop: 12 }}>{UI.notFoundTitle[locale]}</h1>

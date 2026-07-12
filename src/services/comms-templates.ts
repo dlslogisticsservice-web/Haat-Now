@@ -94,6 +94,27 @@ export const COMMS_TEMPLATES: CommsTemplate[] = [
     subjectAr: 'اشتقنا إليك', subjectEn: 'We miss you',
     bodyAr: 'مرّ وقت! ارجع واطلب اليوم واحصل على خصم {{discount}} على طلبك القادم.',
     bodyEn: 'It’s been a while! Come back today and enjoy {{discount}} off your next order.' },
+
+  // ── Partner ecosystem (applicant + internal team) ──
+  { key: 'partner_received', channel: 'email', category: 'merchant', vars: ['ref', 'type'],
+    subjectAr: 'استلمنا طلب شراكتك — {{ref}}', subjectEn: 'We received your partner application — {{ref}}',
+    bodyAr: 'شكراً لتقديمك للانضمام كـ {{type}}. رقم المرجع {{ref}}. سيتواصل معك فريقنا لمراجعة المستندات وتحديد الخطوات التالية.',
+    bodyEn: 'Thanks for applying to join as {{type}}. Reference {{ref}}. Our team will contact you to review documents and arrange next steps.' },
+  { key: 'partner_status', channel: 'push', category: 'merchant', vars: ['ref', 'status'],
+    subjectAr: 'تحديث طلب الشراكة {{ref}}', subjectEn: 'Partner application {{ref}} update',
+    bodyAr: 'حالة طلبك {{ref}} الآن: {{status}}.',
+    bodyEn: 'Your application {{ref}} is now: {{status}}.' },
+  { key: 'partner_doc_request', channel: 'sms', category: 'merchant', vars: ['ref', 'document'],
+    bodyAr: 'مطلوب مستند لطلب الشراكة {{ref}}: {{document}}. يُرجى رفعه لإكمال المراجعة.',
+    bodyEn: 'A document is needed for application {{ref}}: {{document}}. Please upload it to continue the review.' },
+  { key: 'partner_approved', channel: 'email', category: 'merchant', vars: ['ref', 'type'],
+    subjectAr: 'تم اعتماد شراكتك — {{ref}}', subjectEn: 'Your partnership is approved — {{ref}}',
+    bodyAr: 'تهانينا! تم اعتماد طلبك ({{type}}) رقم {{ref}}. سنبدأ خطوات التفعيل معك.',
+    bodyEn: 'Congratulations! Your {{type}} application {{ref}} is approved. We’ll begin activation with you.' },
+  { key: 'partner_internal_new', channel: 'push', category: 'merchant', vars: ['ref', 'type', 'city'],
+    subjectAr: 'طلب شراكة جديد', subjectEn: 'New partner lead',
+    bodyAr: 'طلب جديد {{type}} — {{ref}} ({{city}}). عيّن موظفاً وابدأ المراجعة.',
+    bodyEn: 'New {{type}} lead — {{ref}} ({{city}}). Assign an owner and start the review.' },
 ];
 
 const BY_KEY: Record<string, CommsTemplate> = Object.fromEntries(COMMS_TEMPLATES.map(t => [t.key, t]));

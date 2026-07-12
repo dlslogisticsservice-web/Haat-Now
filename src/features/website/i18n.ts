@@ -138,6 +138,8 @@ const AR: Record<string, string> = {
   'For Merchants': 'للتجّار', 'Drive & Earn': 'قُد واربح', 'Franchise': 'الامتياز', 'Business API': 'واجهة الأعمال', 'Enterprise': 'المؤسسات',
   'Help Center': 'مركز المساعدة', 'Privacy': 'الخصوصية', 'Terms': 'الشروط', 'Refunds': 'الاستردادات', 'Cookies': 'الكوكيز',
   'Cancellation': 'الإلغاء', 'Merchant Agreement': 'اتفاقية التاجر', 'Driver Agreement': 'اتفاقية الكابتن', 'Still have a question?': 'لا يزال لديك سؤال؟', 'Our team is here to help.': 'فريقنا هنا للمساعدة.',
+  // ── Partner Center (nav + footer) ──
+  'Partner Center': 'مركز الشركاء', 'Become a Merchant': 'كن تاجراً', 'Delivery / Fleet': 'توصيل / أسطول', 'Become a Driver': 'كن كابتن', 'Affiliate Partner': 'شريك تسويق',
   // ── Home extras (merchants/deals/waitlist copy) ──
   'Sample partners shown while real merchants onboard for launch.': 'شركاء تجريبيون معروضون بينما يجري ضم تجّار حقيقيين للإطلاق.',
   'Want launch updates?': 'تريد تحديثات الإطلاق؟',
