@@ -1562,6 +1562,14 @@ input, select, button, textarea {
   /* Reserve bottom = home-indicator inset + bottom nav + action bar + FAB clearance + breathing. */
   --bottom-safe-space: calc(env(safe-area-inset-bottom, 0px) + var(--app-bottom-nav-height) + var(--app-action-bar-height) + var(--app-bottom-nav-clearance) + 24px);
 }
+/* Root layout fix: `.glass-strong` sets position:relative (for its inner glows),
+   which — being later in the cascade than Tailwind's utilities — defeats the
+   `sticky` utility on glass headers/tab-strips. A relative element still honours
+   `top`, so a tab-strip with top:56px gets pushed DOWN into the content and
+   overlaps it (the profile header/tab overlap). Re-assert the sticky utility so
+   every sticky glass surface (headers, tab-strips, filter bars) sticks instead of
+   shifting. Applies platform-wide — not a per-screen patch. */
+.sticky { position: sticky; }
 /* Sticky headers/tabs add the TOP inset so the notch/status bar never overlaps them. */
 .app-header-safe { padding-top: env(safe-area-inset-top, 0px); }
 /* Scroll containers reserve top (when the header is NOT sticky) / bottom space. */

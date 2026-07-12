@@ -18,7 +18,7 @@
     "id": "O1",
     "name": "Order book across lifecycle statuses",
     "pass": true,
-    "detail": "400 orders · statuses=[preparing,delivered,confirmed,cancelled,pending,delivering]"
+    "detail": "400 orders · statuses=[cancelled,preparing,delivered,delivering,pending,confirmed]"
   },
   {
     "section": "Admin",
