@@ -80,7 +80,7 @@ export interface WebsiteSite {
   domain?: string; customDomain?: string; sslStatus?: 'none' | 'provisioning' | 'active';
   updatedAt: string;
 }
-interface Record_ { draft: WebsiteSite; published: WebsiteSite; version: number; history: { version: number; at: string; site: WebsiteSite }[] }
+interface Record_ { draft: WebsiteSite; published: WebsiteSite; version: number; history: { version: number; at: string; site: WebsiteSite }[]; seedVersion?: string }
 type Store = Record<string, Record_>; // key = tenantId
 
 const readStore = (): Store => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; } };
@@ -471,13 +471,50 @@ const NEARBY: MerchantCard[] = [
   { name: 'Night Pharmacy', emoji: '', cuisine: 'Pharmacy · 1.1 km', rating: 4.6, reviews: 60, eta: '15–25 min', fee: 'SAR 6', distance: '1.1 km', closed: true, href: '/pharmacy' },
 ].map((c, i) => ({ ...c, image: /pharm/i.test(c.cuisine || '') ? pickImg(CATEGORY_IMAGES.pharmacy.thumbs, i) : /convenience|mart/i.test(c.cuisine || '') ? pickImg(CATEGORY_IMAGES.market.thumbs, i) : foodImg(i) }));
 
+// ── Single source of truth ───────────────────────────────────────────────────
+// There is no shared CMS backend in sandbox mode, so the ONLY content that is
+// identical across localhost / dev / preview / production is the COMPILED
+// defaultSite() (same app SHA → same content everywhere). The localStorage record
+// is a per-browser working copy; if it was seeded from an older code version it
+// silently forks the site (the localhost-vs-production mismatch). SEED_VERSION
+// stamps every record; when the compiled content is newer we re-seed the published
+// content (and an untouched draft) so every environment converges on the code.
+// BUMP SEED_VERSION whenever defaultSite() content changes.
+export const SEED_VERSION = '2026-07-12.1';
+
+/** Stable structural signature of a site's published content (env-parity checks). */
+export function siteContentSignature(s: WebsiteSite | null): string {
+  if (!s) return 'none';
+  try {
+    const shape = {
+      name: s.siteName,
+      pages: s.pages.map(p => ({ path: p.path, title: p.title, sections: p.sections.map(b => b.type) })),
+      nav: s.navigation.map(n => n.path),
+      footer: s.footer.legalLinks.map(l => l.path),
+    };
+    const json = JSON.stringify(shape);
+    let h = 5381; for (let i = 0; i < json.length; i++) h = ((h * 33) ^ json.charCodeAt(i)) >>> 0;
+    return h.toString(16);
+  } catch { return 'err'; }
+}
+
 function ensureRecord(store: Store, tenant: any): Record_ {
   const id = String(tenant.id);
-  if (!store[id]) {
+  const rec = store[id];
+  if (!rec) {
     const site = defaultSite(tenant);
-    store[id] = { draft: clone(site), published: clone(site), version: 1, history: [] };
+    store[id] = { draft: clone(site), published: clone(site), version: 1, history: [], seedVersion: SEED_VERSION };
+    return store[id];
   }
-  return store[id];
+  // Migrate stale records to the current compiled content (the single source of truth).
+  if (rec.seedVersion !== SEED_VERSION) {
+    const site = defaultSite(tenant);
+    const draftUntouched = JSON.stringify(rec.draft) === JSON.stringify(rec.published);
+    rec.published = clone(site);            // public content always tracks the compiled baseline
+    if (draftUntouched) rec.draft = clone(site); // keep an in-progress author draft, else refresh it
+    rec.seedVersion = SEED_VERSION;
+  }
+  return rec;
 }
 
 export const websiteService = {
@@ -493,6 +530,25 @@ export const websiteService = {
     const rec = ensureRecord(store, tenant);
     writeStore(store); // persist seed
     return rec.published;
+  },
+
+  /** Content-parity report for the CMS: does this browser's stored published content
+   *  match the compiled single-source-of-truth (defaultSite)? A drift means this
+   *  environment has locally-published edits that are NOT in the shared code baseline
+   *  and therefore will NOT appear in other environments until published there too. */
+  parityReport(slugOrId: string): { seedVersion: string; codeVersion: string; inSync: boolean; publishedSignature: string; codeSignature: string; drifted: boolean } {
+    const tenant = resolveTenantBySlug(slugOrId) || resolveTenantById(slugOrId) || { id: `site-${slugOrId}`, slug: slugOrId, brand_name: slugOrId };
+    const store = readStore();
+    const rec = store[String(tenant.id)];
+    const codeSig = siteContentSignature(defaultSite(tenant));
+    const pubSig = rec ? siteContentSignature(rec.published) : codeSig;
+    const seedVersion = rec?.seedVersion || (rec ? 'legacy' : SEED_VERSION);
+    return {
+      seedVersion, codeVersion: SEED_VERSION,
+      inSync: seedVersion === SEED_VERSION,
+      publishedSignature: pubSig, codeSignature: codeSig,
+      drifted: pubSig !== codeSig,
+    };
   },
 
   /** Draft site for editing / preview (by slug or id; synthesizes a tenant when unseeded). */

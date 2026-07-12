@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Globe, Eye, UploadCloud, RotateCcw, Plus, Trash2, ChevronUp, ChevronDown, History as HistoryIcon, Copy,
   GripVertical, Power, Monitor, Tablet, Smartphone, ImageIcon, Pencil, Undo2, Redo2, Check,
   Palette, FileText, PanelBottom, Navigation2, RotateCw, Settings2,
   Wand2, MousePointerClick, Sliders, Lock, LockOpen, Sparkles, Languages, Search as SearchIcon,
+  ShieldCheck, AlertTriangle,
 } from 'lucide-react';
 import { SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseUI';
 import { toast } from '../../components/ui/feedback';
@@ -217,6 +218,9 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
 
   const frameW = DEVICE_W[device][orient];
   const previewPage = selectedPage;
+  // Environment content-parity: does this browser's published content match the compiled
+  // single source of truth? A drift = local-only edits not shared with other environments.
+  const parity = useMemo(() => (tenantId ? websiteService.parityReport(tenantId) : null), [tenantId, savedAt, site]);
 
   const dTab = (m: DeviceMode, Icon: any) => <button onClick={() => setDevice(m)} id={`studio_device_${m}`} title={m} style={{ ...iconBtn, width: 32, height: 30, background: device === m ? 'var(--color-primary-fixed)' : 'transparent', color: device === m ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}><Icon size={15} /></button>;
 
@@ -228,6 +232,20 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
         <select value={tenantId} onChange={e => setTenantId(e.target.value)} style={{ ...inputStyle, width: 'auto', padding: '6px 9px' }} id="website_tenant_select">
           {tenants.map(t => <option key={t.id} value={String(t.id)}>{t.brand_name || t.slug}</option>)}
         </select>
+
+        {/* Environment parity validator — warns when this browser's published content
+            has drifted from the compiled single source of truth (i.e., differs across envs). */}
+        {parity && (
+          <span id="studio_parity" title={parity.drifted
+            ? L('نُشرت تعديلات محليّة لا توجد في الأساس المُجمَّع؛ قد تختلف عن بيئات أخرى حتى تُنشر في الكود.', 'Locally-published edits differ from the compiled baseline; other environments will differ until published in code.')
+            : L(`متطابق مع كل البيئات · ${parity.codeVersion}`, `In sync across all environments · ${parity.codeVersion}`)}
+            className="inline-flex items-center gap-1 text-[11px] font-bold" style={{ padding: '4px 9px', borderRadius: 999,
+              background: parity.drifted ? 'rgba(245,158,11,0.14)' : 'rgba(74,222,128,0.14)',
+              color: parity.drifted ? '#f5a623' : '#4ade80', border: `1px solid ${parity.drifted ? 'rgba(245,158,11,0.3)' : 'rgba(74,222,128,0.3)'}` }}>
+            {parity.drifted ? <AlertTriangle size={12} /> : <ShieldCheck size={12} />}
+            {parity.drifted ? L('تعديلات محليّة', 'Local drift') : L('متطابق', 'In sync')}
+          </span>
+        )}
 
         {/* Device switcher */}
         <div className="inline-flex items-center gap-1 ms-1" style={{ ...card, borderRadius: 999, padding: 3 }}>
