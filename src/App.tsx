@@ -10,17 +10,20 @@ import { AppGate } from './components/AppGate';
 import { HomeScreen } from './features/home/HomeScreen';
 // Non-landing customer screens are lazy-loaded (loaded on navigation) to keep the
 // initial bundle small. HomeScreen stays eager as the first paint.
-const RestaurantScreen = React.lazy(() => import('./features/restaurant/RestaurantScreen').then(m => ({ default: m.RestaurantScreen })));
-const CheckoutPage = React.lazy(() => import('./features/checkout/CheckoutPage').then(m => ({ default: m.CheckoutPage })));
-const OrdersList = React.lazy(() => import('./features/orders/OrdersList').then(m => ({ default: m.OrdersList })));
-const WalletScreen = React.lazy(() => import('./features/wallet/WalletScreen').then(m => ({ default: m.WalletScreen })));
-const ProfileScreen = React.lazy(() => import('./features/profile/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
-const DiscoverScreen = React.lazy(() => import('./features/discover/DiscoverScreen').then(m => ({ default: m.DiscoverScreen })));
+// lazyRetry() self-heals a stale-deploy ChunkLoadError (fresh shell references new
+// chunk hashes) by reloading once instead of tripping the global error boundary.
+const RestaurantScreen = React.lazy(() => lazyRetry(() => import('./features/restaurant/RestaurantScreen').then(m => ({ default: m.RestaurantScreen }))));
+const CheckoutPage = React.lazy(() => lazyRetry(() => import('./features/checkout/CheckoutPage').then(m => ({ default: m.CheckoutPage }))));
+const OrdersList = React.lazy(() => lazyRetry(() => import('./features/orders/OrdersList').then(m => ({ default: m.OrdersList }))));
+const WalletScreen = React.lazy(() => lazyRetry(() => import('./features/wallet/WalletScreen').then(m => ({ default: m.WalletScreen }))));
+const ProfileScreen = React.lazy(() => lazyRetry(() => import('./features/profile/ProfileScreen').then(m => ({ default: m.ProfileScreen }))));
+const DiscoverScreen = React.lazy(() => lazyRetry(() => import('./features/discover/DiscoverScreen').then(m => ({ default: m.DiscoverScreen }))));
 // Role-gated portals are lazy-loaded — customers never download admin/merchant/driver
 // code (this keeps the Design Center / Experience Builder / Lottie out of the initial bundle).
-const MerchantApp = React.lazy(() => import('./features/merchant/MerchantApp').then(m => ({ default: m.MerchantApp })));
-const DriverApp = React.lazy(() => import('./features/driver/DriverApp').then(m => ({ default: m.DriverApp })));
-const AdminDashboard = React.lazy(() => import('./features/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
+const MerchantApp = React.lazy(() => lazyRetry(() => import('./features/merchant/MerchantApp').then(m => ({ default: m.MerchantApp }))));
+const DriverApp = React.lazy(() => lazyRetry(() => import('./features/driver/DriverApp').then(m => ({ default: m.DriverApp }))));
+const AdminDashboard = React.lazy(() => lazyRetry(() => import('./features/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard }))));
+import { lazyRetry } from './lib/lazyRetry';
 import { authService } from './services/auth.service';
 import { rbacService } from './services/rbac.service';
 import { getCategoryThumb } from './utils/categoryImages';
