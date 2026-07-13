@@ -107,6 +107,12 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   };
   useEffect(() => { if (tenantId) loadTenant(tenantId); /* eslint-disable-next-line */ }, [tenantId, tenants.length]);
 
+  // Studio diagnostics (parity vs the compiled baseline; schema health/migration report).
+  // These hooks MUST be declared before the `if (!site)` early return below so the hook
+  // order is identical on every render (Rules of Hooks).
+  const parity = useMemo(() => (tenantId ? websiteService.parityReport(tenantId) : null), [tenantId, savedAt, site]);
+  const health = useMemo(() => (tenantId ? websiteService.healthReport(tenantId) : null), [tenantId, savedAt, site]);
+
   if (!site) return (
     <div id="website_center" dir={dir} className="p-6">
       <EmptyStateBox Icon={Globe} title={L('لا يوجد مستأجر', 'No tenant selected')} description={L('اختر مستأجراً لبدء البناء.', 'Select a tenant to start building.')} />
@@ -220,9 +226,6 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   const previewPage = selectedPage;
   // Environment content-parity: does this browser's published content match the compiled
   // single source of truth? A drift = local-only edits not shared with other environments.
-  const parity = useMemo(() => (tenantId ? websiteService.parityReport(tenantId) : null), [tenantId, savedAt, site]);
-  // Website Health Monitor (Super Admin): schema version, validation, last migration report.
-  const health = useMemo(() => (tenantId ? websiteService.healthReport(tenantId) : null), [tenantId, savedAt, site]);
 
   const dTab = (m: DeviceMode, Icon: any) => <button onClick={() => setDevice(m)} id={`studio_device_${m}`} title={m} style={{ ...iconBtn, width: 32, height: 30, background: device === m ? 'var(--color-primary-fixed)' : 'transparent', color: device === m ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}><Icon size={15} /></button>;
 
