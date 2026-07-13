@@ -14,6 +14,7 @@
 import { supabase } from '../lib/supabase';
 import { CATEGORY_IMAGES } from '../utils/categoryImages';
 import { LEGAL_DOCS } from '../config/legal';
+import { loadWebsite, validateSite, WEBSITE_SCHEMA_VERSION, type MigrationReport } from './websiteSchema';
 
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
 const LS_KEY = 'haat_sb_website_v1';
@@ -79,9 +80,14 @@ export interface WebsiteSite {
   cookie: { enabled: boolean; policyPath: string };
   domain?: string; customDomain?: string; sslStatus?: 'none' | 'provisioning' | 'active';
   updatedAt: string;
+  /** Structural schema version (independent of seedVersion). Managed by websiteSchema.
+   *  Forward compatibility: unknown fields from newer versions are preserved at runtime by
+   *  the migration loader (mergeDefaults spreads existing keys), even though not typed here. */
+  schemaVersion?: number;
 }
-interface Record_ { draft: WebsiteSite; published: WebsiteSite; version: number; history: { version: number; at: string; site: WebsiteSite }[]; seedVersion?: string }
+interface Record_ { draft: WebsiteSite; published: WebsiteSite; version: number; history: { version: number; at: string; site: WebsiteSite }[]; seedVersion?: string; schemaVersion?: number }
 type Store = Record<string, Record_>; // key = tenantId
+const REPORTS_KEY = 'haat_sb_website_reports'; // last migration report per tenant (Super Admin health monitor)
 
 const readStore = (): Store => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; } };
 const writeStore = (s: Store) => { try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch { /* ignore */ } };
@@ -520,50 +526,61 @@ function ensureRecord(store: Store, tenant: any): Record_ {
   return rec;
 }
 
-// ── Resilience: a persisted site (from any prior schema version, or a partial
-//    Studio publish) MUST render safely. Backfill missing top-level structural
-//    fields from the compiled defaults so the public runtime never dereferences an
-//    undefined field (e.g. the reported `site.cookie.enabled` crash on old records).
-//    Non-destructive: existing content is preserved; only missing shapes are filled.
-function normalizeSite(site: WebsiteSite | null | undefined, tenant: any): WebsiteSite {
-  const d = defaultSite(tenant);
-  if (!site || typeof site !== 'object') return d;
-  const f: any = (site as any).footer && typeof (site as any).footer === 'object' ? (site as any).footer : {};
-  return {
-    ...d,
-    ...site,
-    navigation: Array.isArray((site as any).navigation) ? site.navigation : d.navigation,
-    pages: Array.isArray((site as any).pages) && site.pages.length ? site.pages : d.pages,
-    blog: Array.isArray((site as any).blog) ? site.blog : d.blog,
-    footer: {
-      columns: Array.isArray(f.columns) ? f.columns : d.footer.columns,
-      legalLinks: Array.isArray(f.legalLinks) ? f.legalLinks : d.footer.legalLinks,
-      social: Array.isArray(f.social) ? f.social : d.footer.social,
-      copyright: typeof f.copyright === 'string' ? f.copyright : d.footer.copyright,
-    },
-    seoDefaults: (site as any).seoDefaults && typeof (site as any).seoDefaults === 'object' ? site.seoDefaults : d.seoDefaults,
-    analytics: (site as any).analytics && typeof (site as any).analytics === 'object' ? site.analytics : d.analytics,
-    cookie: (site as any).cookie && typeof (site as any).cookie === 'object'
-      ? { enabled: !!(site as any).cookie.enabled, policyPath: (site as any).cookie.policyPath || d.cookie.policyPath }
-      : d.cookie,
-    status: (site as any).status || d.status,
-  };
+// ── Website Schema Migration Framework integration ──────────────────────────────
+// The SINGLE safe path a stored site takes before rendering: recover → migrate →
+// validate → repair → normalize → stamp schemaVersion. Delegates all migration /
+// validation / repair / default logic to websiteSchema (no duplication here).
+// When anything changed, the migrated record is persisted so the upgrade happens
+// once, and the migration report is retained for the Super Admin health monitor.
+function migrateReports(): Record<string, MigrationReport> { try { return JSON.parse(localStorage.getItem(REPORTS_KEY) || '{}'); } catch { return {}; } }
+function saveReport(id: string, report: MigrationReport) { try { const all = migrateReports(); all[id] = report; localStorage.setItem(REPORTS_KEY, JSON.stringify(all)); } catch { /* ignore */ } }
+
+/** Load + migrate + repair a record field ('published' | 'draft'), persisting any upgrade. */
+function loadSafe(tenant: any, field: 'published' | 'draft'): WebsiteSite {
+  const store = readStore();
+  const rec = ensureRecord(store, tenant);
+  const { site, report } = loadWebsite(rec[field], tenant, defaultSite);
+  if (report.changed) {
+    rec[field] = site;
+    rec.schemaVersion = WEBSITE_SCHEMA_VERSION;
+    writeStore(store);
+    if (report.created.length || report.renamed.length || report.repaired.length || report.recovered || report.errors.length) saveReport(String(tenant.id), report);
+  } else {
+    writeStore(store); // persist the seed from ensureRecord
+  }
+  return site;
 }
 
 export const websiteService = {
   isSandbox: SANDBOX,
+  schemaVersion: WEBSITE_SCHEMA_VERSION,
 
   /** Published site for a tenant (by slug or id). Seeds a default site on first access. Read-only, fast.
-   *  Falls back to a synthesized tenant when the slug isn't in the tenant store yet (demo robustness).
-   *  Normalized so a record from any prior schema version always renders safely. */
+   *  Every stored record is migrated to the latest schema + repaired before it is returned, so a website
+   *  from ANY prior schema version (or a corrupt/partial record) always renders safely. */
   getPublishedSite(slugOrId: string): WebsiteSite | null {
     if (!slugOrId) return null;
     const tenant = resolveTenantBySlug(slugOrId) || resolveTenantById(slugOrId)
       || { id: `site-${slugOrId}`, slug: slugOrId, brand_name: slugOrId };
+    return loadSafe(tenant, 'published');
+  },
+
+  /** Super Admin Website Health Monitor — schema version, validation, last migration report, storage size. */
+  healthReport(slugOrId: string): { schemaVersion: number; latest: number; upToDate: boolean; valid: boolean; issues: string[]; storageBytes: number; lastReport: MigrationReport | null } {
+    const tenant = resolveTenantBySlug(slugOrId) || resolveTenantById(slugOrId) || { id: `site-${slugOrId}`, slug: slugOrId, brand_name: slugOrId };
     const store = readStore();
-    const rec = ensureRecord(store, tenant);
-    writeStore(store); // persist seed
-    return normalizeSite(rec.published, tenant);
+    const rec = store[String(tenant.id)];
+    const site = this.getPublishedSite(slugOrId); // ensures migration ran
+    const v = validateSite(site);
+    let storageBytes = 0; try { storageBytes = new Blob([localStorage.getItem(LS_KEY) || '']).size; } catch { storageBytes = (localStorage.getItem(LS_KEY) || '').length; }
+    return {
+      schemaVersion: rec?.schemaVersion ?? (site?.schemaVersion as number) ?? 0,
+      latest: WEBSITE_SCHEMA_VERSION,
+      upToDate: (rec?.schemaVersion ?? 0) === WEBSITE_SCHEMA_VERSION,
+      valid: v.valid, issues: v.issues,
+      storageBytes,
+      lastReport: migrateReports()[String(tenant.id)] || null,
+    };
   },
 
   /** Content-parity report for the CMS: does this browser's stored published content
@@ -585,13 +602,13 @@ export const websiteService = {
     };
   },
 
-  /** Draft site for editing / preview (by slug or id; synthesizes a tenant when unseeded). */
+  /** Draft site for editing / preview (by slug or id; synthesizes a tenant when unseeded).
+   *  Migrated + repaired through the schema framework so the Studio never edits a broken shape. */
   getDraftSite(slugOrId: string): WebsiteSite | null {
     if (!slugOrId) return null;
     const tenant = resolveTenantBySlug(slugOrId) || resolveTenantById(slugOrId)
       || { id: `site-${slugOrId}`, slug: slugOrId, brand_name: slugOrId };
-    const store = readStore(); const rec = ensureRecord(store, tenant); writeStore(store);
-    return normalizeSite(rec.draft, tenant);
+    return loadSafe(tenant, 'draft');
   },
 
   /** Resolve a tenant by the site's custom domain / subdomain (host resolution priority 1). */

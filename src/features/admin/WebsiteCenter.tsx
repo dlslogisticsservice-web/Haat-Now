@@ -4,7 +4,7 @@ import {
   GripVertical, Power, Monitor, Tablet, Smartphone, ImageIcon, Pencil, Undo2, Redo2, Check,
   Palette, FileText, PanelBottom, Navigation2, RotateCw, Settings2,
   Wand2, MousePointerClick, Sliders, Lock, LockOpen, Sparkles, Languages, Search as SearchIcon,
-  ShieldCheck, AlertTriangle,
+  ShieldCheck, AlertTriangle, HeartPulse,
 } from 'lucide-react';
 import { SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseUI';
 import { toast } from '../../components/ui/feedback';
@@ -221,6 +221,8 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   // Environment content-parity: does this browser's published content match the compiled
   // single source of truth? A drift = local-only edits not shared with other environments.
   const parity = useMemo(() => (tenantId ? websiteService.parityReport(tenantId) : null), [tenantId, savedAt, site]);
+  // Website Health Monitor (Super Admin): schema version, validation, last migration report.
+  const health = useMemo(() => (tenantId ? websiteService.healthReport(tenantId) : null), [tenantId, savedAt, site]);
 
   const dTab = (m: DeviceMode, Icon: any) => <button onClick={() => setDevice(m)} id={`studio_device_${m}`} title={m} style={{ ...iconBtn, width: 32, height: 30, background: device === m ? 'var(--color-primary-fixed)' : 'transparent', color: device === m ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}><Icon size={15} /></button>;
 
@@ -244,6 +246,21 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
               color: parity.drifted ? '#f5a623' : '#4ade80', border: `1px solid ${parity.drifted ? 'rgba(245,158,11,0.3)' : 'rgba(74,222,128,0.3)'}` }}>
             {parity.drifted ? <AlertTriangle size={12} /> : <ShieldCheck size={12} />}
             {parity.drifted ? L('تعديلات محليّة', 'Local drift') : L('متطابق', 'In sync')}
+          </span>
+        )}
+
+        {/* Website Health Monitor — schema version + validation + last migration (Super Admin). */}
+        {health && (
+          <span id="studio_health" title={[
+            L(`إصدار المخطط: v${health.schemaVersion} / v${health.latest}`, `Schema: v${health.schemaVersion} / latest v${health.latest}`),
+            health.valid ? L('التحقق: صحيح', 'Validation: valid') : L(`مشاكل: ${health.issues.join(', ')}`, `Issues: ${health.issues.join(', ')}`),
+            L(`الحجم: ${(health.storageBytes / 1024).toFixed(1)}KB`, `Storage: ${(health.storageBytes / 1024).toFixed(1)}KB`),
+            health.lastReport ? L(`آخر ترقية: v${health.lastReport.fromVersion}→v${health.lastReport.toVersion} · أُنشئ ${health.lastReport.created.length} · أُصلح ${health.lastReport.repaired.length} · حُوِّل ${health.lastReport.renamed.length}${health.lastReport.recovered ? ' · مُستعاد' : ''}`, `Last migration: v${health.lastReport.fromVersion}→v${health.lastReport.toVersion} · created ${health.lastReport.created.length} · repaired ${health.lastReport.repaired.length} · renamed ${health.lastReport.renamed.length}${health.lastReport.recovered ? ' · recovered' : ''}`) : L('لا ترقيات', 'No migrations'),
+          ].join(' · ')}
+            className="inline-flex items-center gap-1 text-[11px] font-bold" style={{ padding: '4px 9px', borderRadius: 999,
+              background: health.valid && health.upToDate ? 'rgba(74,222,128,0.14)' : 'rgba(245,158,11,0.14)',
+              color: health.valid && health.upToDate ? '#4ade80' : '#f5a623', border: `1px solid ${health.valid && health.upToDate ? 'rgba(74,222,128,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
+            <HeartPulse size={12} />{L('المخطط', 'Schema')} v{health.schemaVersion}{health.valid ? '' : ' ⚠'}
           </span>
         )}
 
