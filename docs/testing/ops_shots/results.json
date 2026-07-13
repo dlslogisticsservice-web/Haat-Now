@@ -11,14 +11,14 @@
     "id": "D1",
     "name": "Driver fleet with vehicle types + statuses",
     "pass": true,
-    "detail": "120 drivers · vehicles=[motorcycle,car,van] · statuses=[assigned,busy,available]"
+    "detail": "120 drivers · vehicles=[motorcycle,car,van] · statuses=[assigned,available,busy]"
   },
   {
     "section": "Operations",
     "id": "O1",
     "name": "Order book across lifecycle statuses",
     "pass": true,
-    "detail": "400 orders · statuses=[delivered,confirmed,preparing,cancelled,pending,delivering]"
+    "detail": "400 orders · statuses=[preparing,pending,cancelled,confirmed,delivering,delivered]"
   },
   {
     "section": "Admin",

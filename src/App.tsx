@@ -4,7 +4,7 @@ import { notificationService } from './services/notification.service';
 import { sandboxStore } from './services/sandboxStore';
 import { cartService } from './services/cart.service';
 import { LoginScreen } from './features/auth/LoginScreen';
-import { AccountGateway, detectGatewayMode, type AccountType, type GatewayMode } from './features/auth/AccountGateway';
+import { AccountGateway, InternalSessionChooser, detectGatewayMode, type AccountType, type GatewayMode } from './features/auth/AccountGateway';
 import { FeedbackHost } from './components/ui/feedback';
 import { AppGate } from './components/AppGate';
 import { HomeScreen } from './features/home/HomeScreen';
@@ -89,6 +89,10 @@ export default function App() {
   // Pre-auth account-type gateway (Login → Choose Account → existing auth). RBAC still authoritative.
   const [acctType, setAcctType] = useState<AccountType | null>(null);
   const [gatewayMode, setGatewayMode] = useState<GatewayMode>(() => detectGatewayMode());
+  // Internal (admin) sessions must never open the console unexpectedly (e.g. after
+  // clicking "Log in" on the public site). Require a deliberate acknowledgement once
+  // per tab before the admin dashboard renders. Customer/merchant/driver go direct.
+  const [adminAck, setAdminAck] = useState<boolean>(() => { try { return sessionStorage.getItem('haat_admin_ack') === '1'; } catch { return false; } });
 
   // ── Navigation ──────────────────────────────────────────────────
   const [currentScreen, setCurrentScreen] = useState<'home' | 'restaurant' | 'checkout' | 'orders' | 'wallet' | 'profile' | 'discover'>('home');
@@ -215,6 +219,9 @@ export default function App() {
   const handleLoginSuccess = (user: { id: string; phone_number: string; role: string }) => {
     setSession(user);
     syncRbacIdentity(user);
+    // A fresh, deliberate login is already an acknowledgement — the session chooser is only
+    // for a PRE-EXISTING internal session found on arrival, not immediately after signing in.
+    if (user.role === 'admin') { try { sessionStorage.setItem('haat_admin_ack', '1'); } catch { /* ignore */ } setAdminAck(true); }
   };
 
   const handleLogout = async () => {
@@ -222,7 +229,8 @@ export default function App() {
     rbacService.clearLiveIdentity();
     setSession(null);
     setAcctType(null); // return to the account-type gateway, never straight to a role's login
-    try { localStorage.removeItem('haat_intended_role'); } catch { /* ignore */ }
+    setAdminAck(false); // require a fresh acknowledgement for the next internal session
+    try { localStorage.removeItem('haat_intended_role'); sessionStorage.removeItem('haat_admin_ack'); } catch { /* ignore */ }
     setIsSideMenuOpen(false);
   };
 
@@ -326,6 +334,15 @@ export default function App() {
         <ExperienceLogin fallback={<LoginScreen onLoginSuccess={handleLoginSuccess} />} />
       </div>
     );
+  }
+
+  // ── Internal-session gate (PHASE 4) ─────────────────────────────────
+  // An existing ADMIN session never drops straight into the console; offer a choice.
+  if (session.role === 'admin' && !adminAck) {
+    return <InternalSessionChooser lang={lang} roleLabel={lang === 'ar' ? 'مدير' : 'Administrator'}
+      onContinue={() => { try { sessionStorage.setItem('haat_admin_ack', '1'); } catch { /* ignore */ } setAdminAck(true); }}
+      onSwitch={handleLogout}
+      onCustomer={() => { try { window.location.assign('/'); } catch { /* ignore */ } }} />;
   }
 
   return (

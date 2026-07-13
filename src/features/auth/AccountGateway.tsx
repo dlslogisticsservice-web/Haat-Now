@@ -30,16 +30,48 @@ const ADMIN_OPTIONS: Opt[] = [
 ];
 
 /** Detect whether the private admin portal is being requested (subdomain or ?console/?portal). */
+const CONSOLE_PATHS = ['/console', '/admin/login', '/admin', '/internal', '/internal/login'];
 export function detectGatewayMode(): GatewayMode {
   try {
     const h = window.location.hostname.toLowerCase();
     if (h.startsWith('admin.') || h.startsWith('console.')) return 'admin';
+    // Dedicated internal login routes (kept in sync with runtime CONSOLE_ROUTES).
+    const path = (window.location.pathname || '').toLowerCase().replace(/\/+$/, '') || '/';
+    if (CONSOLE_PATHS.some(r => path === r || path.startsWith(r + '/'))) return 'admin';
     const q = new URLSearchParams(window.location.search);
     const p = (q.get('portal') || q.get('console') || '').toLowerCase();
     if (p === 'admin' || p === '1' || p === 'console' || q.has('console')) return 'admin';
   } catch { /* ignore */ }
   return 'public';
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Session-aware chooser — shown when an INTERNAL (admin) session already exists and
+// the user arrives at the app (e.g. clicked "Log in" on the public website). Instead
+// of dropping straight into the admin console, we detect the session and offer a
+// deliberate choice, so admin pages never appear unexpectedly.
+// ─────────────────────────────────────────────────────────────────────────────
+export const InternalSessionChooser: React.FC<{ lang: 'ar' | 'en'; roleLabel: string; onContinue: () => void; onSwitch: () => void; onCustomer: () => void }> = ({ lang, roleLabel, onContinue, onSwitch, onCustomer }) => {
+  const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
+  const dir = lang === 'ar' ? 'rtl' : 'ltr';
+  const btn = (primary: boolean): React.CSSProperties => ({ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '14px 18px', borderRadius: 14, fontWeight: 800, fontSize: 15.5, cursor: 'pointer',
+    border: primary ? 'none' : '1px solid var(--color-outline-variant,#2a3330)', background: primary ? 'var(--color-primary-fixed,#a3f95b)' : 'color-mix(in srgb, var(--color-surface-container,#10160f) 80%, transparent)', color: primary ? 'var(--color-on-primary-fixed,#0c2000)' : 'var(--color-on-surface,#e8ebe3)' });
+  return (
+    <div dir={dir} id="internal_session_chooser" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 20, background: 'radial-gradient(120% 90% at 50% -10%, color-mix(in srgb, var(--color-primary-fixed,#a3f95b) 12%, transparent), var(--color-background,#0a0f0c) 60%)', color: 'var(--color-on-surface,#e8ebe3)', fontFamily: 'var(--font-family, Cairo, system-ui, sans-serif)' }}>
+      <div style={{ width: 'min(440px, 100%)', textAlign: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}><HaatLogo height={36} /></div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 10, fontSize: 12, fontWeight: 800, color: 'var(--color-primary-fixed,#a3f95b)' }}><ShieldCheck size={14} />{L('جلسة إدارية نشطة', 'Active administration session')}</div>
+        <h1 style={{ fontSize: 'clamp(22px,5vw,28px)', fontWeight: 900, margin: '0 0 6px' }}>{L('مرحباً بعودتك', 'Welcome back')}</h1>
+        <p style={{ color: 'var(--color-on-surface-variant,#a7b0a6)', margin: '0 0 22px', fontSize: 14.5 }}>{L(`أنت مُسجَّل الدخول كـ ${roleLabel}. كيف تريد المتابعة؟`, `You’re signed in as ${roleLabel}. How would you like to continue?`)}</p>
+        <div style={{ display: 'grid', gap: 10 }}>
+          <button id="isc_continue" onClick={onContinue} style={btn(true)}><ShieldCheck size={18} />{L(`المتابعة كـ ${roleLabel}`, `Continue as ${roleLabel}`)}</button>
+          <button id="isc_switch" onClick={onSwitch} style={btn(false)}><ChevronRight size={17} style={{ transform: dir === 'rtl' ? 'none' : 'scaleX(-1)' }} />{L('تبديل الحساب', 'Switch account')}</button>
+          <button id="isc_customer" onClick={onCustomer} style={btn(false)}><Globe2 size={17} />{L('الذهاب إلى الموقع', 'Go to the public site')}</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const AccountGateway: React.FC<{ lang: 'ar' | 'en'; mode?: GatewayMode; onChoose: (t: AccountType) => void; onEnterAdmin?: () => void }> = ({ lang, mode = 'public', onChoose, onEnterAdmin }) => {
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
