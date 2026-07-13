@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   resolvePublicRequest, resolveSite, applyBrand, resolvePage, buildSeo, applySeo, trackPageview, isAppRoute,
 } from './runtime';
-import { BlockRenderer, BlockStyles, SectionShell } from './blocks';
+import { BlockRenderer, BlockStyles, SectionShell, SITE_CONTAINER } from './blocks';
 import { PartnerCenter } from './partners/PartnerCenter';
 import { loadLiveCommerce, type LiveCommerce } from './commerce';
 import { WebsiteCommerce } from './WebsiteCommerce';
@@ -31,6 +31,10 @@ function hydrateSections(sections: WebsiteBlock[], live: LiveCommerce): WebsiteB
 
 // Per-section responsive visibility rules + a11y (skip link, focus ring) — injected once.
 const RESP_CSS = `@media(min-width:1024px){.hd{display:none!important}}@media(min-width:641px) and (max-width:1023px){.ht{display:none!important}}@media(max-width:640px){.hm{display:none!important}}
+/* Header nav: full text links on desktop; below 1024px the header stays a clean single
+   row (logo · language · log in) and primary navigation is via the hero chips + footer —
+   the inline links must never wrap into a vertical stack. */
+@media(max-width:1023px){#site_nav{display:none!important}}
 .hn-skip{position:fixed;left:8px;top:8px;z-index:100;padding:10px 16px;border-radius:12px;background:var(--color-primary-fixed,#a3f95b);color:var(--color-on-primary-fixed,#0c2000);font-weight:800;text-decoration:none;transform:translateY(-150%);transition:transform .15s ease}
 .hn-skip:focus{transform:translateY(0)}
 #public_site :focus-visible{outline:2px solid var(--color-primary-fixed,#a3f95b);outline-offset:2px;border-radius:6px}`;
@@ -182,7 +186,7 @@ export const PublicSiteApp: React.FC = () => {
       )}
       {/* Header / navigation */}
       <header style={{ position: 'sticky', top: 0, zIndex: 10, backdropFilter: 'blur(8px)', background: 'color-mix(in srgb, var(--color-background, #0a0f0c) 82%, transparent)', borderBottom: '1px solid var(--color-outline-variant, #2a3330)' }}>
-        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ maxWidth: SITE_CONTAINER, margin: '0 auto', padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
           <a href="/" onClick={e => { e.preventDefault(); navigate('/'); }} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'inherit' }} aria-label={`${lsite!.siteName} home`}>
             {tenant?.logo_url ? <img src={tenant.logo_url} alt={lsite!.siteName} style={{ height: 28 }} /> : <HaatLogo height={28} showWordmark={false} />}
             <strong style={{ fontSize: 17 }}>{lsite!.siteName}</strong>
@@ -209,7 +213,7 @@ export const PublicSiteApp: React.FC = () => {
       <main id="site_main" tabIndex={-1} aria-label="Main content" style={{ outline: 'none' }}>
         {/* Breadcrumbs — visible on every sub-page (mirrors the BreadcrumbList schema; aids internal linking + orientation). */}
         {!isCommerce && basePath !== '/' && (resolved.page || resolved.post) && (
-          <nav aria-label="Breadcrumb" style={{ maxWidth: 1120, margin: '0 auto', padding: '16px 20px 0' }}>
+          <nav aria-label="Breadcrumb" style={{ maxWidth: SITE_CONTAINER, margin: '0 auto', padding: '16px 24px 0' }}>
             <ol style={{ display: 'flex', flexWrap: 'wrap', gap: 6, listStyle: 'none', padding: 0, margin: 0, fontSize: 13, color: 'var(--color-on-surface-variant, #a7b0a6)' }}>
               {buildCrumbs(lsite!, resolved.post ? '/blog' : basePath, resolved.post?.title).map((c, i, arr) => (
                 <li key={c.path} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -273,7 +277,7 @@ export const PublicSiteApp: React.FC = () => {
 
       {/* Footer */}
       <footer style={{ borderTop: '1px solid var(--color-outline-variant, #2a3330)', marginTop: 40 }}>
-        <div style={{ maxWidth: 1120, margin: '0 auto', padding: '40px 20px' }}>
+        <div style={{ maxWidth: SITE_CONTAINER, margin: '0 auto', padding: '40px 24px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 24 }}>
             <div>
               {tenant?.logo_url ? <img src={tenant.logo_url} alt={lsite!.siteName} style={{ height: 26 }} /> : <HaatLogo height={26} />}

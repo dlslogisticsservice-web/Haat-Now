@@ -40,7 +40,11 @@ export const SectionShell: React.FC<{ block: WebsiteBlock; children: React.React
 // (WebsiteBlock) is unchanged: this file transforms only the visual experience.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const sectionWrap: React.CSSProperties = { maxWidth: 1200, margin: '0 auto', padding: '0 24px' };
+// Single unified content container (Option A): sections are full-bleed; their content
+// is centered at a consistent 1440px max, matching the header/nav/footer container so
+// every edge aligns and wide screens show no oversized black side margins.
+export const SITE_CONTAINER = 1440;
+const sectionWrap: React.CSSProperties = { maxWidth: SITE_CONTAINER, margin: '0 auto', padding: '0 24px' };
 
 // Token helpers — one source of truth for the premium surface language.
 const T = {
