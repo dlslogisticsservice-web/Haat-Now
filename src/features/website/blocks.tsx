@@ -499,6 +499,8 @@ const MerchantsBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'merchants
   const [filter, setFilter] = React.useState<MerchFilter>('all');
   const [sort, setSort] = React.useState<MerchSort>('recommended');
   const showControls = !rail && block.items.length >= 6;
+  const railRef = React.useRef<HTMLDivElement | null>(null);
+  const scrollRail = (dir: -1 | 1) => { const el = railRef.current; if (el) el.scrollBy({ left: dir * Math.max(280, el.clientWidth * 0.8), behavior: 'smooth' }); };
 
   const matches = (m: MerchantCard): boolean => {
     switch (filter) {
@@ -543,9 +545,19 @@ const MerchantsBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'merchants
         {useFeatured && <div style={{ marginTop: 26 }}><FeaturedMerchant m={items[0]} onNav={onNav} /></div>}
         {items.length === 0 ? (
           <p style={{ marginTop: 22, padding: '28px 0', textAlign: 'center', color: T.onVar }}>No stores match this filter yet — try another.</p>
+        ) : rail ? (
+          // Premium carousel: elegant arrow controls, hidden browser scrollbar, drag/touch
+          // (native inertia) + keyboard scroll on the focusable track. No ugly scrollbar.
+          <div style={{ position: 'relative', marginTop: useFeatured ? 16 : 26 }}>
+            <div ref={railRef} className="hn-carousel" role="group" aria-label={block.heading || 'Merchants'} tabIndex={0} style={gridStyle}>
+              {(useFeatured ? items.slice(1) : items).map((m, i) => <MerchantTile key={i} m={m} snap onNav={onNav} />)}
+            </div>
+            <button type="button" aria-label="Previous" className="hn-carousel-btn hn-carousel-prev" onClick={() => scrollRail(-1)}><span aria-hidden="true">‹</span></button>
+            <button type="button" aria-label="Next" className="hn-carousel-btn hn-carousel-next" onClick={() => scrollRail(1)}><span aria-hidden="true">›</span></button>
+          </div>
         ) : (
-          <div className={rail ? 'hn-rail' : undefined} role={rail ? 'group' : undefined} aria-label={rail ? (block.heading || 'Merchants') : undefined} tabIndex={rail ? 0 : undefined} style={{ ...gridStyle, marginTop: useFeatured ? 16 : (showControls ? 18 : 26) }}>
-            {(useFeatured ? items.slice(1) : items).map((m, i) => <MerchantTile key={i} m={m} snap={rail} onNav={onNav} />)}
+          <div role={undefined} style={{ ...gridStyle, marginTop: useFeatured ? 16 : (showControls ? 18 : 26) }}>
+            {(useFeatured ? items.slice(1) : items).map((m, i) => <MerchantTile key={i} m={m} snap={false} onNav={onNav} />)}
           </div>
         )}
       </div>
@@ -767,6 +779,18 @@ export const BlockStyles: React.FC = () => (
     .hn-rail::-webkit-scrollbar { height: 8px; }
     .hn-rail::-webkit-scrollbar-thumb { background: var(--color-outline-variant, #2a3330); border-radius: 999px; }
     .hn-rail::-webkit-scrollbar-track { background: transparent; }
+    /* Premium carousel — no browser scrollbar; elegant floating arrow controls (drag/touch/keyboard scroll native). */
+    .hn-carousel { scrollbar-width: none; -ms-overflow-style: none; scroll-padding: 0 24px; }
+    .hn-carousel::-webkit-scrollbar { display: none; }
+    .hn-carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); z-index: 4; width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; cursor: pointer; font-size: 26px; line-height: 1; font-weight: 700; color: var(--color-on-surface, #e8ebe3); background: color-mix(in srgb, var(--color-surface-container-high, #141a17) 88%, transparent); border: 1px solid var(--color-outline-variant, #2a3330); box-shadow: 0 10px 30px -10px rgba(0,0,0,.6); backdrop-filter: blur(10px); transition: transform .15s ease, background .15s ease, border-color .15s ease, opacity .15s ease; opacity: 0; }
+    .hn-carousel-btn:hover { background: var(--color-primary-fixed, #a3f95b); color: var(--color-on-primary-fixed, #0c2000); border-color: var(--color-primary-fixed, #a3f95b); transform: translateY(-50%) scale(1.06); }
+    .hn-carousel-btn:active { transform: translateY(-50%) scale(.96); }
+    .hn-carousel-prev { inset-inline-start: -8px; }
+    .hn-carousel-next { inset-inline-end: -8px; }
+    section:hover .hn-carousel-btn { opacity: 1; }
+    .hn-carousel-btn:focus-visible { opacity: 1; }
+    [dir="rtl"] .hn-carousel-prev span, [dir="rtl"] .hn-carousel-next span { display: inline-block; transform: scaleX(-1); }
+    @media (hover: none) { .hn-carousel-btn { display: none; } }
     .hn-faq summary::-webkit-details-marker { display: none; }
     .hn-faq[open] .hn-faq-plus { transform: rotate(45deg); }
     .hn-orb { position: absolute; border-radius: 999px; filter: blur(60px); pointer-events: none; z-index: 0; }

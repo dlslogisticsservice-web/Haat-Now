@@ -10,7 +10,7 @@ import { SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseU
 import { toast } from '../../components/ui/feedback';
 import { tenantService } from '../../services/tenant.service';
 import { websiteService, type WebsiteSite, type WebsitePage, type WebsiteBlock, type WebsiteBlockType, type WebsiteCta, type BlogPost } from '../../services/website.service';
-import { BlockRenderer, SectionShell } from '../website/blocks';
+import { BlockRenderer, SectionShell, BlockStyles } from '../website/blocks';
 import { assetsService, BRAND_SLOTS, type AssetItem } from '../../experience/assets.service';
 import { card, inputStyle, iconBtn, swap, Field, Toggle, Btn, MediaField, MediaListField, StringListField, ItemDel } from './studioUI';
 import { MarketingNav, MarketingPanel, MARKETING_MODULES, campaignOverlayFor, type MarketingModule } from './MarketingOS';
@@ -469,6 +469,10 @@ const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; devic
   ];
   return (
     <div onClick={() => menu && setMenu(null)}>
+      {/* Inject the SAME motion/interaction stylesheet the public site uses, so the Studio
+          preview renders through the identical production pipeline (hover lifts, reveals,
+          glass blur, micro-interactions) instead of a static canvas. Production == Preview. */}
+      <BlockStyles />
       <style>{`#preview_frame .wsx-sec{position:relative;transition:box-shadow .12s ease}#preview_frame .wsx-sec:hover{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--color-primary-fixed) 55%,transparent)}#preview_frame .wsx-sec.sel{box-shadow:inset 0 0 0 2px var(--color-primary-fixed)}#preview_frame .wsx-sec.locked{box-shadow:inset 0 0 0 2px color-mix(in srgb,#f5a623 55%,transparent)}#preview_frame .wsx-bar{position:absolute;top:8px;inset-inline-end:8px;z-index:5;display:none;gap:4px}#preview_frame .wsx-sec:hover .wsx-bar,#preview_frame .wsx-sec.sel .wsx-bar{display:flex}#preview_frame .wsx-tag{position:absolute;top:8px;inset-inline-start:8px;z-index:5;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--color-primary-fixed);color:var(--color-on-primary-fixed);display:none;align-items:center;gap:4px}#preview_frame .wsx-sec.sel .wsx-tag,#preview_frame .wsx-sec.locked .wsx-tag{display:inline-flex}`}</style>
       {/* Site header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderBottom: '1px solid var(--color-outline-variant, #2a3330)', background: 'color-mix(in srgb, var(--color-background,#0a0f0c) 85%, transparent)' }}>
