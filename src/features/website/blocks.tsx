@@ -45,6 +45,9 @@ export const SectionShell: React.FC<{ block: WebsiteBlock; children: React.React
 // every edge aligns and wide screens show no oversized black side margins.
 export const SITE_CONTAINER = 1440;
 const sectionWrap: React.CSSProperties = { maxWidth: SITE_CONTAINER, margin: '0 auto', padding: '0 24px' };
+// One consistent vertical rhythm for every standard section (the hero keeps its own,
+// larger, asymmetric padding). Normalizes the previously-mixed 44–80px section gaps.
+const SECTION_PAD = 'clamp(48px, 6vw, 84px) 0';
 
 // Token helpers — one source of truth for the premium surface language.
 const T = {
@@ -148,7 +151,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
     }
     case 'features':
       return (
-        <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             {block.heading && <SectionHead eyebrow="Why HaaT" heading={block.heading} />}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 18, marginTop: 32 }}>
@@ -169,7 +172,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       // (used by "Grow with us"); with images they become editorial media cards.
       const hasImages = block.items.some(it => it.image);
       return (
-        <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             {block.heading && <SectionHead eyebrow="Join the movement" heading={block.heading} />}
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${hasImages ? 260 : 280}px, 1fr))`, gap: 18, marginTop: 32 }}>
@@ -201,7 +204,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
     }
     case 'stats':
       return (
-        <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             <div style={{ ...cardStyle, padding: 'clamp(28px,4vw,44px)', background: `linear-gradient(155deg, ${T.surfHigh}, var(--color-surface-container, #10160f))` }}>
               {block.heading && <h2 style={{ ...hStyle, textAlign: 'center', fontSize: 'clamp(20px,3vw,26px)' }}>{block.heading}</h2>}
@@ -219,7 +222,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       );
     case 'testimonials':
       return (
-        <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             {block.heading && <SectionHead eyebrow="Loved locally" heading={block.heading} />}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginTop: 32 }}>
@@ -239,7 +242,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       );
     case 'partners':
       return (
-        <section style={{ padding: 'clamp(28px,4vw,44px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             {block.heading && <p style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.onVar, margin: 0 }}>{block.heading}</p>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 36, alignItems: 'center', justifyContent: 'center', marginTop: 20, opacity: 0.7 }}>
@@ -252,7 +255,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       return <AppDownloadBlock block={block} />;
     case 'cta':
       return (
-        <section style={{ padding: 'clamp(44px,6vw,80px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             <div style={{ position: 'relative', overflow: 'hidden', textAlign: 'center', padding: 'clamp(36px,5vw,64px) clamp(24px,4vw,48px)', borderRadius: T.cardR, border: `1px solid color-mix(in srgb, ${T.primary} 30%, transparent)`, background: `radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, ${T.primary} 14%, transparent), var(--color-surface-container,#10160f) 70%)` }}>
               <span aria-hidden="true" className="hn-orb hn-orb-a" style={{ opacity: 0.4 }} />
@@ -265,7 +268,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       );
     case 'richtext':
       return (
-        <section style={{ padding: 'clamp(36px,5vw,56px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={{ ...sectionWrap, maxWidth: 780 }}>
             {block.heading && <h2 style={hStyle}>{block.heading}</h2>}
             <p style={{ color: 'var(--color-on-surface, #c4ccbf)', fontSize: 17, lineHeight: 1.75, marginTop: 14, whiteSpace: 'pre-wrap' }}>{block.body}</p>
@@ -274,7 +277,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       );
     case 'gallery':
       return (
-        <section style={{ padding: 'clamp(36px,5vw,56px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             {block.heading && <SectionHead heading={block.heading} />}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14, marginTop: 24 }}>
@@ -285,7 +288,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       );
     case 'faq':
       return (
-        <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={{ ...sectionWrap, maxWidth: 860 }}>
             {block.heading && <SectionHead eyebrow="Good to know" heading={block.heading} />}
             <div style={{ marginTop: 28, display: 'grid', gap: 12 }}>
@@ -303,7 +306,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       );
     case 'contact':
       return (
-        <section style={{ padding: 'clamp(36px,5vw,56px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={{ ...sectionWrap, maxWidth: 640 }}>
             {block.heading && <SectionHead heading={block.heading} />}
             <div style={{ ...cardStyle, marginTop: 24, display: 'grid', gap: 4 }}>
@@ -316,7 +319,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       );
     case 'categories':
       return (
-        <section style={{ padding: 'clamp(32px,5vw,56px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             {block.heading && <SectionHead eyebrow="Explore" heading={block.heading} subtitle={block.subtitle} />}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(124px, 1fr))', gap: 14, marginTop: 28 }}>
@@ -334,7 +337,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       );
     case 'deals':
       return (
-        <section style={{ padding: 'clamp(32px,5vw,52px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             {block.heading && <SectionHead eyebrow="Limited time" heading={block.heading} subtitle={block.subtitle} />}
             <div className="hn-rail" role="group" aria-label={block.heading || 'Offers'} tabIndex={0} style={{ display: 'grid', gridAutoFlow: 'column', gridAutoColumns: 'minmax(272px, 1fr)', gap: 16, marginTop: 26, overflowX: 'auto', paddingBottom: 10, scrollSnapType: 'x mandatory' }}>
@@ -347,7 +350,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       return <MerchantsBlock block={block} onNav={onNav} />;
     case 'waitlist':
       return (
-        <section style={{ padding: 'clamp(44px,6vw,80px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={{ ...sectionWrap, maxWidth: 680 }}>
             <div style={{ position: 'relative', overflow: 'hidden', textAlign: 'center', padding: 'clamp(32px,5vw,52px)', borderRadius: T.cardR, border: `1px solid color-mix(in srgb, ${T.primary} 26%, transparent)`, background: `radial-gradient(120% 140% at 50% -20%, color-mix(in srgb, ${T.primary} 14%, transparent), var(--color-surface-container,#10160f) 65%)` }}>
               <span aria-hidden="true" className="hn-orb hn-orb-a" style={{ opacity: 0.4 }} />
@@ -363,7 +366,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
       );
     case 'steps':
       return (
-        <section style={{ padding: 'clamp(44px,6vw,80px) 0' }}>
+        <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             <SectionHead eyebrow="How it works" heading={block.heading || ''} subtitle={block.subtitle} center />
             <div className="hn-steps" style={{ position: 'relative', display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(220px, 1fr))`, gap: 20, marginTop: 40 }}>
@@ -521,7 +524,7 @@ const MerchantsBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'merchants
   const chip = (active: boolean): React.CSSProperties => ({ padding: '8px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', border: active ? `1px solid ${T.primary}` : hairline, background: active ? `color-mix(in srgb, ${T.primary} 16%, transparent)` : T.surfHigh, color: active ? T.primary : T.on });
 
   return (
-    <section style={{ padding: 'clamp(28px,4vw,44px) 0' }}>
+    <section style={{ padding: SECTION_PAD }}>
       <div style={sectionWrap}>
         <SectionHead
           eyebrow={rail ? 'Featured' : undefined}
@@ -707,7 +710,7 @@ const AppDownloadBlock: React.FC<{ block: Extract<WebsiteBlock, { type: 'app_dow
   const smsSep = block.sms ? (/android/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '') ? '?' : '&') : '?';
   const smsHref = `sms:${block.sms || ''}${smsSep}body=${encodeURIComponent(link)}`;
   return (
-    <section style={{ padding: 'clamp(40px,6vw,72px) 0' }}>
+    <section style={{ padding: SECTION_PAD }}>
       <div style={sectionWrap}>
         <div style={{ position: 'relative', overflow: 'hidden', borderRadius: T.cardR, border: hairline, background: `linear-gradient(135deg, color-mix(in srgb, ${T.primary} 16%, var(--color-surface-container-high,#141a17)), var(--color-surface-container,#10160f))`, padding: 'clamp(28px,4vw,48px)' }}>
           <span aria-hidden="true" className="hn-orb hn-orb-b" style={{ opacity: 0.5 }} />
