@@ -305,7 +305,7 @@ export const PublicSiteApp: React.FC = () => {
         </div>
       </footer>
 
-      {site.cookie.enabled && <CookieBanner slug={site.slug} locale={locale} onPrivacy={() => navigate(site.cookie.policyPath)} />}
+      {site.cookie?.enabled && <CookieBanner slug={site.slug} locale={locale} onPrivacy={() => navigate(site.cookie?.policyPath || '/privacy')} />}
     </div>
   );
 };

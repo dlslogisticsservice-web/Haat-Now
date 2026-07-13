@@ -520,11 +520,42 @@ function ensureRecord(store: Store, tenant: any): Record_ {
   return rec;
 }
 
+// ── Resilience: a persisted site (from any prior schema version, or a partial
+//    Studio publish) MUST render safely. Backfill missing top-level structural
+//    fields from the compiled defaults so the public runtime never dereferences an
+//    undefined field (e.g. the reported `site.cookie.enabled` crash on old records).
+//    Non-destructive: existing content is preserved; only missing shapes are filled.
+function normalizeSite(site: WebsiteSite | null | undefined, tenant: any): WebsiteSite {
+  const d = defaultSite(tenant);
+  if (!site || typeof site !== 'object') return d;
+  const f: any = (site as any).footer && typeof (site as any).footer === 'object' ? (site as any).footer : {};
+  return {
+    ...d,
+    ...site,
+    navigation: Array.isArray((site as any).navigation) ? site.navigation : d.navigation,
+    pages: Array.isArray((site as any).pages) && site.pages.length ? site.pages : d.pages,
+    blog: Array.isArray((site as any).blog) ? site.blog : d.blog,
+    footer: {
+      columns: Array.isArray(f.columns) ? f.columns : d.footer.columns,
+      legalLinks: Array.isArray(f.legalLinks) ? f.legalLinks : d.footer.legalLinks,
+      social: Array.isArray(f.social) ? f.social : d.footer.social,
+      copyright: typeof f.copyright === 'string' ? f.copyright : d.footer.copyright,
+    },
+    seoDefaults: (site as any).seoDefaults && typeof (site as any).seoDefaults === 'object' ? site.seoDefaults : d.seoDefaults,
+    analytics: (site as any).analytics && typeof (site as any).analytics === 'object' ? site.analytics : d.analytics,
+    cookie: (site as any).cookie && typeof (site as any).cookie === 'object'
+      ? { enabled: !!(site as any).cookie.enabled, policyPath: (site as any).cookie.policyPath || d.cookie.policyPath }
+      : d.cookie,
+    status: (site as any).status || d.status,
+  };
+}
+
 export const websiteService = {
   isSandbox: SANDBOX,
 
   /** Published site for a tenant (by slug or id). Seeds a default site on first access. Read-only, fast.
-   *  Falls back to a synthesized tenant when the slug isn't in the tenant store yet (demo robustness). */
+   *  Falls back to a synthesized tenant when the slug isn't in the tenant store yet (demo robustness).
+   *  Normalized so a record from any prior schema version always renders safely. */
   getPublishedSite(slugOrId: string): WebsiteSite | null {
     if (!slugOrId) return null;
     const tenant = resolveTenantBySlug(slugOrId) || resolveTenantById(slugOrId)
@@ -532,7 +563,7 @@ export const websiteService = {
     const store = readStore();
     const rec = ensureRecord(store, tenant);
     writeStore(store); // persist seed
-    return rec.published;
+    return normalizeSite(rec.published, tenant);
   },
 
   /** Content-parity report for the CMS: does this browser's stored published content
@@ -560,7 +591,7 @@ export const websiteService = {
     const tenant = resolveTenantBySlug(slugOrId) || resolveTenantById(slugOrId)
       || { id: `site-${slugOrId}`, slug: slugOrId, brand_name: slugOrId };
     const store = readStore(); const rec = ensureRecord(store, tenant); writeStore(store);
-    return rec.draft;
+    return normalizeSite(rec.draft, tenant);
   },
 
   /** Resolve a tenant by the site's custom domain / subdomain (host resolution priority 1). */
