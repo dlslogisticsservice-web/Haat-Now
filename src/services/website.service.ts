@@ -489,7 +489,7 @@ const NEARBY: MerchantCard[] = [
 // stamps every record; when the compiled content is newer we re-seed the published
 // content (and an untouched draft) so every environment converges on the code.
 // BUMP SEED_VERSION whenever defaultSite() content changes.
-export const SEED_VERSION = '2026-07-12.2';
+export const SEED_VERSION = '2026-07-14.1';
 
 /** Stable structural signature of a site's published content (env-parity checks). */
 export function siteContentSignature(s: WebsiteSite | null): string {
