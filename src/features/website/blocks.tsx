@@ -175,7 +175,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
         <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             {block.heading && <SectionHead eyebrow="Join the movement" heading={block.heading} />}
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${hasImages ? 260 : 280}px, 1fr))`, gap: 18, marginTop: 32 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${hasImages ? 260 : 280}px), 1fr))`, gap: 18, marginTop: 32 }}>
               {block.items.map((it, i) => {
                 const inner = hasImages ? (
                   <div className="hn-media-card" style={{ ...cardStyle, padding: 0, overflow: 'hidden', height: '100%' }}>
@@ -225,7 +225,7 @@ export const BlockRenderer: React.FC<{ block: WebsiteBlock; onNav: (path: string
         <section style={{ padding: SECTION_PAD }}>
           <div style={sectionWrap}>
             {block.heading && <SectionHead eyebrow="Loved locally" heading={block.heading} />}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 18, marginTop: 32 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 18, marginTop: 32 }}>
               {block.items.map((t, i) => (
                 <figure key={i} className="hn-lift" style={{ ...cardStyle, margin: 0 }}>
                   <div aria-hidden="true" style={{ fontSize: 40, lineHeight: 0.6, color: T.primary, fontFamily: 'Georgia, serif' }}>“</div>

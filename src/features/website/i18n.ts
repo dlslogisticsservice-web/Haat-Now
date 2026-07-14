@@ -89,11 +89,11 @@ const AR: Record<string, string> = {
   'The reviews below are illustrative examples of the experience we are building — real customer reviews will appear here at launch. (Editable in Website Studio.)': 'المراجعات أدناه أمثلة توضيحية للتجربة التي نبنيها — ستظهر مراجعات العملاء الحقيقية هنا عند الإطلاق. (قابلة للتحرير في استوديو الموقع.)',
   'Loved by our early community': 'محبوب من مجتمعنا المبكّر',
   'Ordering felt effortless and I could watch my delivery the whole way. Exactly what our neighbourhood needed.': 'كان الطلب سهلاً وتابعت التوصيل طوال الطريق. تماماً ما احتاجه حيّنا.',
-  'Early tester': 'مختبِر مبكّر', 'Riyadh · illustrative': 'الرياض · توضيحي',
+  'Early tester': 'مختبِر مبكّر', 'Cairo · illustrative': 'القاهرة · توضيحي',
   'Cash on delivery with no account made it so easy to try. The tracking is genuinely useful.': 'الدفع عند الاستلام بدون حساب جعل التجربة سهلة جداً. والتتبّع مفيد فعلاً.',
-  'Beta customer': 'عميل تجريبي', 'Jeddah · illustrative': 'جدة · توضيحي',
+  'Beta customer': 'عميل تجريبي', 'Giza · illustrative': 'الجيزة · توضيحي',
   'Fast, clear pricing, and real support when I had a question. A promising start.': 'سريع، وأسعار واضحة، ودعم حقيقي عند سؤالي. بداية واعدة.',
-  'Community member': 'عضو في المجتمع', 'Dammam · illustrative': 'الدمّام · توضيحي',
+  'Community member': 'عضو في المجتمع', 'Alexandria · illustrative': 'الإسكندرية · توضيحي',
   // ── Steps ──
   'How it works': 'كيف تعمل',
   'Three taps to your door': 'ثلاث لمسات حتى بابك',
@@ -382,7 +382,11 @@ const AR: Record<string, string> = {
   'Questions about cookies?': 'أسئلة عن ملفات الارتباط؟',
   'Reach out any time.': 'تواصل في أي وقت.',
   // ── Blog / misc ──
+  'Coming soon to your city': 'قريباً في مدينتك',
+  'We are getting ready to bring fast, reliable delivery to your neighbourhood.': 'نستعد لنقدّم توصيلاً سريعاً وموثوقاً إلى حيّك.',
+  'We are putting the finishing touches on our app — order in one tap and track your delivery in real time. Join the waitlist to be first to know when we go live.': 'نضع اللمسات الأخيرة على تطبيقنا — اطلب بلمسة واحدة وتابع توصيلتك مباشرةً. انضم إلى قائمة الانتظار لتكون أول من يعرف عند الإطلاق.',
   '5 tips for faster delivery': '٥ نصائح لتوصيل أسرع',
+  'Small things that get your order to you quicker.': 'أمور بسيطة توصل طلبك إليك أسرع.',
   'Keep your address precise, add a note for the captain, and order at off-peak times.': 'اجعل عنوانك دقيقاً، وأضف ملاحظة للكابتن، واطلب في أوقات غير الذروة.',
   'Delivery tips': 'نصائح التوصيل',
   '50% off your first order': 'خصم ٥٠٪ على أول طلب',
@@ -414,6 +418,13 @@ export function localizeSite(site: WebsiteSite, locale: Locale): WebsiteSite {
     ...p, title: tr(p.title) as string, seo: locSeo(p.seo),
     sections: p.sections.map(localizeBlock),
   }));
+  if (Array.isArray((s as any).blog)) {
+    (s as any).blog = (s as any).blog.map((post: any) => ({
+      ...post, title: tr(post.title) as string, excerpt: tr(post.excerpt) as string,
+      seo: post.seo ? locSeo(post.seo) : post.seo,
+      body: Array.isArray(post.body) ? post.body.map(localizeBlock) : post.body,
+    }));
+  }
   return s;
 }
 

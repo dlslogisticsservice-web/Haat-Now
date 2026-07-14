@@ -252,7 +252,7 @@ function defaultSite(tenant: any): WebsiteSite {
     seo: { title: `Own a ${name} franchise`, description: `Bring ${name} to your city with a proven playbook, technology and operational support.` },
     sections: [
       { type: 'hero', layout: 'left', title: 'Bring ' + name + ' to your city', subtitle: 'A proven delivery platform, launch playbook and hands-on support — from day one.', ctas: [{ label: 'Request the deck', href: '/contact', style: 'primary' }] },
-      { type: 'stats', heading: 'A model that scales', items: [{ value: '15+', label: 'Cities' }, { value: '90d', label: 'To launch' }, { value: 'Full', label: 'Tech stack' }, { value: '1:1', label: 'Launch support' }] },
+      { type: 'stats', heading: 'A model that scales', items: [{ value: '3-in-1', label: 'Food · grocery · pharmacy' }, { value: '90d', label: 'To launch' }, { value: 'Full', label: 'Tech stack' }, { value: '1:1', label: 'Launch support' }] },
       { type: 'features', heading: 'What you get', items: [
         { title: 'Turnkey platform', body: 'Customer app, merchant tools and dispatch — ready to run.', icon: 'boxes' },
         { title: 'Launch playbook', body: 'Marketing, onboarding and ops, documented end to end.', icon: 'book' },
@@ -385,7 +385,7 @@ function defaultSite(tenant: any): WebsiteSite {
     : [appPage];
 
   const posts: BlogPost[] = [
-    { id: 'b_launch', slug: 'were-live', title: `${name} is live`, excerpt: 'We are excited to bring fast, reliable delivery to your city.', body: [{ type: 'richtext', body: `Today we launch ${name}, powered by HAAT NOW. Order in one tap and track in real time.` }], author: name, publishedAt: now(), tags: ['news'], seo: { title: `${name} is live` } },
+    { id: 'b_launch', slug: 'coming-soon', title: 'Coming soon to your city', excerpt: 'We are getting ready to bring fast, reliable delivery to your neighbourhood.', body: [{ type: 'richtext', body: 'We are putting the finishing touches on our app — order in one tap and track your delivery in real time. Join the waitlist to be first to know when we go live.' }], author: name, publishedAt: now(), tags: ['news'], seo: { title: 'Coming soon to your city' } },
     { id: 'b_tips', slug: 'delivery-tips', title: '5 tips for faster delivery', excerpt: 'Small things that get your order to you quicker.', body: [{ type: 'richtext', body: 'Keep your address precise, add a note for the captain, and order at off-peak times.' }], author: name, publishedAt: now(), tags: ['guide'], seo: { title: 'Delivery tips' } },
   ];
 
@@ -489,7 +489,7 @@ const NEARBY: MerchantCard[] = [
 // stamps every record; when the compiled content is newer we re-seed the published
 // content (and an untouched draft) so every environment converges on the code.
 // BUMP SEED_VERSION whenever defaultSite() content changes.
-export const SEED_VERSION = '2026-07-14.1';
+export const SEED_VERSION = '2026-07-14.2';
 
 /** Stable structural signature of a site's published content (env-parity checks). */
 export function siteContentSignature(s: WebsiteSite | null): string {

@@ -302,7 +302,7 @@ export const PublicSiteApp: React.FC = () => {
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center', marginTop: 28, paddingTop: 16, borderTop: '1px solid var(--color-outline-variant, #2a3330)' }}>
             <span style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', fontSize: 13 }}>{lsite!.footer.copyright}</span>
-            <div style={{ display: 'flex', gap: 14 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
               {lsite!.footer.legalLinks.map(l => <a key={l.path} href={l.path} onClick={e => { e.preventDefault(); navigate(l.path); }} style={{ color: 'var(--color-on-surface-variant, #a7b0a6)', fontSize: 13, textDecoration: 'none' }}>{l.label}</a>)}
             </div>
           </div>
