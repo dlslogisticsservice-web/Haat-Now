@@ -5,6 +5,7 @@ import { sandboxStore } from './services/sandboxStore';
 import { cartService } from './services/cart.service';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { AccountGateway, InternalSessionChooser, detectGatewayMode, type AccountType, type GatewayMode } from './features/auth/AccountGateway';
+import { affiliateService } from './services/partner.service';
 import { FeedbackHost } from './components/ui/feedback';
 import { AppGate } from './components/AppGate';
 import { HomeScreen } from './features/home/HomeScreen';
@@ -110,6 +111,9 @@ export default function App() {
   const notifChannelRef = useRef<any>(null);
 
   // ── Cart remote sync ────────────────────────────────────────────
+  // Referral attribution: remember an inbound ?ref=<affiliate code> and count the click.
+  useEffect(() => { affiliateService.captureRef(); }, []);
+
   useEffect(() => {
     // Cart sync only applies to the customer role (merchant/driver/admin have no cart).
     if (session?.id && session.role === 'customer') {

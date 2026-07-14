@@ -120,6 +120,8 @@ export interface Affiliate {
 const APPS_KEY = 'haat_sb_partner_apps';
 const RULES_KEY = 'haat_sb_partner_docrules';
 const AFF_KEY = 'haat_sb_affiliates';
+const REF_KEY = 'haat_ref';                 // active referral code remembered per browser
+const AFF_COMMISSION_RATE = 0.05;           // launch affiliate commission: 5% of order total
 const RL_KEY = 'haat_sb_partner_ratelimit';
 
 const read = <T,>(k: string, fb: T): T => { try { return JSON.parse(localStorage.getItem(k) || '') as T; } catch { return fb; } };
@@ -364,4 +366,29 @@ export const affiliateService = {
   get(code: string): Affiliate | null { return read<Affiliate[]>(AFF_KEY, []).find(a => a.code === code) || null; },
   list(): Affiliate[] { return read<Affiliate[]>(AFF_KEY, []); },
   qrPayload(code: string): string { return `${this.origin()}/app?ref=${code}`; },
+
+  // ── Referral attribution (the missing connection) ────────────────────────────
+  // captureRef: on entry, read ?ref=<code>; if it maps to a real affiliate, remember it
+  // for this browser and count one click (once). recordConversion: attribute a placed
+  // order to the remembered affiliate — increments orders + commission (5% of total).
+  captureRef(): void {
+    try {
+      const code = new URLSearchParams(window.location.search).get('ref');
+      if (!code) return;
+      if (!this.get(code)) return;                       // ignore unknown/invalid codes
+      const already = localStorage.getItem(REF_KEY) === code;
+      localStorage.setItem(REF_KEY, code);
+      if (!already) { const list = read<Affiliate[]>(AFF_KEY, []); const a = list.find(x => x.code === code); if (a) { a.clicks += 1; write(AFF_KEY, list); emit(); } }
+    } catch { /* ignore */ }
+  },
+  activeRef(): string | null { try { return localStorage.getItem(REF_KEY); } catch { return null; } },
+  recordConversion(orderTotal: number): Affiliate | null {
+    try {
+      const code = localStorage.getItem(REF_KEY); if (!code) return null;
+      const list = read<Affiliate[]>(AFF_KEY, []); const a = list.find(x => x.code === code); if (!a) return null;
+      a.orders += 1;
+      a.commission = +(a.commission + Math.max(0, orderTotal) * AFF_COMMISSION_RATE).toFixed(2);
+      write(AFF_KEY, list); emit(); return a;
+    } catch { return null; }
+  },
 };

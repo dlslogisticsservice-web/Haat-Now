@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { toast } from '../../components/ui/feedback';
 import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
+import { affiliateService } from '../../services/partner.service';
 import { adminService } from '../../services/admin.service';
 import { paymentOrchestrator } from '../../services/payment-orchestrator.service';
 import { sandboxStore } from '../../services/sandboxStore';
@@ -304,6 +305,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         delivery_fee: deliveryFee,
         items: cartItems.map(it => ({ name: it.product.name, qty: it.quantity, price: it.product.price + (it.variant?.price_modifier ?? 0) })),
       });
+      affiliateService.recordConversion(grandTotal); // attribute the order to the referring affiliate (if any)
       setCompletedOrderId(order.id);
       setShowSuccessModal(true);
       return;

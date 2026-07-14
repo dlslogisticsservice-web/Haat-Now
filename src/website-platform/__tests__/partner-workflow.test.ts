@@ -76,3 +76,29 @@ test('dynamic document engine: add / disable / delete rules', () => {
   partnerService.deleteRule(r.id);
   assert.equal(partnerService.rules('merchant').length, before);
 });
+
+test('referral attribution: ?ref click + order conversion credits the affiliate', () => {
+  // Approve an affiliate to mint a code.
+  let app = partnerService.submit({ type: 'affiliate', name: 'Promoter', phone: '+201777777777' }).application!;
+  for (const s of ['documents_review', 'assigned', 'phone_call', 'field_visit', 'negotiation', 'contract_pending', 'approved'] as const) app = partnerService.transition(app.id, s, 'admin').application!;
+  const code = app.affiliateCode!;
+  // Inbound ?ref=<code> → captureRef counts a click and remembers it.
+  (globalThis as any).window.location.search = `?ref=${code}`;
+  affiliateService.captureRef();
+  assert.equal(affiliateService.activeRef(), code);
+  assert.equal(affiliateService.get(code)!.clicks, 1);
+  affiliateService.captureRef(); // idempotent — same code doesn't double-count the click
+  assert.equal(affiliateService.get(code)!.clicks, 1);
+  // A placed order attributes to the affiliate: orders++ and commission = 5% of total.
+  affiliateService.recordConversion(200);
+  affiliateService.recordConversion(100);
+  const aff = affiliateService.get(code)!;
+  assert.equal(aff.orders, 2);
+  assert.equal(aff.commission, +(200 * 0.05 + 100 * 0.05).toFixed(2)); // 15
+});
+
+test('referral attribution: an unknown ref code is ignored (no phantom affiliate)', () => {
+  (globalThis as any).window.location.search = '?ref=NOPE';
+  affiliateService.captureRef();
+  assert.equal(affiliateService.get('NOPE'), null);
+});
