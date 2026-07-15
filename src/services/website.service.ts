@@ -85,7 +85,7 @@ export interface WebsiteSite {
    *  the migration loader (mergeDefaults spreads existing keys), even though not typed here. */
   schemaVersion?: number;
 }
-interface Record_ { draft: WebsiteSite; published: WebsiteSite; version: number; history: { version: number; at: string; site: WebsiteSite }[]; seedVersion?: string; schemaVersion?: number }
+interface Record_ { draft: WebsiteSite; published: WebsiteSite; version: number; history: { version: number; at: string; site: WebsiteSite }[]; seedVersion?: string; schemaVersion?: number; draftDirty?: boolean }
 type Store = Record<string, Record_>; // key = tenantId
 const REPORTS_KEY = 'haat_sb_website_reports'; // last migration report per tenant (Super Admin health monitor)
 
@@ -489,7 +489,10 @@ const NEARBY: MerchantCard[] = [
 // stamps every record; when the compiled content is newer we re-seed the published
 // content (and an untouched draft) so every environment converges on the code.
 // BUMP SEED_VERSION whenever defaultSite() content changes.
-export const SEED_VERSION = '2026-07-14.2';
+// Bumped to '.3' (no defaultSite content change) purely to force the one-time re-seed that
+// refreshes already-stranded, untouched drafts to the current baseline — restoring
+// Studio-Preview↔Public-Website parity for browsers whose draft froze under the old guard.
+export const SEED_VERSION = '2026-07-15.1';
 
 /** Stable structural signature of a site's published content (env-parity checks). */
 export function siteContentSignature(s: WebsiteSite | null): string {
@@ -518,9 +521,13 @@ function ensureRecord(store: Store, tenant: any): Record_ {
   // Migrate stale records to the current compiled content (the single source of truth).
   if (rec.seedVersion !== SEED_VERSION) {
     const site = defaultSite(tenant);
-    const draftUntouched = JSON.stringify(rec.draft) === JSON.stringify(rec.published);
     rec.published = clone(site);            // public content always tracks the compiled baseline
-    if (draftUntouched) rec.draft = clone(site); // keep an in-progress author draft, else refresh it
+    // Refresh an UNTOUCHED author draft to the new baseline so Studio Preview (draft) stays in
+    // PARITY with the Public Website (published). draftDirty is set true only by a real saveDraft
+    // edit; a legacy record with no flag is treated as untouched (its stale draft is exactly what
+    // made Studio render the old homepage after published advanced). A genuinely-edited draft is
+    // preserved. The old JSON draft===published test froze forever once the two diverged.
+    if (!rec.draftDirty) rec.draft = clone(site);
     rec.seedVersion = SEED_VERSION;
   }
   return rec;
@@ -630,6 +637,7 @@ export const websiteService = {
     const tenant = resolveTenantById(tenantId); if (!tenant) return;
     const store = readStore(); const rec = ensureRecord(store, tenant);
     rec.draft = { ...rec.draft, ...patch, updatedAt: now() };
+    rec.draftDirty = true; // author edited the draft → do not auto-refresh it on a future re-seed
     writeStore(store);
   },
 
@@ -669,6 +677,7 @@ export const websiteService = {
     rec.history = rec.history.slice(0, 20);
     rec.version += 1;
     rec.published = clone({ ...rec.draft, updatedAt: now() });
+    rec.draftDirty = false; // draft is now published (draft === published) → clean again
     writeStore(store);
     emitChange(tenantId);
   },
