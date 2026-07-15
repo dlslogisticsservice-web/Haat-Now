@@ -26,6 +26,7 @@ import { NotificationCenter } from './NotificationCenter';
 import { SystemLogs } from './SystemLogs';
 import { RbacCenter } from './RbacCenter';
 import { IntegrationCenter } from './IntegrationCenter';
+import { LaunchGuardian } from './LaunchGuardian';
 import { PlatformModuleRegistry } from './PlatformModuleRegistry';
 import { WebsiteCenter } from './WebsiteCenter';
 import { PartnerManagement } from './PartnerManagement';
@@ -62,7 +63,7 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry' | 'website' | 'partners';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry' | 'website' | 'partners' | 'guardian';
 type CatTab = 'categories' | 'zones';
 type MgmtTab = 'drivers' | 'vehicles' | 'merchants' | 'branches' | 'orders' | 'customers';
 
@@ -465,6 +466,7 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             ]} />
         )}
         {activeTab === 'notifications' && <NotificationCenter adminId={adminId} lang={lang} onUnread={setNotifBadge} />}
+        {activeTab === 'guardian' && isSuper && <LaunchGuardian lang={lang} />}
         {activeTab === 'logs' && isSuper && <SystemLogs lang={lang} />}
         {activeTab === 'rbac' && isSuper && <RbacCenter lang={lang} />}
         {activeTab === 'integrations' && isSuper && <IntegrationCenter lang={lang} />}

@@ -3,12 +3,12 @@ import {
   LayoutDashboard, Map, Route, MapPin, UserRound, Truck, Wallet, Banknote, TicketPercent,
   Headset, ShieldCheck, LifeBuoy, Target, Megaphone, Palette, Settings2, ChevronDown, LogOut,
   Languages, RefreshCw, LucideIcon, Layers, Bell, ScrollText, Search,
-  Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen, Plug, Rocket, LayoutGrid, Sparkles, Boxes, Globe, UserPlus,
+  Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen, Plug, Rocket, LayoutGrid, Sparkles, Boxes, Globe, UserPlus, Activity,
 } from 'lucide-react';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 
 export type NavKey =
-  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry' | 'website' | 'partners'
+  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry' | 'website' | 'partners' | 'guardian'
   | 'catalog:categories' | 'catalog:zones'
   | 'mgmt:drivers' | 'mgmt:vehicles' | 'mgmt:merchants' | 'mgmt:branches' | 'mgmt:orders' | 'mgmt:customers'
   | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles'
@@ -70,6 +70,7 @@ const GROUPS: Group[] = [
     { key: 'partners', ar: 'إدارة الشركاء', en: 'Partner Management', Icon: UserPlus, super: true },
   ] },
   { ar: 'النظام', en: 'System', items: [
+    { key: 'guardian', ar: 'حارس الإطلاق', en: 'Launch Guardian', Icon: Activity, super: true },
     { key: 'notifications', ar: 'الإشعارات', en: 'Notifications', Icon: Bell },
     { key: 'config', ar: 'الإعدادات', en: 'Settings', Icon: Settings2 },
   ] },
