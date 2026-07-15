@@ -355,9 +355,12 @@ create table if not exists public.website_feature_flags (
   flag text not null,
   state text not null default 'disabled' check (state in ('enabled','disabled','beta')),
   version int not null default 1,
-  created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
-  unique (tenant_id, coalesce(site_id, '00000000-0000-0000-0000-000000000000'::uuid), flag)
+  created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
+-- Uniqueness over an expression (coalesce) must be a UNIQUE INDEX, not a table UNIQUE constraint
+-- (Postgres rejects expressions in UNIQUE constraints — this migration previously failed here).
+create unique index if not exists idx_website_feature_flags_uniq
+  on public.website_feature_flags (tenant_id, coalesce(site_id, '00000000-0000-0000-0000-000000000000'::uuid), flag);
 
 -- ═══════════════════════════════════════════════════════════════════════════════
 -- RLS — enable + standard tenant policy on every tenant-scoped table.

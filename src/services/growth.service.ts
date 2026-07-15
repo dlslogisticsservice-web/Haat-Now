@@ -18,6 +18,13 @@ export const growthService = {
     const { error } = await supabase.rpc('apply_referral_code', { p_code: code, p_referee: customerId });
     return { error };
   },
+  // Attribute a completed order to the referrer (first qualifying order ⇒ commission).
+  // Thin wrapper over the existing qualify_referral RPC; the RPC is idempotent and no-ops
+  // when the customer wasn't referred or already qualified — safe to call on every order.
+  async qualifyReferral(customerId: string, orderId: string): Promise<{ error: any }> {
+    const { error } = await supabase.rpc('qualify_referral', { p_referee: customerId, p_order_id: orderId });
+    return { error };
+  },
   async myReferrals(customerId: string): Promise<{ data: any[]; error: any }> {
     const { data, error } = await supabase.from('referrals').select('*').eq('referrer_id', customerId).order('created_at', { ascending: false });
     return { data: data || [], error };

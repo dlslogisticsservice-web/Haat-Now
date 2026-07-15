@@ -3,6 +3,7 @@ import { toast } from '../../components/ui/feedback';
 import { checkoutService } from '../../services/checkout.service';
 import { orderService } from '../../services/order.service';
 import { affiliateService } from '../../services/partner.service';
+import { growthService } from '../../services/growth.service';
 import { adminService } from '../../services/admin.service';
 import { paymentOrchestrator } from '../../services/payment-orchestrator.service';
 import { sandboxStore } from '../../services/sandboxStore';
@@ -41,6 +42,7 @@ const PAYMENT_TYPES: { key: string; label: string; Icon: LucideIcon }[] = [
   { key: 'apple_pay', label: 'Apple Pay', Icon: Smartphone },
   { key: 'mada',      label: 'مدى',       Icon: CreditCard },
   { key: 'visa',      label: 'Visa',       Icon: Banknote },
+  { key: 'cod',       label: 'Cash on Delivery', Icon: Wallet },
 ];
 
 export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, onBack }: CheckoutPageProps) => {
@@ -119,6 +121,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           if (pendingCoupon && orderId) {
             await checkoutService.redeemCoupon(pendingCoupon, orderId);
           }
+          if (orderId) { void growthService.qualifyReferral(customerId, orderId); } // attribute referral once payment is confirmed
           setCompletedOrderId(orderId ?? '');
           setPaymentStatus('idle');
           setShowSuccessModal(true);
@@ -312,10 +315,12 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
     }
     if (addresses.length === 0) { toast.error(t('checkout.addAddressFirst')); return; }
     if (!selectedAddress) { toast.error(t('checkout.selectAddress')); return; }
-    if (!selectedPayment)  { toast.error(t('checkout.selectPayment'));   return; }
+    const isCod = selectedPayType === 'cod';
+    if (!isCod && !selectedPayment)  { toast.error(t('checkout.selectPayment'));   return; }
     // Open the payment tab synchronously (before any async ops) — required by iOS Safari.
     // Browsers allow window.open only in a direct user-gesture stack; async calls get blocked.
-    const paymentTabRef = window.open('about:blank', '_moyasar_payment');
+    // COD needs no gateway → no payment tab.
+    const paymentTabRef = isCod ? null : window.open('about:blank', '_moyasar_payment');
     setActionLoading(true);
     try {
       const resolvedItems = [];
@@ -345,6 +350,20 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
       );
       if (orderErr) { paymentTabRef?.close(); toast.error(`${t('checkout.orderError')}: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
       if (orderData) {
+        if (isCod) {
+          // Cash on Delivery — reuse the existing COD recorder: writes a payment_attempts row
+          // (provider='cod') and labels the order payment_method='cod'. No gateway; cash is
+          // reconciled to paid at delivery by the settlement engine. Payment is immediate, so
+          // redeem the coupon now and attribute the referral, then go straight to success.
+          await paymentOrchestrator.recordCod({ orderId: orderData.id, customerId, amount: grandTotal, currency: country.currency.code });
+          if (couponId) { await checkoutService.redeemCoupon(couponId, orderData.id); }
+          void growthService.qualifyReferral(customerId, orderData.id);
+          orderIdemRef.current = null;
+          setCompletedOrderId(orderData.id);
+          setActionLoading(false);
+          setShowSuccessModal(true);
+          return;
+        }
         // EF2-11: initiate payment through the single Payment Orchestrator — idempotent
         // (duplicate-submit protected) and routed to the SECURE server-side payment-initiate
         // edge function. No direct client gateway call.
@@ -713,12 +732,12 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                             <CheckCircle2 size={12} strokeWidth={2} className="absolute top-1 right-1" color="var(--color-primary-fixed)" />
                           )}
                           <pt.Icon size={20} strokeWidth={1.75} color={isActive ? 'var(--color-primary-fixed)' : 'white'} />
-                          <span style={{ fontSize: '11px', color: isActive ? 'white' : 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{pt.label}</span>
+                          <span style={{ fontSize: '11px', color: isActive ? 'white' : 'var(--color-on-surface-variant)', textTransform: 'none', letterSpacing: 0 }}>{pt.key === 'cod' ? t('checkout.cashOnDelivery') : pt.label}</span>
                         </button>
                       );
                     })}
                   </div>
-                  {paymentMethods.length > 0 && (
+                  {selectedPayType !== 'cod' && paymentMethods.length > 0 && (
                     <div className="space-y-2 mb-2">
                       {paymentMethods
                         .filter(pm => pm.provider.toLowerCase().includes(selectedPayType === 'apple_pay' ? 'apple' : selectedPayType))
@@ -735,6 +754,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                         ))}
                     </div>
                   )}
+                  {selectedPayType !== 'cod' && (
                   <button
                     onClick={() => setIsAddingCard(!isAddingCard)}
                     className="flex items-center gap-1.5 cursor-pointer"
@@ -743,6 +763,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     {isAddingCard ? <Minus size={16} strokeWidth={2} /> : <Plus size={16} strokeWidth={2} />}
                     {isAddingCard ? t('checkout.cancel') : t('checkout.addCard')}
                   </button>
+                  )}
                   {isAddingCard && (
                     <form onSubmit={handleAddNewCard} className="glass rounded-xl p-4 mt-2 space-y-3 text-right" id="add_card_form">
                       <input

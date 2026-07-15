@@ -19,6 +19,21 @@
 -- generate_* / other admin RPCs unchanged (they compute, they don't move cash).
 -- ─────────────────────────────────────────────────────────────────────────────
 
+-- 0) Conflict guard: earlier production carried a legacy, EMPTY role_permissions(role_id,
+--    permission_id) join table whose name collides with the role_template/permission_key
+--    catalog created below. `create table if not exists` would silently keep the legacy shape
+--    and the seed INSERT would fail (column "role_template" does not exist). Rename the legacy
+--    shape aside — idempotent, guarded, no data loss (legacy table is empty; kept as _legacy).
+do $$
+begin
+  if exists (select 1 from information_schema.columns
+             where table_schema='public' and table_name='role_permissions' and column_name='role_id')
+     and not exists (select 1 from information_schema.columns
+             where table_schema='public' and table_name='role_permissions' and column_name='role_template') then
+    alter table public.role_permissions rename to role_permissions_legacy;
+  end if;
+end $$;
+
 -- 1) Which role template each admin holds (nullable; backfilled below).
 alter table public.admin_users add column if not exists role_template text;
 update public.admin_users
