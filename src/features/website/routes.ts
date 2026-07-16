@@ -5,7 +5,12 @@
 // importing it never drags the service graph. runtime.ts re-exports these.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const APP_HOSTS = ['localhost', '127.0.0.1', 'haat-now.vercel.app'];
+// Canonical app hosts: the flagship marketing website is served at `/` and the role app at
+// `/app` on each of these. The production apex `haatnow.app` (+ www + .com) must be listed
+// here — otherwise the apex is misclassified as a third-party custom-domain tenant lookup
+// (slug=null → no tenant → "Site not found"). `/app` is unaffected either way because
+// isAppRoute() short-circuits before host classification.
+const APP_HOSTS = ['localhost', '127.0.0.1', 'haat-now.vercel.app', 'haatnow.app', 'www.haatnow.app', 'haatnow.com', 'www.haatnow.com'];
 const RESERVED_SUB = new Set(['www', 'app', 'admin', 'api', 'haat-now', 'haatnow']);
 
 /** The flagship tenant. Its marketing website is the CANONICAL public entry point at the app host `/`. */

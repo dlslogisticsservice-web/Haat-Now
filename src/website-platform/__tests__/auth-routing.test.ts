@@ -45,3 +45,15 @@ test('resolvePublicRequest: /app is the role app, not the website', () => {
   const app = resolvePublicRequest({ hostname: 'haat-now.vercel.app', pathname: '/app', search: '' } as unknown as Location);
   assert.equal(app.isPublicSite, false);
 });
+
+test('resolvePublicRequest: production apex haatnow.app / → flagship website (not a custom-domain lookup)', () => {
+  const home = resolvePublicRequest({ hostname: 'haatnow.app', pathname: '/', search: '' } as unknown as Location);
+  assert.equal(home.isPublicSite, true);
+  assert.equal(home.via, 'default');            // flagship default, NOT 'custom-domain' → no "Site not found"
+  assert.equal(home.slug, 'haat-now');
+  const www = resolvePublicRequest({ hostname: 'www.haatnow.app', pathname: '/', search: '' } as unknown as Location);
+  assert.equal(www.isPublicSite, true);
+  assert.equal(www.via, 'default');
+  const app = resolvePublicRequest({ hostname: 'haatnow.app', pathname: '/app', search: '' } as unknown as Location);
+  assert.equal(app.isPublicSite, false);         // /app still the role app on the apex
+});
