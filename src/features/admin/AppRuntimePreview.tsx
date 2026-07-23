@@ -21,6 +21,7 @@ import type { RuntimeContext } from '../../runtime/RuntimeAdapter';
 // Side-effects: register the Runtime Adapters so getRuntime(<channel>) resolves.
 import '../../runtime/adapters/customer.adapter';
 import '../../runtime/adapters/merchant.adapter';
+import '../../runtime/adapters/driver.adapter';
 
 // Sandbox preview identities per channel (registered in check-demo-isolation.cjs) — read
 // only behind the DEMO_CONTENT_ENABLED gate. Adapters are identity-agnostic; the Studio
@@ -28,6 +29,7 @@ import '../../runtime/adapters/merchant.adapter';
 const DEMO_IDENTITY: Record<string, { id: string; phone: string; role: string }> = {
   customer: { id: '11111111-0000-0000-0000-000000000001', phone: '+201000000001', role: 'customer' },
   merchant: { id: '22222222-0000-0000-0000-000000000001', phone: '+201000000002', role: 'merchant' },
+  driver: { id: '33333333-0000-0000-0000-000000000001', phone: '+201000000003', role: 'driver' },
 };
 
 // Contained error boundary — a screen that throws shows a message INSIDE the frame,
