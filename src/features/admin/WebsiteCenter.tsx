@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, Suspense } from 'react';
 import {
   Globe, Eye, UploadCloud, RotateCcw, Plus, Trash2, ChevronUp, ChevronDown, History as HistoryIcon, Copy,
   GripVertical, Power, Monitor, Tablet, Smartphone, ImageIcon, Pencil, Undo2, Redo2, Check,
@@ -11,7 +11,9 @@ import { SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseU
 import { toast } from '../../components/ui/feedback';
 import { tenantService } from '../../services/tenant.service';
 import { websiteService, type WebsiteSite, type WebsitePage, type WebsiteBlock, type WebsiteBlockType, type WebsiteCta, type BlogPost } from '../../services/website.service';
-import { BlockRenderer, SectionShell, BlockStyles } from '../website/blocks';
+// Website rendering primitives are loaded THROUGH the Runtime layer (dynamic import), so the
+// Studio never imports the website feature directly (migration M6 — completes the migration).
+import { WebsiteBlockStyles, WebsiteSection, resolveLocalizedSite } from '../../runtime/adapters/website.adapter';
 import { assetsService, BRAND_SLOTS, type AssetItem } from '../../experience/assets.service';
 import { card, inputStyle, iconBtn, swap, Field, Toggle, Btn, MediaField, MediaListField, StringListField, ItemDel, StudioInteractionStyles, studioOverlayBtn } from './studioUI';
 // Experience preview — reuses the ONE Experience Runtime; no JSON, no second targeting engine.
@@ -19,7 +21,6 @@ import { ExperiencePreviewBar } from './ExperiencePreviewBar';
 import { SectionTargeting } from './SectionTargeting';
 import { MarketingNav, MarketingPanel, MARKETING_MODULES, campaignOverlayFor, type MarketingModule } from './MarketingOS';
 import * as aiStudio from '../../services/aiStudio';
-import { localizeSite } from '../website/i18n';
 import { marketingService } from '../../services/marketing.service';
 // Experience Channels — the Studio becomes the visual editor for every channel, not just
 // the website. The website path below is unchanged; these drive the new channels only.
@@ -370,15 +371,17 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
       }
       case 'conversion': { const cta = aiStudio.genCTA(site); return append([{ ...cta, style: aiStudio.CONVERSION_STYLE } as WebsiteBlock, newBlock('waitlist')], L('تمت إضافة عناصر رفع التحويل', 'Conversion boosters added')); }
       case 'translate': {
-        // The public site is bilingual automatically (localizeSite). Audit this page's
-        // Arabic coverage and report which strings still fall back to English.
+        // The public site is bilingual automatically. Audit this page's Arabic coverage via
+        // the website i18n loaded THROUGH the Runtime layer (async), and report the result.
         const walk = (o: any): string[] => Array.isArray(o) ? o.flatMap(walk) : (o && typeof o === 'object') ? Object.values(o).flatMap(walk) : (typeof o === 'string' ? [o] : []);
-        const arPage = localizeSite({ ...site, pages: [selectedPage] } as any, 'ar').pages[0];
-        const pending = walk(arPage.sections).filter(s => /[a-zA-Z]{3,}/.test(s) && !/^(\/|#|https?:)|\.(png|jpe?g|svg|webp|mp4)$/i.test(s)).length;
-        marketingService.audit(tenantId, user, 'ai.assist', 'translate');
-        return pending === 0
-          ? toast.success(L('عربية كاملة لهذه الصفحة ✓', 'Arabic coverage complete for this page ✓'))
-          : toast.success(L(`${pending} نص يعود للإنجليزية — حرّره ليظهر بالعربية`, `${pending} strings fall back to English — edit them to localise`));
+        void (async () => {
+          const arPage = (await resolveLocalizedSite({ ...site, pages: [selectedPage] } as any, 'ar')).pages[0];
+          const pending = walk(arPage.sections).filter(s => /[a-zA-Z]{3,}/.test(s) && !/^(\/|#|https?:)|\.(png|jpe?g|svg|webp|mp4)$/i.test(s)).length;
+          marketingService.audit(tenantId, user, 'ai.assist', 'translate');
+          if (pending === 0) toast.success(L('عربية كاملة لهذه الصفحة ✓', 'Arabic coverage complete for this page ✓'));
+          else toast.success(L(`${pending} نص يعود للإنجليزية — حرّره ليظهر بالعربية`, `${pending} strings fall back to English — edit them to localise`));
+        })();
+        return;
       }
       default: return;
     }
@@ -722,7 +725,7 @@ const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; devic
       {/* Inject the SAME motion/interaction stylesheet the public site uses, so the Studio
           preview renders through the identical production pipeline (hover lifts, reveals,
           glass blur, micro-interactions) instead of a static canvas. Production == Preview. */}
-      <BlockStyles />
+      <Suspense fallback={null}><WebsiteBlockStyles /></Suspense>
       <StudioInteractionStyles scope="#preview_frame" />
       {/* Site header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderBottom: '1px solid var(--color-outline-variant, #2a3330)', background: 'color-mix(in srgb, var(--color-background,#0a0f0c) 85%, transparent)' }}>
@@ -745,7 +748,7 @@ const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; devic
             <button title={L('حذف', 'Delete')} onClick={e => { e.stopPropagation(); onAction(i, 'del'); }} style={{ ...pvBtn, opacity: b.locked ? 0.4 : 1 }}><Trash2 size={12} /></button>
           </div>
           {selectedIdx === i && !b.locked && <InlineEditor block={b} lang={lang} onEdit={(patch) => onEdit(i, patch)} />}
-          <SectionShell block={b}><BlockRenderer block={b} onNav={() => {}} /></SectionShell>
+          <Suspense fallback={<div style={{ minHeight: 48 }} />}><WebsiteSection block={b} /></Suspense>
         </div>
       ) : null)}
       {/* Right-click context menu */}

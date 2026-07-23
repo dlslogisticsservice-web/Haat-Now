@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { ImageIcon, Plus, Trash2 } from 'lucide-react';
-import { MediaPicker } from '../website/MediaPicker';
+// The website Media Library picker is loaded THROUGH the Runtime layer (dynamic import),
+// so the Studio never imports the website feature directly (migration M6).
+import { WebsiteMediaPicker } from '../../runtime/adapters/website.adapter';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Website Studio · shared UI primitives. Extracted so the Studio shell AND the
@@ -91,7 +93,7 @@ export const MediaField: React.FC<{ label: string; value: string; kind?: 'image'
         <button onClick={() => setOpen(true)} className="text-[12px] font-bold cursor-pointer" style={{ padding: '7px 12px', borderRadius: 9, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: 'none' }}>{L('من المكتبة', 'From library')}</button>
         {value && <button onClick={() => onChange('')} className="text-[12px] cursor-pointer" style={{ color: '#f87171', background: 'transparent', border: 'none' }}>{L('مسح', 'Clear')}</button>}
       </div>
-      <MediaPicker open={open} kind={kind} onPick={onChange} onClose={() => setOpen(false)} lang={lang} />
+      <Suspense fallback={null}><WebsiteMediaPicker open={open} kind={kind} onPick={onChange} onClose={() => setOpen(false)} lang={lang} /></Suspense>
     </div>
   );
 };
@@ -109,7 +111,7 @@ export const MediaListField: React.FC<{ label: string; values: string[]; kind?: 
         ))}
         <button onClick={() => setOpen(true)} style={{ ...thumb, display: 'grid', placeItems: 'center', cursor: 'pointer', border: '1px dashed var(--color-outline-variant)', color: 'var(--color-on-surface-variant)' }}><Plus size={16} /></button>
       </div>
-      <MediaPicker open={open} kind={kind} onPick={u => onChange([...values, u])} onClose={() => setOpen(false)} lang={lang} />
+      <Suspense fallback={null}><WebsiteMediaPicker open={open} kind={kind} onPick={u => onChange([...values, u])} onClose={() => setOpen(false)} lang={lang} /></Suspense>
     </div>
   );
 };

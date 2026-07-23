@@ -26,13 +26,10 @@ const SUPABASE_RE = /from\s+['"][^'"]*lib\/supabase['"]/;
 // Static `import … from '…'` / `export … from '…'` (NOT dynamic import('…')).
 const FROM_RE = /(?:import\b[^;]*?\bfrom|export\b[^;]*?\bfrom)\s*['"]([^'"]+)['"]/g;
 
-// Temporary, shrinking allowlist of legitimate cross-feature edges that a later migration
-// step removes. Each entry MUST name the step that deletes it. Empty = fully isolated.
-//   admin → website : the Studio still imports the website renderer/picker directly
-//                     (WebsiteCenter, studioUI). Removed at M6 (website Runtime Adapter).
-const FEATURE_BOUNDARY_ALLOW = {
-  admin: ['website'],
-};
+// Allowlist of legitimate cross-feature edges pending a migration step. EMPTY as of M6:
+// the Runtime Migration is complete — no feature imports a sibling feature. Any new entry
+// MUST name the migration step that deletes it; the goal state is {} (total isolation).
+const FEATURE_BOUNDARY_ALLOW = {};
 
 function walk(dir) {
   let files = [];
