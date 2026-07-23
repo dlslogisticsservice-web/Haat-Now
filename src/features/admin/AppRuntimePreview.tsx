@@ -18,12 +18,17 @@ import type { ChannelId } from '../../experience-channels/channels';
 import { DEMO_CONTENT_ENABLED } from '../../config/runtime';
 import { getRuntime } from '../../runtime/registry';
 import type { RuntimeContext } from '../../runtime/RuntimeAdapter';
-// Side-effect: registers the Customer Runtime Adapter so getRuntime('customer') resolves.
+// Side-effects: register the Runtime Adapters so getRuntime(<channel>) resolves.
 import '../../runtime/adapters/customer.adapter';
+import '../../runtime/adapters/merchant.adapter';
 
-// Sandbox preview identity (registered in check-demo-isolation.cjs) — read only behind the
-// DEMO_CONTENT_ENABLED gate. The adapter is identity-agnostic; the Studio supplies this.
-const DEMO_CUSTOMER = { id: '11111111-0000-0000-0000-000000000001', phone: '+201000000001', role: 'customer' };
+// Sandbox preview identities per channel (registered in check-demo-isolation.cjs) — read
+// only behind the DEMO_CONTENT_ENABLED gate. Adapters are identity-agnostic; the Studio
+// supplies the channel-appropriate seeded identity.
+const DEMO_IDENTITY: Record<string, { id: string; phone: string; role: string }> = {
+  customer: { id: '11111111-0000-0000-0000-000000000001', phone: '+201000000001', role: 'customer' },
+  merchant: { id: '22222222-0000-0000-0000-000000000001', phone: '+201000000002', role: 'merchant' },
+};
 
 // Contained error boundary — a screen that throws shows a message INSIDE the frame,
 // never reloads or crashes the Studio.
@@ -57,7 +62,7 @@ export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, s
 
   // Build the runtime context. A preview identity exists only in sandbox; in production-data
   // mode there is no identity, so identity-requiring screens fall back to the note (never faked).
-  const identity = DEMO_CONTENT_ENABLED ? DEMO_CUSTOMER : null;
+  const identity = DEMO_CONTENT_ENABLED ? (DEMO_IDENTITY[channel] ?? null) : null;
   const ctx: RuntimeContext = { identity, locale: lang, country: 'SA', sandbox: DEMO_CONTENT_ENABLED };
 
   // Resolve the screen THROUGH the Runtime Registry — the only path to any app's screens.
