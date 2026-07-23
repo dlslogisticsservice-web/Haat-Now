@@ -1,46 +1,29 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // App Runtime Preview — the Application Studio's "Live App" mode.
 //
-// It mounts the ACTUAL production customer screens (the very same components the live
-// customer app renders — HomeScreen, WalletScreen, ProfileScreen, OrdersList,
-// DiscoverScreen) inside the device frame, driven by a sandbox demo identity. This is
-// not a mockup, screenshot, or placeholder — it is the real React application running
-// inside the Studio.
+// It renders the REAL application inside the device frame, but the Studio no longer imports
+// any customer screen. All rendering goes through the Runtime abstraction: it builds a
+// RuntimeContext, asks the Runtime Registry for the channel's adapter, and mounts the
+// adapter's lazy screen. The customer screens live behind the Customer Runtime Adapter
+// (runtime/adapters/customer.adapter) — one render path, no placeholders, no duplication.
 //
-// Scope & honesty:
-//  · Customer content screens are cycle-free (they do not import features/admin), so they
-//    mount here safely. Merchant/Driver apps import back into admin (a cycle Guardian
-//    forbids), so those channels keep their real experience-surface canvas instead — no
-//    fake screen is shown for them.
-//  · Screens that require external navigation ids (a specific branch/cart) are not mounted
-//    here; `hasRuntimeScreen` returns false and the caller shows the experience canvas.
-//  · Heavy screens are lazy-loaded (matching App.tsx) and wrapped in a CONTAINED error
-//    boundary so a screen that throws degrades to a clear message — never crashes the Studio.
+// Scope & honesty (unchanged from M1): real screens mount only with a preview identity,
+// which exists only in sandbox (DEMO_CONTENT_ENABLED) — never in production-data mode.
+// Merchant/Driver adapters are not registered yet (M5); for those channels getRuntime
+// returns undefined and the honest note is shown, never a fake screen.
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { Suspense } from 'react';
+import React, { Suspense, useMemo } from 'react';
 import { Loader2, MonitorSmartphone } from 'lucide-react';
 import type { ChannelId } from '../../experience-channels/channels';
 import { DEMO_CONTENT_ENABLED } from '../../config/runtime';
+import { getRuntime } from '../../runtime/registry';
+import type { RuntimeContext } from '../../runtime/RuntimeAdapter';
+// Side-effect: registers the Customer Runtime Adapter so getRuntime('customer') resolves.
+import '../../runtime/adapters/customer.adapter';
 
-// The real production screens — same modules the live app lazy-loads (App.tsx).
-const HomeScreen = React.lazy(() => import('../home/HomeScreen').then(m => ({ default: m.HomeScreen })));
-const WalletScreen = React.lazy(() => import('../wallet/WalletScreen').then(m => ({ default: m.WalletScreen })));
-const ProfileScreen = React.lazy(() => import('../profile/ProfileScreen').then(m => ({ default: m.ProfileScreen })));
-const OrdersList = React.lazy(() => import('../orders/OrdersList').then(m => ({ default: m.OrdersList })));
-const DiscoverScreen = React.lazy(() => import('../discover/DiscoverScreen').then(m => ({ default: m.DiscoverScreen })));
-
-// Sandbox demo customer (auth.service DEMO_ACCOUNTS['+201000000001']) — a real seeded
-// identity so the real screens fetch real sandbox data, never fabricated content.
-const DEMO_CUSTOMER = { id: '11111111-0000-0000-0000-000000000001', phone_number: '+201000000001', role: 'customer' };
-const noop = () => {};
-
-// Which customer screens have a real runtime component mounted here.
-const RUNTIME_CUSTOMER = new Set(['home', 'wallet', 'profile', 'orders', 'search', 'categories']);
-
-/** Does a real production screen mount for this channel+screen? (else caller shows canvas) */
-export function hasRuntimeScreen(channel: ChannelId, screenId: string): boolean {
-  return channel === 'customer' && RUNTIME_CUSTOMER.has(screenId);
-}
+// Sandbox preview identity (registered in check-demo-isolation.cjs) — read only behind the
+// DEMO_CONTENT_ENABLED gate. The adapter is identity-agnostic; the Studio supplies this.
+const DEMO_CUSTOMER = { id: '11111111-0000-0000-0000-000000000001', phone: '+201000000001', role: 'customer' };
 
 // Contained error boundary — a screen that throws shows a message INSIDE the frame,
 // never reloads or crashes the Studio.
@@ -72,40 +55,41 @@ export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, s
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const width = DEVICE_W[device] ?? 390;
 
-  const screen = ((): React.ReactNode => {
-    // The Live App runtime mounts real customer screens with a seeded SANDBOX identity, so
-    // it renders only when demo content is enabled (sandbox). In production-data mode there
-    // is no preview identity to drive a customer screen — the note below is shown instead.
-    if (channel !== 'customer' || !DEMO_CONTENT_ENABLED) return null;
-    const u = DEMO_CUSTOMER; // gated sandbox preview identity (registered in check-demo-isolation.cjs)
-    switch (screenId) {
-      case 'home': return <HomeScreen customerId={u.id} selectedCat={null} onSelectCat={noop} searchQuery="" onSearchQuery={noop} onSelectRestaurant={noop} onNavigateToWallet={noop} />;
-      case 'wallet': return <WalletScreen customerId={u.id} />;
-      case 'profile': return <ProfileScreen session={u} onLogout={noop} />;
-      case 'orders': return <OrdersList customerId={u.id} selectedOrderIdInit={undefined} onSelectOrderBack={noop} />;
-      case 'search':
-      case 'categories': return <DiscoverScreen customerId={u.id} onOpenBranch={noop} />;
-      default: return null;
-    }
-  })();
+  // Build the runtime context. A preview identity exists only in sandbox; in production-data
+  // mode there is no identity, so identity-requiring screens fall back to the note (never faked).
+  const identity = DEMO_CONTENT_ENABLED ? DEMO_CUSTOMER : null;
+  const ctx: RuntimeContext = { identity, locale: lang, country: 'SA', sandbox: DEMO_CONTENT_ENABLED };
+
+  // Resolve the screen THROUGH the Runtime Registry — the only path to any app's screens.
+  const adapter = getRuntime(channel);
+  const screenDef = adapter?.getScreen(screenId);
+  const needsIdentity = screenDef?.requires?.includes('identity') ?? false;
+  const canMount = !!screenDef && (!needsIdentity || !!identity);
+
+  // Memoize the lazy component per (channel, screenId) so it does not remount every render.
+  const LazyScreen = useMemo(
+    () => (canMount && screenDef ? React.lazy(async () => ({ default: await screenDef.load() })) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [channel, screenId, canMount],
+  );
 
   return (
     <div id="app_runtime_preview" data-channel={channel} data-screen={screenId} dir={lang === 'ar' ? 'rtl' : 'ltr'} style={{ width: '100%', display: 'grid', justifyItems: 'center', gap: 8 }}>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 11.5, fontWeight: 700, color: 'var(--color-primary-fixed,#a3f95b)' }}>
         <MonitorSmartphone size={13} />{L('التطبيق الحقيقي — مكوّنات الإنتاج', 'Live app runtime — production components')}
       </div>
-      {screen ? (
+      {LazyScreen ? (
         <div style={{ width, maxWidth: '100%', height: 720, maxHeight: '72vh', overflow: 'auto', borderRadius: 26, border: '1px solid var(--color-outline-variant)', background: 'var(--color-background,#0a0f0c)', boxShadow: '0 24px 70px -34px rgba(0,0,0,.7)', position: 'relative', contain: 'layout paint' }}>
           <ScreenBoundary screenId={screenId}>
             <Suspense fallback={<div style={{ height: '100%', display: 'grid', placeItems: 'center' }}><Loader2 className="animate-spin" size={28} style={{ color: 'var(--color-primary-fixed,#a3f95b)' }} /></div>}>
-              {screen}
+              <LazyScreen ctx={ctx} />
             </Suspense>
           </ScreenBoundary>
         </div>
       ) : (
         <div style={{ padding: '28px 18px', textAlign: 'center', color: 'var(--color-on-surface-variant)', maxWidth: 360 }}>
           <p style={{ fontSize: 12.5, margin: 0 }}>{L('لا يوجد وقت تشغيل مباشر لهذه الشاشة هنا.', 'No live runtime is mounted for this screen here.')}</p>
-          <p style={{ fontSize: 11, margin: '6px 0 0', opacity: 0.8 }}>{L('يظهر التشغيل الحقيقي لشاشات العميل (الرئيسية، المحفظة، الطلبات…). بدّل إلى «اللوحة» لتحرير تجارب هذه الشاشة.', 'Live runtime is available for Customer screens (Home, Wallet, Orders…). Switch to “Canvas” to author this screen’s experiences.')}</p>
+          <p style={{ fontSize: 11, margin: '6px 0 0', opacity: 0.8 }}>{L('يتوفّر التشغيل الحقيقي لشاشات العميل (الرئيسية، المحفظة، الطلبات…) عبر محوّل وقت تشغيل العميل. بدّل إلى «اللوحة» لتحرير تجارب هذه الشاشة.', 'Live runtime for Customer screens (Home, Wallet, Orders…) is served through the Customer Runtime Adapter. Switch to “Canvas” to author this screen’s experiences.')}</p>
         </div>
       )}
     </div>

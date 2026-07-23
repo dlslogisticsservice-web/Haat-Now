@@ -17,7 +17,7 @@ export type RuntimeId = 'customer' | 'merchant' | 'driver' | 'website' | (string
 
 /** The environment a screen mounts in — supplied by the Studio, consumed by the adapter. */
 export interface RuntimeContext {
-  identity: { id: string; role: string } | null;
+  identity: { id: string; role: string; phone?: string } | null;
   locale: 'ar' | 'en';
   country: string;
   /** True in sandbox mode; adapters must not mount seeded preview identities in production. */
