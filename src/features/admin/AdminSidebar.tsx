@@ -3,15 +3,15 @@ import {
   LayoutDashboard, Map, Route, MapPin, UserRound, Truck, Wallet, Banknote, TicketPercent,
   Headset, ShieldCheck, LifeBuoy, Target, Megaphone, Palette, Settings2, ChevronDown, LogOut,
   Languages, RefreshCw, LucideIcon, Layers, Bell, ScrollText, Search,
-  Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen, Plug, Rocket, LayoutGrid, Sparkles, Boxes, Globe, UserPlus, Activity,
+  Store, Building2, ClipboardList, Users, Gauge, PanelLeftClose, PanelLeftOpen, Plug, Rocket, LayoutGrid, Sparkles, Boxes, Globe, UserPlus, Activity, ShieldAlert, AppWindow,
 } from 'lucide-react';
 import { BrandLogo } from '../../components/brand/BrandLogo';
 
 export type NavKey =
-  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry' | 'website' | 'partners' | 'guardian'
+  | 'kpi' | 'coupons' | 'config' | 'support' | 'campaigns' | 'design' | 'notifications' | 'logs' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry' | 'website' | 'appstudio' | 'partners' | 'guardian' | 'experience' | 'golive'
   | 'catalog:categories' | 'catalog:zones'
   | 'mgmt:drivers' | 'mgmt:vehicles' | 'mgmt:merchants' | 'mgmt:branches' | 'mgmt:orders' | 'mgmt:customers'
-  | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles'
+  | 'ops:command' | 'ops:dispatch' | 'ops:zones' | 'ops:performance' | 'ops:vehicles' | 'ops:incidents'
   | 'ops:finance' | 'ops:payouts' | 'ops:care' | 'ops:kyc' | 'ops:growthb';
 
 type Item = { key: NavKey; ar: string; en: string; Icon: LucideIcon; badge?: number; super?: boolean };
@@ -21,6 +21,7 @@ const GROUPS: Group[] = [
   { ar: 'القيادة', en: 'Executive', items: [{ key: 'kpi', ar: 'لوحة المعلومات', en: 'Dashboard', Icon: LayoutDashboard }] },
   { ar: 'العمليات', en: 'Operations', items: [
     { key: 'ops:command', ar: 'غرفة العمليات', en: 'Command Center', Icon: Map },
+    { key: 'ops:incidents', ar: 'مركز الحوادث', en: 'Incident Center', Icon: ShieldAlert },
     { key: 'ops:dispatch', ar: 'الإرسال', en: 'Dispatch', Icon: Route },
     { key: 'ops:zones', ar: 'المناطق', en: 'Zones', Icon: MapPin },
   ] },
@@ -67,9 +68,12 @@ const GROUPS: Group[] = [
     { key: 'integrations', ar: 'مركز التكاملات', en: 'Integrations', Icon: Plug, super: true },
     { key: 'registry', ar: 'سجل المنصّة', en: 'Platform Registry', Icon: Boxes, super: true },
     { key: 'website', ar: 'استوديو الموقع', en: 'Website Studio', Icon: Globe, super: true },
+    { key: 'appstudio', ar: 'استوديو التطبيق', en: 'Application Studio', Icon: AppWindow, super: true },
     { key: 'partners', ar: 'إدارة الشركاء', en: 'Partner Management', Icon: UserPlus, super: true },
   ] },
   { ar: 'النظام', en: 'System', items: [
+    { key: 'experience', ar: 'مركز التجربة', en: 'Experience Center', Icon: Sparkles, super: true },
+    { key: 'golive', ar: 'غرفة الإطلاق', en: 'Go-Live Center', Icon: Rocket, super: true },
     { key: 'guardian', ar: 'حارس الإطلاق', en: 'Launch Guardian', Icon: Activity, super: true },
     { key: 'notifications', ar: 'الإشعارات', en: 'Notifications', Icon: Bell },
     { key: 'config', ar: 'الإعدادات', en: 'Settings', Icon: Settings2 },

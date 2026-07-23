@@ -11,12 +11,18 @@
 //   record + theme engine at render. Sandbox store mirrors the future website_* tables (WEBSITE_DATABASE.md).
 // Consumers: the Public Website Runtime (features/website/*) + (future) a Website Center admin console.
 // Future merge candidate: NO
-import { supabase } from '../lib/supabase';
+// NOTE: no supabase import — this service is localStorage-backed in BOTH modes (the
+// website_* tables in WEBSITE_DATABASE.md are not built yet). It previously imported the
+// client solely to test `!supabase`. Content here is authored in code and seeded, not
+// fabricated demo data, so it is unaffected by DEMO_CONTENT_ENABLED.
 import { CATEGORY_IMAGES } from '../utils/categoryImages';
 import { LEGAL_DOCS } from '../config/legal';
 import { loadWebsite, validateSite, WEBSITE_SCHEMA_VERSION, type MigrationReport } from './websiteSchema';
 
-const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
+// Demo mode is decided by the BUILD, never by whether a client object happens to exist:
+// `|| !supabase` meant a production deploy with missing env vars silently served demo
+// data. (main.tsx blocks that boot today, so this is closing the trap, not a live bug.)
+import { IS_SANDBOX as SANDBOX } from '../config/runtime';
 const LS_KEY = 'haat_sb_website_v1';
 const TENANTS_KEY = 'haat_crud_tenants';
 

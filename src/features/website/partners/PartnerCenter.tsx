@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { PARTNER_TYPES, partnerTypeBySlug, type PartnerTypeContent, type BiText } from './partnerContent';
 import { partnerService, type PartnerApplication } from '../../../services/partner.service';
-import { HaatLogo } from '../icons';
+import { HaatLogo } from '../../../components/brand/HaatLogo';
 
 const ICONS: Record<string, any> = {
   Store, Truck, Bike, Megaphone, Building2, Landmark, Briefcase, Users, LayoutDashboard, Wallet,

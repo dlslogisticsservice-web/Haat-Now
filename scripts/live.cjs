@@ -18,10 +18,18 @@ function run(cmd, args) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
-// Advisory environment validation — surfaces missing LIVE client env (Supabase URL/key)
-// early. Non-fatal on purpose: CI compiles the live bundle without secrets, and the deploy
-// host injects real env. A production deploy should gate on `npm run check:env` (exit code).
-spawnSync('node', ['scripts/check-env.cjs'], { stdio: 'inherit', env, shell: process.platform === 'win32' });
+// Environment validation. For a real production BUILD this is a HARD gate — a bundle that
+// ships with a missing/invalid Supabase URL or anon key would boot to `supabase = null` and
+// a fatal console error for every user. CI (which compiles the live bundle without secrets)
+// and local `dev` opt out via HAAT_ENV_ADVISORY=1; a production deploy must NOT set that.
+{
+  const envCheck = spawnSync('node', ['scripts/check-env.cjs'], { stdio: 'inherit', env, shell: process.platform === 'win32' });
+  const advisory = process.env.HAAT_ENV_ADVISORY === '1' || mode === 'dev';
+  if (envCheck.status !== 0) {
+    if (advisory) console.warn('[live] check:env failed — continuing (advisory: dev or HAAT_ENV_ADVISORY=1).');
+    else { console.error('[live] check:env failed — refusing to build a production bundle with invalid env. Set HAAT_ENV_ADVISORY=1 only for CI compile checks.'); process.exit(envCheck.status ?? 1); }
+  }
+}
 
 if (mode === 'dev') {
   run('vite', ['--port=3000', '--host=0.0.0.0']);

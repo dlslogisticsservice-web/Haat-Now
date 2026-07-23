@@ -7,8 +7,32 @@ import { PartnerCenter } from './partners/PartnerCenter';
 import { loadLiveCommerce, type LiveCommerce } from './commerce';
 import { WebsiteCommerce } from './WebsiteCommerce';
 import type { WebsiteBlock, WebsiteSite } from '../../services/website.service';
+// Wave 16 · the Experience Engine decides which authored sections render. Returns the input
+// array by reference unless the canary is on for this experience — the SINGLE render path below
+// (SectionShell + BlockRenderer) is unchanged.
+import { decideLiveSections, setLiveRuntimeReporter, setLiveRuntimePersonalizer } from '../../experience-channels/website/liveRuntime';
+import { monitoring } from '../../services/monitoring.service';
+import { personalizeExperiences } from '../../services/experience-platform.service';
+
+// STEP 5 · export live plan metrics through the EXISTING monitoring seam. Injected here (the host)
+// because the channel must stay importable outside Vite.
+setLiveRuntimeReporter(
+  (event, props) => monitoring.track(event, props),
+  (error, context) => monitoring.captureError(error, context),
+);
+
+// Wave 20.1 · inject per-visitor promo selection. The channel stays free of the services layer;
+// this host supplies the profile-aware personalizer. Authored order is preserved — personalization
+// only drops a promo this visitor has demonstrably stopped engaging with (frequency cap / fatigue).
+setLiveRuntimePersonalizer(candidateIds => {
+  const decision = personalizeExperiences(
+    candidateIds.map((experienceId, i) => ({ experienceId, priority: candidateIds.length - i })),
+  );
+  const keep = new Set(decision.selected.map(r => r.experienceId));
+  return candidateIds.filter(id => keep.has(id));
+});
 import { Compass, Languages } from 'lucide-react';
-import { HaatLogo } from './icons';
+import { HaatLogo } from '../../components/brand/HaatLogo';
 import { localizeSite, getLocale, setLocale as persistLocale, UI, type Locale } from './i18n';
 
 /** Replace merchants/deals blocks with LIVE catalog data (reused services), rotating the
@@ -269,7 +293,7 @@ export const PublicSiteApp: React.FC = () => {
         )}
 
         {resolved.page && resolved.page.kind !== 'blog_index' && (
-          <div>{(live ? hydrateSections(resolved.page.sections, live) : resolved.page.sections).filter(s => s.enabled !== false).map((b, i) => (
+          <div>{decideLiveSections(live ? hydrateSections(resolved.page.sections, live) : resolved.page.sections, { tenantId: site?.tenantId ?? '', path: basePath, locale, preview: req.preview }).filter(s => s.enabled !== false).map((b, i) => (
             <div key={i} className={visClass(b.visibility)}><SectionShell block={b}><BlockRenderer block={b} onNav={navigate} /></SectionShell></div>
           ))}</div>
         )}

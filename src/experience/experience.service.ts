@@ -9,7 +9,10 @@ import {
   DEFAULT_SPLASH, DEFAULT_ONBOARDING, DEFAULT_LOGIN, cloneExperience,
 } from './experienceTypes';
 
-const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
+// Demo mode is decided by the BUILD, never by whether a client object happens to exist:
+// `|| !supabase` meant a production deploy with missing env vars silently served demo
+// data. (main.tsx blocks that boot today, so this is closing the trap, not a live bug.)
+import { IS_SANDBOX as SANDBOX } from '../config/runtime';
 const LS_KEY = 'haat_sb_screen_experiences_v1';
 
 const SCREEN_KEYS: ScreenType[] = ['splash', 'login', 'onboarding'];

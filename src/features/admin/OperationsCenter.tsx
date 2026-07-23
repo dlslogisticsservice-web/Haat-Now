@@ -18,12 +18,14 @@ import { OperationsCommandCenter } from './OperationsCommandCenter';
 import { GrowthCenter } from './GrowthCenter';
 import { CustomerCareCenter } from './CustomerCareCenter';
 import { GrowthCenterB } from './GrowthCenterB';
-import { Map, Route, MapPin, Truck, BarChart3, Banknote, ShieldCheck, Wallet, Headset, Target, Star, LucideIcon } from 'lucide-react';
+import { OpsIncidentCenter } from './OpsIncidentCenter';
+import { Map, Route, MapPin, Truck, BarChart3, Banknote, ShieldCheck, Wallet, Headset, Target, Star, ShieldAlert, LucideIcon } from 'lucide-react';
 
-export type OpsTab = 'command' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care' | 'growthb';
+export type OpsTab = 'command' | 'incidents' | 'dispatch' | 'zones' | 'vehicles' | 'performance' | 'payouts' | 'kyc' | 'finance' | 'growth' | 'care' | 'growthb';
 
 const TABS: { id: OpsTab; ar: string; en: string; Icon: LucideIcon }[] = [
   { id: 'command', ar: 'غرفة العمليات', en: 'Command Center', Icon: Map },
+  { id: 'incidents', ar: 'مركز الحوادث', en: 'Incident Center', Icon: ShieldAlert },
   { id: 'dispatch', ar: 'مركز الإرسال', en: 'Dispatch', Icon: Route },
   { id: 'zones', ar: 'مناطق التوصيل', en: 'Delivery Zones', Icon: MapPin },
   { id: 'vehicles', ar: 'المركبات', en: 'Vehicles', Icon: Truck },
@@ -61,6 +63,7 @@ export const OperationsCenter: React.FC<{ tab?: OpsTab; onTab?: (t: OpsTab) => v
         </div>
       )}
       {tab === 'command' && <OperationsCommandCenter />}
+      {tab === 'incidents' && <OpsIncidentCenter />}
       {tab === 'dispatch' && <DispatchPanel />}
       {tab === 'zones' && <ZonesPanel />}
       {tab === 'vehicles' && <VehiclesPanel />}

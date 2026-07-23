@@ -13,6 +13,13 @@ import { analyticsService } from '../../services/analytics.service';
 import { isActiveOrderStatus } from '../../services/types';
 import { DEFAULT_DELIVERY_FEE } from '../../config/fees';
 import { useAppConfig } from '../../contexts/AppConfigContext';
+// Experience Runtime (Waves 1–18) — merchant-facing flags/audiences come from the ONE engine.
+import { useExperience, usePersonalizedExperiences } from '../../services/experience-platform.service';
+import type { ExperienceCandidate } from '../../experience-engine';
+import { ExperienceBanner, ExperienceKeyframes } from '../../components/experience/ExperienceSurfaces';
+import { resolveMergedContent, hydrateExperienceContent } from '../../services/experience-content.service';
+import { resolveExperienceIcon } from '../../components/experience/experienceIcons';
+import { contentTitle, contentBody } from '../../experience-content/content';
 import { Card, StatCard } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -23,7 +30,7 @@ import { StoreManagement } from './StoreManagement';
 import { KitchenQueue } from './KitchenQueue';
 import { MerchantWalletCenter } from './MerchantWalletCenter';
 import { MerchantReports } from './MerchantReports';
-import { NotificationCenter } from '../admin/NotificationCenter';
+import { NotificationCenter } from '../../components/notifications/NotificationCenter';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface Order {
@@ -455,6 +462,29 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
     : 0;
   const currentBranch = branches.find(b => b.id === selectedBranchId);
 
+  // ── Experience Runtime decision for this merchant (role audience → flags) ──
+  // MUST sit above every early return: hooks after a conditional return change the hook order
+  // between renders, which React rejects ("rendered more hooks than during the previous render").
+  const mx = useExperience({ surface: 'merchant', locale: lang === 'ar' ? 'ar' : 'en', role: 'merchant', experienceId: 'merchant-portal' });
+  useEffect(() => { void hydrateExperienceContent(); }, []);
+  const [mxDismissed, setMxDismissed] = useState<{ announce?: boolean; beta?: boolean; learn?: boolean }>({});
+  // Wave 20.1 · which portal surfaces this merchant sees, and in what order, is decided by the
+  // Personalization Engine from their own behaviour — not by the order they are written here.
+  // A merchant who dismisses announcements every session gets the education card promoted instead.
+  const mxKey: { [id: string]: 'announce' | 'beta' | 'learn' } = {
+    'flag.merchant_announcements': 'announce', 'flag.merchant_beta_dashboard': 'beta', 'flag.merchant_education': 'learn',
+  };
+  const mxCandidates: ExperienceCandidate[] = [
+    { experienceId: 'flag.merchant_announcements', priority: 30 },
+    { experienceId: 'flag.merchant_beta_dashboard', priority: 20 },
+    { experienceId: 'flag.merchant_education', priority: 10 },
+  ].filter(c => mx.isOn(c.experienceId) && !mxDismissed[mxKey[c.experienceId]]);
+  const mxShown = usePersonalizedExperiences(mxCandidates, 2);
+  const mxAnnounce = mxShown.includes('flag.merchant_announcements');
+  const mxBeta = mxShown.includes('flag.merchant_beta_dashboard');
+  const mxLearn = mxShown.includes('flag.merchant_education');
+  const mxAudienceLabel = mx.audiences.length ? mx.audiences.join(' · ') : (lang === 'ar' ? 'بدون جمهور مطابق' : 'no matched audience');
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
@@ -646,6 +676,56 @@ export const MerchantApp = ({ merchantId, onLogout }: MerchantAppProps) => {
             <StatCard label={D('الفرع','Branch')}        value={branches.length}           icon={<Icon name="store" size={16} fill={1} />}               accentColor="var(--color-neon)" className="text-sm" />
           </div>
         </div>
+
+        {/* ══════════════════════════════════════════════════════════ */}
+        {/* EXPERIENCE RUNTIME — announcements & beta features        */}
+        {/* Audience + flag driven by the ONE engine (Waves 1–18).    */}
+        {/* ══════════════════════════════════════════════════════════ */}
+        {(mxAnnounce || mxBeta || mxLearn) && (
+          <div id="merchant_experience_surfaces" className="grid gap-3">
+            <ExperienceKeyframes />
+            {mxAnnounce && (() => {
+              // One source of truth: this copy resolves through resolveMergedContent, the
+              // same function the Experience Studio edits — authoring changes this banner.
+              const c = resolveMergedContent('flag.merchant_announcements'); if (!c) return null;
+              return (
+                <ExperienceBanner
+                  Icon={resolveExperienceIcon(c.icon)}
+                  title={contentTitle(c, lang === 'ar' ? 'ar' : 'en')}
+                  body={contentBody(c, lang === 'ar' ? 'ar' : 'en')}
+                  decision={mx.context} experienceId="flag.merchant_announcements" surface="merchant"
+                  onDismiss={() => setMxDismissed(s => ({ ...s, announce: true }))}
+                />
+              );
+            })()}
+            {mxBeta && (() => {
+              const c = resolveMergedContent('flag.merchant_beta_dashboard'); if (!c) return null;
+              return (
+                <ExperienceBanner
+                  Icon={resolveExperienceIcon(c.icon)}
+                  title={contentTitle(c, lang === 'ar' ? 'ar' : 'en')}
+                  body={contentBody(c, lang === 'ar' ? 'ar' : 'en')}
+                  variant={c.variant}
+                  debugLabel={`${mxAudienceLabel}`}
+                  decision={mx.context} experienceId="flag.merchant_beta_dashboard" surface="merchant"
+                  onDismiss={() => setMxDismissed(s => ({ ...s, beta: true }))}
+                />
+              );
+            })()}
+            {mxLearn && (() => {
+              const c = resolveMergedContent('flag.merchant_education'); if (!c) return null;
+              return (
+                <ExperienceBanner
+                  Icon={resolveExperienceIcon(c.icon)}
+                  title={contentTitle(c, lang === 'ar' ? 'ar' : 'en')}
+                  body={contentBody(c, lang === 'ar' ? 'ar' : 'en')}
+                  decision={mx.context} experienceId="flag.merchant_education" surface="merchant"
+                  onDismiss={() => setMxDismissed(s => ({ ...s, learn: true }))}
+                />
+              );
+            })()}
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════════ */}
         {/* TAB: ACTIVE ORDERS                                        */}

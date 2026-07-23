@@ -22,11 +22,13 @@ import { CampaignCenter } from './CampaignCenter';
 import { OperationsCenter, OpsTab } from './OperationsCenter';
 import { AdminSidebar, NavKey } from './AdminSidebar';
 import { AdminDashboardHome } from './AdminDashboardHome';
-import { NotificationCenter } from './NotificationCenter';
+import { NotificationCenter } from '../../components/notifications/NotificationCenter';
 import { SystemLogs } from './SystemLogs';
 import { RbacCenter } from './RbacCenter';
 import { IntegrationCenter } from './IntegrationCenter';
 import { LaunchGuardian } from './LaunchGuardian';
+import { GoLiveCenter } from './GoLiveCenter';
+import { ExperienceCenter } from './ExperienceCenter';
 import { PlatformModuleRegistry } from './PlatformModuleRegistry';
 import { WebsiteCenter } from './WebsiteCenter';
 import { PartnerManagement } from './PartnerManagement';
@@ -63,7 +65,7 @@ interface TicketMessage {
   message_text: string;
 }
 
-type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry' | 'website' | 'partners' | 'guardian';
+type AdminTab = 'kpi' | 'coupons' | 'config' | 'support' | 'design' | 'campaigns' | 'ops' | 'notifications' | 'logs' | 'catalog' | 'mgmt' | 'tenants' | 'rbac' | 'integrations' | 'provisioning' | 'templates' | 'onboarding' | 'registry' | 'website' | 'appstudio' | 'partners' | 'guardian' | 'experience' | 'golive';
 type CatTab = 'categories' | 'zones';
 type MgmtTab = 'drivers' | 'vehicles' | 'merchants' | 'branches' | 'orders' | 'customers';
 
@@ -114,6 +116,13 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
     else if (k.startsWith('mgmt:')) { setActiveTab('mgmt'); setMgmtTab(k.slice(5) as MgmtTab); }
     else setActiveTab(k as AdminTab);
   };
+  // Decoupled navigation bridge: the Experience Studio's channel inspector asks to open the
+  // Experience Center without a prop chain. One listener, reusing handleNav.
+  useEffect(() => {
+    const onNav = (e: Event) => { const key = (e as CustomEvent).detail; if (typeof key === 'string') handleNav(key as NavKey); };
+    window.addEventListener('haat:admin-nav', onNav);
+    return () => window.removeEventListener('haat:admin-nav', onNav);
+  }, []);
   // Ctrl/Cmd+K opens global search; live unread notification badge.
   // Demo environment — populate the sandbox data layer so no admin page is empty.
   useEffect(() => { if (import.meta.env.VITE_AUTH_MODE === 'sandbox') seedDemoData(); }, []);
@@ -466,12 +475,15 @@ export const AdminDashboard = ({ adminId, onLogout }: AdminDashboardProps) => {
             ]} />
         )}
         {activeTab === 'notifications' && <NotificationCenter adminId={adminId} lang={lang} onUnread={setNotifBadge} />}
+        {activeTab === 'experience' && isSuper && <ExperienceCenter lang={lang} />}
+        {activeTab === 'golive' && isSuper && <GoLiveCenter />}
         {activeTab === 'guardian' && isSuper && <LaunchGuardian lang={lang} />}
         {activeTab === 'logs' && isSuper && <SystemLogs lang={lang} />}
         {activeTab === 'rbac' && isSuper && <RbacCenter lang={lang} />}
         {activeTab === 'integrations' && isSuper && <IntegrationCenter lang={lang} />}
         {activeTab === 'registry' && isSuper && <PlatformModuleRegistry lang={lang} />}
         {activeTab === 'website' && isSuper && <Can perm="platform.whitelabel.manage"><WebsiteCenter lang={lang} /></Can>}
+        {activeTab === 'appstudio' && isSuper && <Can perm="platform.whitelabel.manage"><WebsiteCenter lang={lang} initialChannel="customer" /></Can>}
         {activeTab === 'partners' && isSuper && <PartnerManagement lang={lang} />}
         {activeTab === 'provisioning' && isSuper && <ProvisioningConsole lang={lang} />}
         {activeTab === 'templates' && isSuper && <TemplateMarketplace lang={lang} />}

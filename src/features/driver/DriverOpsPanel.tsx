@@ -31,7 +31,18 @@ export const DriverOpsPanel: React.FC<{ driverId: string }> = ({ driverId }) => 
     setWallet(w);
     if (sh) { const { data: br } = await shiftService.breaks(sh.id); setOnBreak(br.some(b => !b.ended_at)); }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [driverId]);
+  useEffect(() => {
+    load();
+    // Dispatch offers live in a ~30s window (auto_dispatch_order timeout). The panel used to
+    // load them ONCE on mount, so an offer that arrived later was never seen and expired —
+    // penalising the driver's acceptance rate for a job they never got. Poll the offers so
+    // the dispatch loop can actually close. Lightweight: offers only, not the whole panel.
+    const t = setInterval(async () => {
+      try { const { data: off } = await dispatchService.driverOffers(driverId); setOffers(off); } catch { /* transient */ }
+    }, 6000);
+    return () => clearInterval(t);
+    /* eslint-disable-next-line */
+  }, [driverId]);
 
   const startShift = async () => { setBusy(true); await shiftService.start(driverId); setBusy(false); await load(); };
   const endShift = async () => { if (!shift) return; setBusy(true); await shiftService.end(shift.id); setBusy(false); await load(); };

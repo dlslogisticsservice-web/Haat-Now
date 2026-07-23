@@ -12,6 +12,10 @@ const { spawnSync } = require('child_process');
 const SUITE_DIRS = [
   ['src', 'website-platform', '__tests__'],
   ['src', 'guardian', '__tests__'],
+  ['src', 'experience-engine', '__tests__'],
+  ['src', 'experience-channels', '__tests__'],
+  ['src', 'services', 'ops', '__tests__'],
+  ['src', 'experience-content', '__tests__'],
 ];
 
 const files = SUITE_DIRS.flatMap((parts) => {

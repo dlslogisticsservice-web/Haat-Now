@@ -29,7 +29,7 @@
  */
 
 import { okServer, errServer } from '../_shared/response.ts';
-import { adminClient }         from '../_shared/supabase.ts';
+import { adminClient, userClient } from '../_shared/supabase.ts';
 import { log }                 from '../_shared/log.ts';
 
 const FN = 'payment-refund';
@@ -38,13 +38,40 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (req.method !== 'POST') return errServer('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
 
   try {
-    // ── 1. Auth: service-role only ─────────────────────────────────────────────
+    // ── 1. Auth: admin JWT + finance.refund permission ─────────────────────────
+    // Previously this compared the header to SUPABASE_SERVICE_ROLE_KEY, which meant
+    // the ONLY way to call it was to ship the service-role key to the browser — so
+    // in practice it was uncallable and refunds had no production trigger path.
+    // Now it verifies a real session JWT and asks the database whether that user
+    // holds `finance.refund`, reusing auth_has_permission() from
+    // 20260705000006_rbac_server_enforcement.sql. Server-side authority, no new
+    // permission model, and the service-role key never leaves the server.
+    //
+    // The service-role path is retained for server-to-server callers (cron, scripts).
     const authHeader = req.headers.get('Authorization') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-    if (!authHeader || authHeader !== `Bearer ${serviceKey}`) {
-      log('WARN', FN, 'Unauthorized refund attempt — invalid service key');
-      return errServer('Forbidden: admin access only', 403, 'FORBIDDEN');
+    if (!authHeader.startsWith('Bearer ')) {
+      log('WARN', FN, 'Refund attempt with no bearer token');
+      return errServer('Missing or malformed Authorization header', 401, 'UNAUTHORIZED');
+    }
+
+    const isServiceCall = serviceKey.length > 0 && authHeader === `Bearer ${serviceKey}`;
+
+    if (!isServiceCall) {
+      const caller = userClient(authHeader);
+      const { data: { user }, error: authErr } = await caller.auth.getUser();
+      if (authErr || !user) {
+        log('WARN', FN, 'Refund attempt with invalid token', { authErr: authErr?.message });
+        return errServer('Invalid or expired token', 401, 'INVALID_TOKEN');
+      }
+      // Ask the DB, not the client. A forged role claim cannot pass this.
+      const { data: allowed, error: permErr } = await caller.rpc('auth_has_permission', { p_perm: 'finance.refund' });
+      if (permErr || allowed !== true) {
+        log('WARN', FN, 'Refund denied — caller lacks finance.refund', { userId: user.id, permErr: permErr?.message });
+        return errServer('Forbidden: finance.refund permission required', 403, 'FORBIDDEN');
+      }
+      log('INFO', FN, 'Refund authorised', { userId: user.id });
     }
 
     // ── EF2-9: Load Moyasar credentials early — fail before any DB work ────────

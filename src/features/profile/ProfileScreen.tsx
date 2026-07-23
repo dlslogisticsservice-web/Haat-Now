@@ -3,6 +3,9 @@ import { toast, confirmDialog } from '../../components/ui/feedback';
 import { accountService } from '../../services/account.service';
 import { customerService, AddressWithZone, ZoneHierarchy } from '../../services/customer.service';
 import { storageService } from '../../services/storage.service';
+import {
+  loadPreferences, savePreferences, type NotificationPreferences, type NotificationCategory,
+} from '../../services/notification-prefs';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useTranslation } from 'react-i18next';
 import { COUNTRIES } from '../../config/countries';
@@ -52,14 +55,8 @@ const LBL: React.CSSProperties = {
   display: 'block', marginBottom: '5px',
 };
 
-// ─── Notification preferences (local, persisted) ───────────────────────────
-const NOTIF_KEY = 'haat_notif_prefs';
-type NotifPrefs = { orders: boolean; offers: boolean; news: boolean };
-const DEFAULT_NOTIF: NotifPrefs = { orders: true, offers: true, news: false };
-function loadNotifPrefs(): NotifPrefs {
-  try { return { ...DEFAULT_NOTIF, ...JSON.parse(localStorage.getItem(NOTIF_KEY) || '{}') }; }
-  catch { return DEFAULT_NOTIF; }
-}
+// Notification preferences use the canonical model in notification-prefs.ts — the SAME
+// one the delivery pipeline consults. No local duplicate of the preferences shape.
 
 // ─── Payment methods (TASK B — local CRUD, persisted) ──────────────────────
 type PMType = 'cod' | 'visa' | 'mastercard' | 'mada' | 'wallet';
@@ -110,12 +107,10 @@ function SettingsDetail({ page, onBack, session, onLogout }: { page: SettingsPag
   const { Icon, title, subtitle } = SETTINGS_INFO[page];
   const { lang, setLang, country, setCountry } = useAppConfig();
   const { t } = useTranslation();
-  const [notif, setNotif] = useState<NotifPrefs>(loadNotifPrefs);
-  const saveNotif = (patch: Partial<NotifPrefs>) => {
-    const next = { ...notif, ...patch };
-    setNotif(next);
-    try { localStorage.setItem(NOTIF_KEY, JSON.stringify(next)); } catch { /* ignore */ }
-  };
+  const [notif, setNotif] = useState<NotificationPreferences>(() => loadPreferences(lang));
+  const saveNotif = (next: NotificationPreferences) => { setNotif(next); savePreferences(next); };
+  const toggleCategory = (c: NotificationCategory) =>
+    saveNotif({ ...notif, categories: { ...notif.categories, [c]: !notif.categories[c] } });
   const T = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const tt = (k: string) => (k && k.includes('.') ? t(k) : k);
   const [openDoc, setOpenDoc] = useState<string | null>(null);
@@ -252,13 +247,19 @@ function SettingsDetail({ page, onBack, session, onLogout }: { page: SettingsPag
       {/* ── NOTIFICATIONS ── */}
       {page === 'notifications' && (
         <div style={cardStyle}>
-          <Row label={T('تحديثات الطلبات', 'Order updates')}><Toggle on={notif.orders} onClick={() => saveNotif({ orders: !notif.orders })} /></Row>
+          <Row label={T('تفعيل الإشعارات', 'Enable notifications')}><Toggle on={notif.enabled} onClick={() => saveNotif({ ...notif, enabled: !notif.enabled })} /></Row>
           <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
-          <Row label={T('العروض والخصومات', 'Offers & discounts')}><Toggle on={notif.offers} onClick={() => saveNotif({ offers: !notif.offers })} /></Row>
+          <Row label={T('تحديثات الطلبات', 'Order updates')}><Toggle on={notif.categories.orders} onClick={() => toggleCategory('orders')} /></Row>
           <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
-          <Row label={T('الأخبار والجديد', 'News & updates')}><Toggle on={notif.news} onClick={() => saveNotif({ news: !notif.news })} /></Row>
+          <Row label={T('العروض والخصومات', 'Offers & discounts')}><Toggle on={notif.categories.offers} onClick={() => toggleCategory('offers')} /></Row>
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+          <Row label={T('الأخبار والجديد', 'News & updates')}><Toggle on={notif.categories.news} onClick={() => toggleCategory('news')} /></Row>
+          <div style={{ height: '1px', background: 'rgba(255,255,255,0.05)' }} />
+          <Row label={T('ساعات الهدوء (٢٢:٠٠–٠٧:٠٠)', 'Quiet hours (22:00–07:00)')}>
+            <Toggle on={notif.quietHours.enabled} onClick={() => saveNotif({ ...notif, quietHours: { ...notif.quietHours, enabled: !notif.quietHours.enabled } })} />
+          </Row>
           <p style={{ color: 'var(--color-on-surface-variant)', fontSize: '11px', lineHeight: 1.5, marginTop: '8px' }}>
-            {T('تُحفظ تفضيلاتك على هذا الجهاز وتُطبَّق على إشعارات حالة الطلب.', 'Preferences are saved on this device and applied to order-status alerts.')}
+            {T('تُحفظ تفضيلاتك على هذا الجهاز. تحديثات الطلبات تصل حتى أثناء ساعات الهدوء.', 'Preferences are saved on this device. Order updates still arrive during quiet hours.')}
           </p>
         </div>
       )}

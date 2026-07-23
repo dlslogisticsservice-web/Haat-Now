@@ -1,5 +1,12 @@
 import { supabase } from '../../lib/supabase';
 
+// Demo is client-side — never hit Supabase in sandbox. Matches the guard every other
+// ops service already carries (dispatch/payout/shift); its absence here meant the
+// Zones, Vehicles and Performance tabs fired real network calls in the demo build
+// and failed with 401/403 instead of degrading cleanly.
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+
+
 export interface DeliveryZone {
   id: string;
   name: string;
@@ -19,6 +26,7 @@ export interface ZoneQuote { fee: number; eta_minutes: number; }
 /** Delivery-zone management: polygons, pricing, ETA, activation, geo lookup. */
 export const zoneService = {
   async list(): Promise<{ data: DeliveryZone[]; error: any }> {
+    if (SANDBOX) return { data: [], error: null };
     const { data, error } = await supabase
       .from('zones')
       .select('id, name, city_id, country_code, polygon, base_fee, per_km_fee, min_fee, eta_minutes, is_active, cities(name, country_id)')
@@ -35,6 +43,7 @@ export const zoneService = {
   },
 
   async create(payload: Partial<DeliveryZone>): Promise<{ data: DeliveryZone | null; error: any }> {
+    if (SANDBOX) return { data: null, error: null };
     const { data, error } = await supabase.from('zones').insert({
       name: payload.name,
       city_id: payload.city_id ?? null,
@@ -50,6 +59,7 @@ export const zoneService = {
   },
 
   async update(id: string, patch: Partial<DeliveryZone>): Promise<{ error: any }> {
+    if (SANDBOX) return { error: null };
     const { error } = await supabase.from('zones').update(patch).eq('id', id);
     return { error };
   },
@@ -61,6 +71,7 @@ export const zoneService = {
 
   /** Delivery quote (fee + ETA) for a zone, distance, and optional vehicle. */
   async quote(zoneId: string, distanceKm: number, vehicleId?: string): Promise<{ data: ZoneQuote | null; error: any }> {
+    if (SANDBOX) return { data: null, error: null };
     const { data, error } = await supabase.rpc('zone_quote', {
       p_zone_id: zoneId, p_distance_km: distanceKm, p_vehicle_id: vehicleId ?? null,
     });

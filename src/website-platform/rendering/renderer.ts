@@ -20,6 +20,17 @@ export function escapeHtml(s: string): string {
 function attr(v: string): string {
   return escapeHtml(v);
 }
+/**
+ * Restrict generated link hrefs to safe schemes. escapeHtml() neutralises quotes/brackets
+ * but NOT a `javascript:` (or `data:`/`vbscript:`) scheme, which would execute on click in
+ * tenant-authored content. Whitespace/control chars are stripped before the scheme test so
+ * `java\tscript:` cannot slip through. http(s)/mailto/tel/relative/anchor links pass unchanged.
+ */
+export function safeUrl(v: string): string {
+  const cleaned = v.replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+  if (/^(javascript|data|vbscript):/.test(cleaned)) return '#';
+  return v;
+}
 function str(v: JsonValue | undefined, fallback = ''): string {
   return typeof v === 'string' ? v : v == null ? fallback : String(v);
 }
@@ -51,7 +62,7 @@ const BLOCK_RENDERERS: Record<string, BlockHtmlRenderer> = {
 function renderCta(v: JsonValue | undefined): string {
   const c = obj(v);
   if (!c.label) return '';
-  return `<a class="wp-cta-btn" href="${attr(str(c.href, '#'))}">${escapeHtml(str(c.label))}</a>`;
+  return `<a class="wp-cta-btn" href="${attr(safeUrl(str(c.href, '#')))}">${escapeHtml(str(c.label))}</a>`;
 }
 
 /** Register/override a block renderer (extension point; reusable by white-label tenants). */

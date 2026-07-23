@@ -3,6 +3,8 @@ import { walletService } from '../../services/wallet.service';
 import { Wallet, WalletTransaction } from '../../services/types';
 import { sandboxStore, SbLoyaltyTxn } from '../../services/sandboxStore';
 import { loyaltyService } from '../../services/loyalty.service';
+import { DEMO_CONTENT_ENABLED } from '../../config/runtime';
+import { EmptyState } from '../../components/ui/Primitives';
 
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
 import { useAppConfig } from '../../contexts/AppConfigContext';
@@ -56,6 +58,11 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
   const cur = country.currency.symbolAr;
   const [wallet,         setWallet]         = useState<Wallet | null>(null);
   const [transactions,   setTransactions]   = useState<WalletTransaction[]>([]);
+  /* The rows actually rendered. Sample transactions illustrate the demo ONLY — a real
+     customer with an empty wallet must see an empty wallet, never invented money. */
+  const txRows: readonly any[] = transactions.length > 0
+    ? transactions
+    : (DEMO_CONTENT_ENABLED ? SAMPLE_TRANSACTIONS : []);
   const [walletLoading,  setWalletLoading]  = useState(true);
   const [walletError,    setWalletError]    = useState<string | null>(null);
 
@@ -294,7 +301,7 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
         <section className="space-y-4">
           <div className="flex justify-between items-center">
             <span style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px' }}>
-              {!walletLoading && !walletError ? `${transactions.length > 0 ? transactions.length : SAMPLE_TRANSACTIONS.length} ${t('wallet.opCount')}` : ''}
+              {!walletLoading && !walletError ? `${txRows.length} ${t('wallet.opCount')}` : ''}
             </span>
             <h2 className="font-bold gradient-text"
                 style={{ fontSize: '16px', letterSpacing: '-0.01em' }}>
@@ -314,9 +321,11 @@ export const WalletScreen = ({ customerId }: WalletScreenProps) => {
                 {t('common.retry')}
               </button>
             </div>
+          ) : txRows.length === 0 ? (
+            <EmptyState icon="receipt" title={t('wallet.noTransactions')} description={t('wallet.noTransactionsSub')} />
           ) : (
             <div className="space-y-2">
-              {(transactions.length > 0 ? transactions : SAMPLE_TRANSACTIONS).map((tx) => {
+              {txRows.map((tx) => {
                 const isCredit = Number(tx.amount) > 0;
                 const TxIcon   = TX_ICONS[tx.type] || ArrowDownLeft;
                 return (

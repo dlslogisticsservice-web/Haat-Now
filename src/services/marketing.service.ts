@@ -16,7 +16,20 @@ export type CampaignKind =
   | 'seasonal' | 'ramadan' | 'eid' | 'black_friday' | 'national_day' | 'back_to_school'
   | 'flash_sale' | 'coupon' | 'free_delivery' | 'referral' | 'app_install' | 'merchant' | 'driver';
 export type CampaignStatus = 'draft' | 'scheduled' | 'published' | 'archived';
-export interface CampaignTargeting { countries: string[]; cities: string[]; languages: string[]; audience: string }
+// `channels` makes a campaign cross-channel: which experience channels it targets
+// (website / customer / merchant / driver). Optional and defaulting to "all channels"
+// so every existing campaign keeps working unchanged.
+export interface CampaignTargeting { countries: string[]; cities: string[]; languages: string[]; audience: string; channels?: string[] }
+
+/**
+ * Does a campaign target a channel? PURE. An empty/absent `channels` list means the
+ * campaign is cross-channel (targets everything) — the backward-compatible default, so a
+ * campaign authored before channels existed still shows on every channel.
+ */
+export function campaignMatchesChannel(c: { targeting: CampaignTargeting }, channel: string): boolean {
+  const chans = c.targeting.channels;
+  return !chans || chans.length === 0 || chans.includes(channel);
+}
 export interface Campaign {
   id: string; name: string; kind: CampaignKind; status: CampaignStatus; priority: number;
   targeting: CampaignTargeting; startDate?: string; endDate?: string;
@@ -119,6 +132,10 @@ export const marketingService = {
   // Collection upserts (generic; each returns the new state)
   saveCampaign(tenantId: string, user: string, c: Campaign): MarketingState { const s = this.get(tenantId); c.updatedAt = now(); s.campaigns = s.campaigns.some(x => x.id === c.id) ? s.campaigns.map(x => x.id === c.id ? c : x) : [c, ...s.campaigns]; this.set(tenantId, s); return this.audit(tenantId, user, 'campaign.save', `${c.name} → ${c.status}`); },
   removeCampaign(tenantId: string, user: string, id: string): MarketingState { const s = this.get(tenantId); const c = s.campaigns.find(x => x.id === id); s.campaigns = s.campaigns.filter(x => x.id !== id); this.set(tenantId, s); return this.audit(tenantId, user, 'campaign.remove', c?.name); },
+  /** Published campaigns that target a channel (cross-channel query). Empty targeting = all. */
+  campaignsForChannel(tenantId: string, channel: string): Campaign[] {
+    return this.get(tenantId).campaigns.filter(c => c.status === 'published' && campaignMatchesChannel(c, channel));
+  },
 
   saveWidget(tenantId: string, user: string, w: ConversionWidget): MarketingState { const s = this.get(tenantId); s.widgets = s.widgets.some(x => x.id === w.id) ? s.widgets.map(x => x.id === w.id ? w : x) : [w, ...s.widgets]; this.set(tenantId, s); return this.audit(tenantId, user, 'conversion.save', `${w.name} (${w.kind})`); },
   removeWidget(tenantId: string, user: string, id: string): MarketingState { const s = this.get(tenantId); s.widgets = s.widgets.filter(x => x.id !== id); this.set(tenantId, s); return this.audit(tenantId, user, 'conversion.remove', id); },

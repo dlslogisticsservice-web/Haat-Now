@@ -8,6 +8,7 @@ import { adminService } from '../../services/admin.service';
 import { paymentOrchestrator } from '../../services/payment-orchestrator.service';
 import { sandboxStore } from '../../services/sandboxStore';
 import { DEFAULT_DELIVERY_FEE, DEFAULT_SERVICE_FEE } from '../../config/fees';
+import { PAYMENTS_COD_ONLY } from '../../config/runtime';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useTranslation } from 'react-i18next';
 import { getCategoryThumb } from '../../utils/categoryImages';
@@ -60,7 +61,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
 
   const [paymentMethods,  setPaymentMethods]  = useState<PaymentMethod[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<string>('');
-  const [selectedPayType, setSelectedPayType] = useState<string>('apple_pay');
+  const [selectedPayType, setSelectedPayType] = useState<string>(PAYMENTS_COD_ONLY ? 'cod' : 'apple_pay');
   const [isAddingCard,    setIsAddingCard]    = useState(false);
   const [cardNumber,      setCardNumber]      = useState('');
   const [cardHolder,      setCardHolder]      = useState('');
@@ -264,19 +265,11 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
   const handleAddNewCard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cardNumber || !cardHolder) return;
-    setActionLoading(true);
-    try {
-      const pmPayload = {
-        customer_id: customerId,
-        provider: `${selectedPayType === 'mada' ? 'Mada' : 'Visa'} ${cardNumber.slice(-4)}`,
-        provider_payment_method_id: `tok_${Math.random().toString(36).substr(2, 9)}`,
-        is_default: paymentMethods.length === 0,
-      };
-      const { data, error } = await checkoutService.createPaymentMethod(pmPayload);
-      if (error) toast.error(error.message);
-      else if (data) { setPaymentMethods([data, ...paymentMethods]); setSelectedPayment(data.id); setCardNumber(''); setCardHolder(''); setIsAddingCard(false); }
-    } catch (err) { console.error(err); }
-    finally { setActionLoading(false); }
+    // A saved card must be tokenised by the real gateway (Moyasar), not fabricated here.
+    // Writing `tok_<random>` created a payment instrument that corresponds to nothing —
+    // and collected a raw PAN in the DOM (PCI scope we do not want). Until gateway
+    // tokenisation is wired, saving a card is disabled. COD needs no saved instrument.
+    toast.info(t('checkout.cardSaveUnavailable', { defaultValue: 'Saving cards will be available with card payments. Cash on delivery needs no card.' }));
   };
 
   const handleVerifyCoupon = async () => {
@@ -347,15 +340,22 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
           deliveryFee:       deliveryFee,
         },
         orderIdemRef.current,
+        // The server applies the service fee (bounded) + coupon (validated) and returns the
+        // authoritative total. We PAY THAT — never the client estimate — so the charge and
+        // the ledger can never disagree with the order.
+        { serviceFee: luxuryFee, couponCode: couponId ? couponCode : null },
       );
       if (orderErr) { paymentTabRef?.close(); toast.error(`${t('checkout.orderError')}: ${orderErr.message}`); setSwipeComplete(false); setHandleLeft(8); return; }
       if (orderData) {
+        // The amount charged is the SERVER's total_amount, not the client estimate. In sandbox
+        // the sandbox order carries grandTotal; in live the RPC returns the authoritative total.
+        const chargeAmount = Number((orderData as { total_amount?: number }).total_amount) || grandTotal;
         if (isCod) {
           // Cash on Delivery — reuse the existing COD recorder: writes a payment_attempts row
           // (provider='cod') and labels the order payment_method='cod'. No gateway; cash is
           // reconciled to paid at delivery by the settlement engine. Payment is immediate, so
           // redeem the coupon now and attribute the referral, then go straight to success.
-          await paymentOrchestrator.recordCod({ orderId: orderData.id, customerId, amount: grandTotal, currency: country.currency.code });
+          await paymentOrchestrator.recordCod({ orderId: orderData.id, customerId, amount: chargeAmount, currency: country.currency.code });
           if (couponId) { await checkoutService.redeemCoupon(couponId, orderData.id); }
           void growthService.qualifyReferral(customerId, orderData.id);
           orderIdemRef.current = null;
@@ -368,7 +368,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
         // (duplicate-submit protected) and routed to the SECURE server-side payment-initiate
         // edge function. No direct client gateway call.
         const { ok: initiateOk, data: initiateData } = await paymentOrchestrator.initiate({
-          orderId: orderData.id, customerId, amount: grandTotal, currency: country.currency.code,
+          orderId: orderData.id, customerId, amount: chargeAmount, currency: country.currency.code,
         }) as { ok: boolean; data: Record<string, unknown> };
 
         if (!initiateOk || !initiateData['success']) {
@@ -718,7 +718,7 @@ export const CheckoutPage = ({ cartItems, branchId, customerId, onOrderPlaced, o
                     <span className="font-bold" style={{ color: 'white', fontSize: '14px', textTransform: 'none', letterSpacing: 0 }}>{t('checkout.paymentMethod')}</span>
                   </h3>
                   <div className="grid grid-cols-3 gap-2 mb-3" id="payment_grid">
-                    {PAYMENT_TYPES.map(pt => {
+                    {(PAYMENTS_COD_ONLY ? PAYMENT_TYPES.filter(pt => pt.key === 'cod') : PAYMENT_TYPES).map(pt => {
                       const isActive = selectedPayType === pt.key;
                       return (
                         <button

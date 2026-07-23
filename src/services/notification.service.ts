@@ -1,5 +1,6 @@
 import { notificationRepository } from '../repositories/notification.repository';
 import { Notification, PushToken } from './types';
+import { monitoring } from './monitoring.service';
 
 // Monotonic counter so each realtime subscriber gets a distinct channel name.
 let _chanSeq = 0;
@@ -14,6 +15,8 @@ export const notificationService = {
   // Save new in-app notification dispatch log
   async sendNotification(userId: string | null, message: string, type = 'system'): Promise<{ data: Notification | null; error: any }> {
     const { data, error } = await notificationRepository.insert({ target_user_id: userId, message, type });
+    // Delivery failure — surfaced to Guardian, never swallowed or faked as success.
+    if (error) monitoring.log('error', `[notify] delivery_failed: ${error.message || 'insert failed'}`, { type });
     return { data, error };
   },
 

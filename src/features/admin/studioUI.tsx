@@ -14,6 +14,21 @@ export const iconBtn: React.CSSProperties = { width: 34, height: 34, borderRadiu
 export const thumb: React.CSSProperties = { width: 44, height: 44, borderRadius: 8, background: 'var(--color-surface-container-high)', border: '1px solid var(--color-outline-variant)', display: 'inline-block', fontSize: 14, textAlign: 'center', lineHeight: '44px' };
 export function swap<T>(arr: T[], i: number, j: number): T[] { const a = [...arr]; [a[i], a[j]] = [a[j], a[i]]; return a; }
 
+// ── Shared Studio interaction core ─────────────────────────────────────────────
+// The ONE selection / hover / overlay rendering layer for every Studio. Website Studio
+// (`#preview_frame`) is the golden reference; the Application Studio (`#channel_preview`)
+// renders the SAME rules by passing its own scope. There is no second copy: the outline,
+// the floating toolbar visibility and the identity tag all come from here.
+//
+// The only per-Studio nuance is the outline radius (website sections are square, app
+// surfaces are rounded), exposed as `--wsx-sec-radius` so the rule stays single-sourced.
+export const StudioInteractionStyles: React.FC<{ scope: string }> = ({ scope }) => (
+  <style>{`${scope} .wsx-sec{position:relative;border-radius:var(--wsx-sec-radius,0);transition:box-shadow .12s ease}${scope} .wsx-sec:hover{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--color-primary-fixed) 55%,transparent)}${scope} .wsx-sec.sel{box-shadow:inset 0 0 0 2px var(--color-primary-fixed)}${scope} .wsx-sec.locked{box-shadow:inset 0 0 0 2px color-mix(in srgb,#f5a623 55%,transparent)}${scope} .wsx-bar{position:absolute;top:8px;inset-inline-end:8px;z-index:5;display:none;gap:4px}${scope} .wsx-sec:hover .wsx-bar,${scope} .wsx-sec.sel .wsx-bar{display:flex}${scope} .wsx-tag{position:absolute;top:8px;inset-inline-start:8px;z-index:5;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--color-primary-fixed);color:var(--color-on-primary-fixed);display:none;align-items:center;gap:4px}${scope} .wsx-sec.sel .wsx-tag,${scope} .wsx-sec.locked .wsx-tag{display:inline-flex}`}</style>
+);
+
+/** The floating-toolbar button, shared by both Studios (was pvBtn in WebsiteCenter). */
+export const studioOverlayBtn: React.CSSProperties = { width: 26, height: 26, borderRadius: 8, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' };
+
 export const Field: React.FC<{ label: string; value: string; onChange: (v: string) => void; textarea?: boolean; placeholder?: string; id?: string }> = ({ label, value, onChange, textarea, placeholder, id }) => (
   <label className="block">
     <span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</span>

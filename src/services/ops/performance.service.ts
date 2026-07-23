@@ -1,5 +1,12 @@
 import { supabase } from '../../lib/supabase';
 
+// Demo is client-side — never hit Supabase in sandbox. Matches the guard every other
+// ops service already carries (dispatch/payout/shift); its absence here meant the
+// Zones, Vehicles and Performance tabs fired real network calls in the demo build
+// and failed with 401/403 instead of degrading cleanly.
+const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+
+
 export interface DriverPerformanceRow {
   driver_id: string;
   orders_offered: number;
@@ -37,6 +44,7 @@ function derive(row: DriverPerformanceRow, rating: number): DriverPerformance {
 /** Driver performance engine: acceptance/completion/cancellation rates, avg time, rating, earnings. */
 export const performanceService = {
   async get(driverId: string): Promise<{ data: DriverPerformance | null; error: any }> {
+    if (SANDBOX) return { data: null, error: null };
     const [{ data: perf, error }, { data: drv }] = await Promise.all([
       supabase.from('driver_performance').select('*').eq('driver_id', driverId).maybeSingle(),
       supabase.from('drivers').select('rating').eq('id', driverId).maybeSingle(),
@@ -47,12 +55,14 @@ export const performanceService = {
 
   /** Recompute a driver's counters + priority from source rows. */
   async recalc(driverId: string): Promise<{ error: any }> {
+    if (SANDBOX) return { error: null };
     const { error } = await supabase.rpc('recalc_driver_performance', { p_driver_id: driverId });
     return { error };
   },
 
   /** Leaderboard by completed deliveries (with derived rates). */
   async leaderboard(limit = 20): Promise<{ data: (DriverPerformance & { full_name: string })[]; error: any }> {
+    if (SANDBOX) return { data: [], error: null };
     const { data, error } = await supabase
       .from('driver_performance')
       .select('*, drivers(full_name, rating)')

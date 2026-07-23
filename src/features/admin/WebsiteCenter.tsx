@@ -5,6 +5,7 @@ import {
   Palette, FileText, PanelBottom, Navigation2, RotateCw, Settings2,
   Wand2, MousePointerClick, Sliders, Lock, LockOpen, Sparkles, Languages, Search as SearchIcon,
   ShieldCheck, AlertTriangle, HeartPulse,
+  Layers, MapPin, ZoomIn, ZoomOut, Layout, Type as TypeIcon, MonitorSmartphone,
 } from 'lucide-react';
 import { SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseUI';
 import { toast } from '../../components/ui/feedback';
@@ -12,11 +13,28 @@ import { tenantService } from '../../services/tenant.service';
 import { websiteService, type WebsiteSite, type WebsitePage, type WebsiteBlock, type WebsiteBlockType, type WebsiteCta, type BlogPost } from '../../services/website.service';
 import { BlockRenderer, SectionShell, BlockStyles } from '../website/blocks';
 import { assetsService, BRAND_SLOTS, type AssetItem } from '../../experience/assets.service';
-import { card, inputStyle, iconBtn, swap, Field, Toggle, Btn, MediaField, MediaListField, StringListField, ItemDel } from './studioUI';
+import { card, inputStyle, iconBtn, swap, Field, Toggle, Btn, MediaField, MediaListField, StringListField, ItemDel, StudioInteractionStyles, studioOverlayBtn } from './studioUI';
+// Experience preview — reuses the ONE Experience Runtime; no JSON, no second targeting engine.
+import { ExperiencePreviewBar } from './ExperiencePreviewBar';
+import { SectionTargeting } from './SectionTargeting';
 import { MarketingNav, MarketingPanel, MARKETING_MODULES, campaignOverlayFor, type MarketingModule } from './MarketingOS';
 import * as aiStudio from '../../services/aiStudio';
 import { localizeSite } from '../website/i18n';
 import { marketingService } from '../../services/marketing.service';
+// Experience Channels — the Studio becomes the visual editor for every channel, not just
+// the website. The website path below is unchanged; these drive the new channels only.
+import { getChannel, type ChannelId } from '../../experience-channels/channels';
+import { ChannelPreview, type ChannelAuthoring, type PreviewState, PREVIEW_STATES, type AppShellOverride } from './ChannelPreview';
+import { ChannelNavigator } from './ChannelNavigator';
+import { ChannelTree } from './ChannelTree';
+import { StudioFlow, type FlowView } from './StudioFlow';
+import { AppStudioPanels } from './AppStudioPanels';
+import { AppRuntimePreview } from './AppRuntimePreview';
+import {
+  saveExperienceContentOverride, resetExperienceContent, contentOverride,
+  contentSnapshot, restoreContentSnapshot, hydrateExperienceContent,
+} from '../../services/experience-content.service';
+import type { ExperienceContentOverride } from '../../experience-content/content';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Website Studio — a professional three-panel visual builder (Structure · Live Preview ·
@@ -64,19 +82,37 @@ function readableOn(hex: string): string {
   const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62 ? '#0c2000' : '#ffffff';
 }
+// Global typography families — OS-native stacks only (no network/CSP), so each renders
+// distinctly and honestly without loading an external font.
+const FONT_STACKS: { v: string; label: string; css: string }[] = [
+  { v: 'system', label: 'System', css: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif' },
+  { v: 'rounded', label: 'Rounded', css: 'ui-rounded, "SF Pro Rounded", system-ui, sans-serif' },
+  { v: 'serif', label: 'Serif', css: 'Georgia, "Times New Roman", serif' },
+  { v: 'mono', label: 'Mono', css: 'ui-monospace, "Cascadia Code", Menlo, monospace' },
+];
+const fontCss = (v?: string) => FONT_STACKS.find(f => f.v === v)?.css;
+
 /** Theme tokens derived from the tenant brand → applied to the preview so it re-skins live. */
 function themeVars(t: Record<string, any> | null): React.CSSProperties {
   const primary = t?.primary_color || '#A3F95B';
   const accent = t?.accent_color || t?.primary_color || '#6ee7ff';
   const radius = t?.card_radius != null ? Number(t.card_radius) : 20;
   const btnR = t?.button_radius != null ? Number(t.button_radius) : 14;
-  return { ['--color-primary-fixed' as any]: primary, ['--color-on-primary-fixed' as any]: readableOn(primary), ['--color-tertiary-fixed' as any]: accent, ['--card-radius' as any]: `${radius}px`, ['--button-radius' as any]: `${btnR}px` };
+  // Global typography (Priority G): font family + base size apply live to the preview.
+  const fam = fontCss(t?.font_family);
+  const scale = t?.font_scale != null ? Number(t.font_scale) : 1;
+  return {
+    ['--color-primary-fixed' as any]: primary, ['--color-on-primary-fixed' as any]: readableOn(primary), ['--color-tertiary-fixed' as any]: accent,
+    ['--card-radius' as any]: `${radius}px`, ['--button-radius' as any]: `${btnR}px`,
+    ...(fam ? { fontFamily: fam } : {}),
+    ...(scale !== 1 ? { fontSize: `${Math.round(16 * scale)}px` } : {}),
+  };
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Website Studio
 // ══════════════════════════════════════════════════════════════════════════════
-export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
+export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: ChannelId }> = ({ lang, initialChannel }) => {
   const L = (ar: string, en: string) => (lang === 'ar' ? ar : en);
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const [tenants, setTenants] = useState<any[]>([]);
@@ -89,6 +125,94 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   const [selIdx, setSelIdx] = useState<number | null>(null);
   const [device, setDevice] = useState<DeviceMode>('desktop');
   const [orient, setOrient] = useState<Orientation>('portrait');
+  // Experience Channels axis. 'website' is the default and renders the existing Studio
+  // unchanged; other channels render the multi-channel preview + inspector.
+  // Entry point: the sidebar's "Application Studio" item opens this same unified Studio
+  // focused on the app builder (initialChannel='customer'); "Website Studio" opens it on
+  // the website. Same component, different entry — no duplicate Studio.
+  const [channel, setChannel] = useState<ChannelId>(initialChannel ?? 'website');
+  const [channelScreen, setChannelScreen] = useState<string>('home');
+  const [channelDecision, setChannelDecision] = useState<{ selected: string[]; eligible: string[]; all: string[] }>({ selected: [], eligible: [], all: [] });
+  // Canvas view axis for non-website channels: the interactive phone (canvas), the Screen
+  // Flow graph, or the User Journey map. Always 'canvas' by default so opening a channel
+  // shows the live preview immediately. State preview + zoom shape the phone only.
+  const [canvasView, setCanvasView] = useState<'canvas' | FlowView | 'runtime'>('canvas');
+  const [previewState, setPreviewState] = useState<PreviewState>('default');
+  const [zoom, setZoom] = useState(1);
+  // App-shell overrides (Theme / App Bar / Bottom Nav editors) per channel — authored in
+  // the App Studio, autosaved client-side, and applied live to the phone canvas.
+  const [appShell, setAppShell] = useState<Record<string, AppShellOverride>>({});
+  useEffect(() => { try { const raw = localStorage.getItem('haat_app_shell_v1'); if (raw) setAppShell(JSON.parse(raw)); } catch { /* ignore */ } }, []);
+  // Channel authoring state: selection + Studio-canvas layout ops. Content edits persist
+  // through the shared content store (and thus reach the live app); layout ops (hide/lock/
+  // reorder) are canvas-level and shape only what this preview presents.
+  const [authoring, setAuthoring] = useState<ChannelAuthoring>({ selectedId: null, hidden: [], locked: [], order: {} });
+  // Content undo/redo REUSES the same snapshot-stack mechanism the website history uses —
+  // wired to the SAME top-bar Undo/Redo buttons. No separate history UI.
+  const [contentUndo, setContentUndo] = useState<Record<string, ExperienceContentOverride>[]>([]);
+  const [contentRedo, setContentRedo] = useState<Record<string, ExperienceContentOverride>[]>([]);
+  const [contentBump, setContentBump] = useState(0);
+  useEffect(() => { void hydrateExperienceContent().then(() => setContentBump(b => b + 1)); }, []);
+
+  const selectChannel = (id: ChannelId) => {
+    setChannel(id);
+    setAuthoring(a => ({ ...a, selectedId: null }));
+    setCanvasView('canvas'); setPreviewState('default');
+    if (id !== 'website') {
+      // Land on the screen where this channel's experiences actually live (the richest
+      // one), so opening a channel immediately shows what the engine places — not a
+      // structural screen like Splash that carries no experience.
+      const screens = getChannel(id)?.screens ?? [];
+      const rep = [...screens].sort((a, b) => b.experiences.length - a.experiences.length)[0] ?? screens[0];
+      setChannelScreen(rep?.id ?? '');
+    }
+  };
+
+  // Undo coalescing: typing into one experience's field is ONE undo step, not one per
+  // keystroke. A snapshot is captured when a new edit session begins (a different
+  // experience, or after any non-text action); consecutive edits to the same session
+  // reuse it. This matches how a text editor's undo behaves.
+  const editSession = useRef<string | null>(null);
+  const beginSession = (key: string) => {
+    if (editSession.current !== key) { setContentUndo(u => [...u.slice(-49), contentSnapshot()]); setContentRedo([]); editSession.current = key; }
+  };
+  const endSession = () => { editSession.current = null; };
+
+  // Author an experience's content. Persists (which reaches the live runtime via the
+  // shared store) and bumps a version so the canvas + inspector re-read.
+  const editChannelContent = (id: string, patch: ExperienceContentOverride) => {
+    beginSession(`edit:${id}`);
+    void saveExperienceContentOverride(id, patch);
+    setContentBump(b => b + 1);
+  };
+  const resetChannelContent = (id: string) => {
+    setContentUndo(u => [...u.slice(-49), contentSnapshot()]); setContentRedo([]); endSession();
+    void resetExperienceContent(id);
+    setContentBump(b => b + 1);
+  };
+  const channelUndo = () => {
+    endSession();
+    setContentUndo(u => { if (!u.length) return u; const prev = u[u.length - 1]; setContentRedo(r => [...r, contentSnapshot()]); restoreContentSnapshot(prev); setContentBump(b => b + 1); return u.slice(0, -1); });
+  };
+  const channelRedo = () => {
+    endSession();
+    setContentRedo(r => { if (!r.length) return r; const nxt = r[r.length - 1]; setContentUndo(u => [...u, contentSnapshot()]); restoreContentSnapshot(nxt); setContentBump(b => b + 1); return r.slice(0, -1); });
+  };
+  const channelAction = (id: string, action: 'hide' | 'lock' | 'up' | 'down') => {
+    endSession();
+    setAuthoring(a => {
+      if (action === 'hide') return { ...a, hidden: a.hidden.includes(id) ? a.hidden.filter(x => x !== id) : [...a.hidden, id] };
+      if (action === 'lock') return { ...a, locked: a.locked.includes(id) ? a.locked.filter(x => x !== id) : [...a.locked, id] };
+      // Reorder within the screen's current experience list.
+      const scr = getChannel(channel)?.screens.find(s => s.id === channelScreen);
+      const base = a.order[channelScreen] ?? scr?.experiences ?? [];
+      const list = base.includes(id) ? [...base] : [...(scr?.experiences ?? [])];
+      const i = list.indexOf(id); if (i < 0) return a;
+      const to = action === 'up' ? i - 1 : i + 1; if (to < 0 || to >= list.length) return a;
+      [list[i], list[to]] = [list[to], list[i]];
+      return { ...a, order: { ...a.order, [channelScreen]: list } };
+    });
+  };
   const [undo, setUndo] = useState<WebsiteSite[]>([]);
   const [redo, setRedo] = useState<WebsiteSite[]>([]);
   const [savedAt, setSavedAt] = useState<number>(0);
@@ -113,6 +237,29 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   const parity = useMemo(() => (tenantId ? websiteService.parityReport(tenantId) : null), [tenantId, savedAt, site]);
   const health = useMemo(() => (tenantId ? websiteService.healthReport(tenantId) : null), [tenantId, savedAt, site]);
 
+  // ── Keyboard shortcuts — ONE interaction model across every Studio channel ──
+  // Registered once; reads the latest handlers via a ref so the same keys drive website
+  // history or channel-content history depending on what is being edited. Undo/redo are
+  // ignored while typing in a field (so native text undo still works); Save always maps
+  // to Publish. This hook is declared BEFORE the `if (!site)` early return (Rules of Hooks);
+  // the ref is populated below, on renders where a site exists.
+  const shortcutRef = useRef<{ undo: () => void; redo: () => void; publish: () => void }>({ undo() {}, redo() {}, publish() {} });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+      const t = e.target as HTMLElement | null;
+      const editing = !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+      const k = e.key.toLowerCase();
+      if (k === 's') { e.preventDefault(); shortcutRef.current.publish(); return; }
+      if (editing) return; // let the browser handle text undo/redo inside fields
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); shortcutRef.current.undo(); }
+      else if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); shortcutRef.current.redo(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   if (!site) return (
     <div id="website_center" dir={dir} className="p-6">
       <EmptyStateBox Icon={Globe} title={L('لا يوجد مستأجر', 'No tenant selected')} description={L('اختر مستأجراً لبدء البناء.', 'Select a tenant to start building.')} />
@@ -132,8 +279,23 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
   const doRedo = () => { if (!redo.length) return; const nxt = redo[redo.length - 1]; setUndo(u => [...u, site]); setRedo(r => r.slice(0, -1)); websiteService.saveDraft(tenantId, nxt); setSite(nxt); setSavedAt(Date.now()); };
 
   const publish = () => { websiteService.publish(tenantId); setVersions(websiteService.listVersions(tenantId)); toast.success(L('تم النشر — مباشر الآن', 'Published — live now')); };
+  // Channel experience content autosaves through the shared store the runtime reads, so it
+  // is already live; Publish confirms and records it (reusing the marketing audit trail).
+  const publishChannel = () => { marketingService.audit(tenantId, 'admin', 'channel.publish', channel); toast.success(L('تجارب القناة مباشرة الآن', 'Channel experiences are live now')); };
   const preview = () => { try { window.open(`/?site=${site.slug}&preview=1`, '_blank'); } catch { /* ignore */ } };
   const rollback = (v: number) => { websiteService.rollback(tenantId, v); loadTenant(tenantId); toast.success(L('تمت الاستعادة', 'Rolled back')); };
+  // App-shell overrides for the active channel + live-updating mutators (autosave client-side).
+  const shellOf = appShell[channel] ?? {};
+  const persistShell = (next: Record<string, AppShellOverride>) => { try { localStorage.setItem('haat_app_shell_v1', JSON.stringify(next)); } catch { /* ignore */ } };
+  const updateShell = (patch: AppShellOverride) => setAppShell(prev => { const next = { ...prev, [channel]: { ...(prev[channel] ?? {}), ...patch } }; persistShell(next); return next; });
+  const resetShell = () => setAppShell(prev => { const next = { ...prev }; delete next[channel]; persistShell(next); return next; });
+
+  // Keep the keyboard-shortcut handlers current — routed by the active channel.
+  shortcutRef.current = {
+    undo: channel === 'website' ? doUndo : channelUndo,
+    redo: channel === 'website' ? doRedo : channelRedo,
+    publish: channel === 'website' ? publish : publishChannel,
+  };
 
   const selectedPage = site.pages.find(p => p.id === pageId) || site.pages[0] || null;
   const selectedPost = site.blog.find(b => b.id === postId) || null;
@@ -233,7 +395,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
     <div id="website_center" dir={dir} style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 90px)', minHeight: 560 }}>
       {/* ── Studio top bar ── */}
       <div className="flex items-center gap-2 flex-wrap" style={{ ...card, borderRadius: 12, padding: '8px 12px', marginBottom: 10 }}>
-        <span className="inline-flex items-center gap-2 font-extrabold" style={{ color: 'var(--color-on-surface)', fontSize: 15 }}><Wand2 size={17} style={{ color: 'var(--color-primary-fixed)' }} />{L('استوديو الموقع', 'Website Studio')}</span>
+        <span className="inline-flex items-center gap-2 font-extrabold" style={{ color: 'var(--color-on-surface)', fontSize: 15 }} id="studio_title"><Wand2 size={17} style={{ color: 'var(--color-primary-fixed)' }} />{channel === 'website' ? L('استوديو التجربة', 'Experience Studio') : L('استوديو التطبيق', 'Application Studio')}{channel !== 'website' && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-on-surface-variant)' }}>· {L(getChannel(channel)?.ar ?? '', getChannel(channel)?.en ?? '')}</span>}</span>
         <select value={tenantId} onChange={e => setTenantId(e.target.value)} style={{ ...inputStyle, width: 'auto', padding: '6px 9px' }} id="website_tenant_select">
           {tenants.map(t => <option key={t.id} value={String(t.id)}>{t.brand_name || t.slug}</option>)}
         </select>
@@ -275,11 +437,13 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
         </div>
 
         <div className="flex items-center gap-1.5 ms-auto">
-          <button onClick={doUndo} disabled={!undo.length} id="studio_undo" title={L('تراجع', 'Undo')} style={{ ...iconBtn, opacity: undo.length ? 1 : 0.4 }}><Undo2 size={15} /></button>
-          <button onClick={doRedo} disabled={!redo.length} id="studio_redo" title={L('إعادة', 'Redo')} style={{ ...iconBtn, opacity: redo.length ? 1 : 0.4 }}><Redo2 size={15} /></button>
+          {/* The SAME Undo/Redo controls drive website history or channel-content history,
+              depending on which the Studio is editing — one mechanism, one set of buttons. */}
+          <button onClick={channel === 'website' ? doUndo : channelUndo} disabled={channel === 'website' ? !undo.length : !contentUndo.length} id="studio_undo" title={L('تراجع', 'Undo')} style={{ ...iconBtn, opacity: (channel === 'website' ? undo.length : contentUndo.length) ? 1 : 0.4 }}><Undo2 size={15} /></button>
+          <button onClick={channel === 'website' ? doRedo : channelRedo} disabled={channel === 'website' ? !redo.length : !contentRedo.length} id="studio_redo" title={L('إعادة', 'Redo')} style={{ ...iconBtn, opacity: (channel === 'website' ? redo.length : contentRedo.length) ? 1 : 0.4 }}><Redo2 size={15} /></button>
           <span className="inline-flex items-center gap-1 text-[11px] px-2" style={{ color: 'var(--color-on-surface-variant)' }} id="studio_saved"><Check size={12} style={{ color: '#4ade80' }} />{savedAt ? L('تم الحفظ', 'Saved') : L('حفظ تلقائي', 'Autosave on')}</span>
           <Btn onClick={preview} id="website_preview_btn"><Eye size={14} />{L('معاينة', 'Preview')}</Btn>
-          <Btn onClick={publish} primary id="website_publish_btn"><UploadCloud size={14} />{L('نشر', 'Publish')}</Btn>
+          <Btn onClick={channel === 'website' ? publish : publishChannel} primary id="website_publish_btn"><UploadCloud size={14} />{L('نشر', 'Publish')}</Btn>
         </div>
       </div>
 
@@ -287,6 +451,16 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
       <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '248px minmax(0,1fr) 340px', gap: 10 }}>
         {/* LEFT — Structure navigator */}
         <div style={{ ...card, padding: 8, overflow: 'auto' }} id="studio_left">
+          {/* Experience Channels — always visible; selects which channel the Studio edits. */}
+          <ChannelNavigator channel={channel} screenId={channelScreen} lang={lang} onChannel={selectChannel} onScreen={setChannelScreen} />
+          {channel !== 'website' && (
+            <ChannelTree channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision}
+              selectedId={authoring.selectedId}
+              onSelectExperience={(id) => { editSession.current = null; setAuthoring(a => ({ ...a, selectedId: id })); setCanvasView('canvas'); }}
+              onNavigate={(s) => { setChannelScreen(s); setCanvasView('canvas'); }} />
+          )}
+          <div style={{ borderTop: '1px solid var(--color-outline-variant)', margin: '8px 0' }} />
+          {channel === 'website' && (<>
           {['Content', 'Design', 'System'].map(group => (
             <div key={group} className="mb-2">
               <p className="text-[10px] font-bold uppercase tracking-wide px-2 mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>{group}</p>
@@ -353,16 +527,82 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
               {site.blog.map(b => <button key={b.id} onClick={() => setPostId(b.id)} className="w-full text-start px-2 py-1.5 rounded-md text-[12px] cursor-pointer mb-0.5" style={{ background: postId === b.id ? 'var(--color-surface-container-high)' : 'transparent', color: 'var(--color-on-surface)' }}><span className="font-semibold">{b.title}</span><span className="block text-[10px] opacity-70">/blog/{b.slug}</span></button>)}
             </div>
           )}
+          </>)}
         </div>
 
         {/* CENTER — live canvas */}
         <div style={{ ...card, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: 'var(--color-background)' }} id="studio_center">
-          <div className="flex items-center gap-2 px-3 py-1.5" style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
+          <div className="flex items-center gap-2 px-3 py-1.5 flex-wrap" style={{ borderBottom: '1px solid var(--color-outline-variant)' }}>
             <span className="text-[11px] inline-flex items-center gap-1.5" style={{ color: 'var(--color-on-surface-variant)' }}><span style={{ width: 8, height: 8, borderRadius: 999, background: '#4ade80' }} />{L('معاينة مباشرة', 'Live preview')} · {device} {device !== 'desktop' ? orient : ''}</span>
-            {module === 'pages' && <span className="text-[11px] ms-auto inline-flex items-center gap-1" style={{ color: 'var(--color-on-surface-variant)' }}><MousePointerClick size={12} />{L('انقر أي قسم للتحرير', 'Click any section to edit')}</span>}
+            {channel !== 'website' && (
+              <>
+                {/* App switcher — the three target apps of the Application Studio */}
+                <div id="app_switcher" className="inline-flex items-center gap-1 ms-2" style={{ ...card, borderRadius: 999, padding: 3 }}>
+                  {(['customer', 'merchant', 'driver'] as const).map(a => {
+                    const on = channel === a;
+                    return (
+                      <button key={a} id={`app_switch_${a}`} onClick={() => selectChannel(a)} title={L(getChannel(a)?.ar ?? '', getChannel(a)?.en ?? '')}
+                        className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-bold"
+                        style={{ padding: '4px 10px', borderRadius: 999, border: 'none', background: on ? 'var(--color-primary-fixed)' : 'transparent', color: on ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}>
+                        {L(getChannel(a)?.ar ?? '', getChannel(a)?.en ?? '')}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Canvas view switcher — interactive phone · screen flow · user journey */}
+                <div id="studio_view_switcher" className="inline-flex items-center gap-1 ms-2" style={{ ...card, borderRadius: 999, padding: 3 }}>
+                  {([['canvas', Layout, L('اللوحة', 'Canvas')], ['runtime', MonitorSmartphone, L('التطبيق الحيّ', 'Live App')], ['flow', Layers, L('المخطّط', 'Flow')], ['journey', MapPin, L('الرحلة', 'Journey')]] as const).map(([v, Icon, label]) => {
+                    const on = canvasView === v;
+                    return (
+                      <button key={v} id={`studio_view_${v}`} onClick={() => setCanvasView(v)} title={label}
+                        className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-bold"
+                        style={{ padding: '4px 10px', borderRadius: 999, border: 'none', background: on ? 'var(--color-primary-fixed)' : 'transparent', color: on ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}>
+                        <Icon size={13} />{label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* State preview — review the phone in every UI condition (no backend) */}
+                {canvasView === 'canvas' && (
+                  <label className="inline-flex items-center gap-1.5 ms-1 text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>
+                    {L('الحالة', 'State')}
+                    <select id="studio_state_select" value={previewState} onChange={e => setPreviewState(e.target.value as PreviewState)} style={{ ...inputStyle, width: 'auto', padding: '4px 8px', fontSize: 11.5 }}>
+                      {PREVIEW_STATES.map(s => <option key={s.id} value={s.id}>{L(s.ar, s.en)}</option>)}
+                    </select>
+                  </label>
+                )}
+              </>
+            )}
+            {channel !== 'website' && canvasView === 'canvas' && (
+              <div className="inline-flex items-center gap-1 ms-auto" id="studio_zoom">
+                <button onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(2)))} title={L('تصغير', 'Zoom out')} style={{ ...iconBtn, width: 28, height: 26 }}><ZoomOut size={14} /></button>
+                <span className="text-[11px] tabular-nums" style={{ color: 'var(--color-on-surface-variant)', minWidth: 34, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+                <button onClick={() => setZoom(z => Math.min(1.5, +(z + 0.1).toFixed(2)))} title={L('تكبير', 'Zoom in')} style={{ ...iconBtn, width: 28, height: 26 }}><ZoomIn size={14} /></button>
+                {zoom !== 1 && <button onClick={() => setZoom(1)} className="text-[10px] font-bold cursor-pointer px-1.5" style={{ color: 'var(--color-primary-fixed)', background: 'transparent', border: 'none' }}>{L('إعادة', 'Reset')}</button>}
+              </div>
+            )}
+            {channel === 'website' && module === 'pages' && <span className="text-[11px] ms-auto inline-flex items-center gap-1" style={{ color: 'var(--color-on-surface-variant)' }}><MousePointerClick size={12} />{L('انقر أي قسم للتحرير', 'Click any section to edit')}</span>}
           </div>
+          {/* Experience preview — see the page as any visitor (audiences · flags · variants). */}
+          {channel === 'website' && module === 'pages' && previewPage && (
+            <div style={{ padding: '10px 12px 0' }} id="studio_experience_preview">
+              <ExperiencePreviewBar sections={previewPage.sections ?? []} path={previewPage.path} lang={lang} device={device} />
+            </div>
+          )}
           <div style={{ flex: 1, overflow: 'auto', padding: 16, display: 'grid', placeItems: 'start center' }} id="studio_canvas">
-            {module === 'media'
+            {channel !== 'website'
+              ? (canvasView === 'flow' || canvasView === 'journey'
+                ? <StudioFlow channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision} view={canvasView}
+                    onSelectScreen={(s) => { setChannelScreen(s); setCanvasView('canvas'); }} />
+                : canvasView === 'runtime'
+                ? <AppRuntimePreview channel={channel} screenId={channelScreen} device={device} lang={lang} />
+                : <div style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: 'top center', transition: 'transform .15s ease', width: '100%' }}>
+                    <ChannelPreview key={`${channel}:${channelScreen}`} contentVersion={contentBump} channel={channel} screenId={channelScreen} device={device} lang={lang} locale={lang} country="SA"
+                      authoring={authoring} previewState={previewState} shell={shellOf} onSelect={(id) => { editSession.current = null; setAuthoring(a => ({ ...a, selectedId: id })); }}
+                      onInlineEdit={editChannelContent} onAction={channelAction} onDecision={setChannelDecision}
+                      onNavigate={(s) => { setChannelScreen(s); setAuthoring(a => ({ ...a, selectedId: null })); }} />
+                  </div>)
+              : module === 'media'
               ? <MediaLibrary lang={lang} L={L} />
               : (
                 <div style={{ width: device === 'desktop' ? '100%' : frameW, maxWidth: '100%', transition: 'width .25s ease' }}>
@@ -393,7 +633,17 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
 
         {/* RIGHT — properties */}
         <div style={{ ...card, padding: 14, overflow: 'auto' }} id="studio_right">
-          {MARKETING_MODULES.includes(module as MarketingModule) ? (
+          {channel !== 'website' ? (
+            <AppStudioPanels channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision}
+              selectedId={authoring.selectedId} contentVersion={contentBump}
+              overrideOf={contentOverride}
+              onEditContent={editChannelContent} onResetContent={resetChannelContent}
+              locked={authoring.locked} hidden={authoring.hidden}
+              onAction={channelAction}
+              shell={shellOf} onShellChange={updateShell} onResetShell={resetShell}
+              onSelectExperience={(id) => { editSession.current = null; setAuthoring(a => ({ ...a, selectedId: id })); setCanvasView('canvas'); }}
+              onOpenExperienceCenter={() => { try { window.dispatchEvent(new CustomEvent('haat:admin-nav', { detail: 'experience' })); } catch { /* ignore */ } }} />
+          ) : MARKETING_MODULES.includes(module as MarketingModule) ? (
             <MarketingPanel module={module as MarketingModule} tenantId={tenantId} user={user} site={site} brand={brand} lang={lang} L={L} isFlagship={isFlagship} onPatchSite={patch} onGenerate={handleGenerate} versions={versions} onRollback={rollback} />
           ) : module === 'pages' && selectedPage && selIdx != null && selectedPage.sections[selIdx] ? (
             <SectionProperties page={selectedPage} idx={selIdx} L={L} lang={lang}
@@ -473,7 +723,7 @@ const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; devic
           preview renders through the identical production pipeline (hover lifts, reveals,
           glass blur, micro-interactions) instead of a static canvas. Production == Preview. */}
       <BlockStyles />
-      <style>{`#preview_frame .wsx-sec{position:relative;transition:box-shadow .12s ease}#preview_frame .wsx-sec:hover{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--color-primary-fixed) 55%,transparent)}#preview_frame .wsx-sec.sel{box-shadow:inset 0 0 0 2px var(--color-primary-fixed)}#preview_frame .wsx-sec.locked{box-shadow:inset 0 0 0 2px color-mix(in srgb,#f5a623 55%,transparent)}#preview_frame .wsx-bar{position:absolute;top:8px;inset-inline-end:8px;z-index:5;display:none;gap:4px}#preview_frame .wsx-sec:hover .wsx-bar,#preview_frame .wsx-sec.sel .wsx-bar{display:flex}#preview_frame .wsx-tag{position:absolute;top:8px;inset-inline-start:8px;z-index:5;font-size:10px;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--color-primary-fixed);color:var(--color-on-primary-fixed);display:none;align-items:center;gap:4px}#preview_frame .wsx-sec.sel .wsx-tag,#preview_frame .wsx-sec.locked .wsx-tag{display:inline-flex}`}</style>
+      <StudioInteractionStyles scope="#preview_frame" />
       {/* Site header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderBottom: '1px solid var(--color-outline-variant, #2a3330)', background: 'color-mix(in srgb, var(--color-background,#0a0f0c) 85%, transparent)' }}>
         {brand?.logo_url ? <img src={brand.logo_url} alt="" style={{ height: 22 }} /> : <span style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--color-primary-fixed)' }} />}
@@ -518,7 +768,7 @@ const LivePreview: React.FC<{ site: WebsiteSite; page: WebsitePage | null; devic
     </div>
   );
 };
-const pvBtn: React.CSSProperties = { width: 26, height: 26, borderRadius: 8, background: 'rgba(0,0,0,.55)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,.2)', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' };
+const pvBtn: React.CSSProperties = studioOverlayBtn;
 
 // ── In-canvas inline editor — click a section, edit its headline text & swap its
 //    banner/video/logo/image directly on the live preview. Updates flow back through
@@ -578,6 +828,12 @@ const SectionProperties: React.FC<{ page: WebsitePage; idx: number; L: (a: strin
         <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' }}>{L('قسم', 'Section')} #{idx + 1}</span>
       </div>
       <div className="pt-1"><BlockEditor block={block} onChange={onChange} L={L} lang={lang} /></div>
+
+      {/* Audience targeting — authored visually; enforced by the Experience Runtime. */}
+      <div className="pt-2" style={{ borderTop: '1px solid var(--color-outline-variant)' }} id={`section_targeting_${idx}`}>
+        <SectionTargeting sections={page.sections} index={idx} lang={lang} />
+      </div>
+
       <div className="pt-2 space-y-2" style={{ borderTop: '1px solid var(--color-outline-variant)' }}>
         <span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('الظهور حسب الجهاز', 'Device visibility')}</span>
         <div className="flex gap-1.5">
@@ -726,6 +982,19 @@ const ThemeStudio: React.FC<{ brand: Record<string, any> | null; L: (a: string, 
         <input type="range" min={0} max={32} value={cardR} onChange={e => onSave({ card_radius: Number(e.target.value) })} style={{ width: '100%', marginTop: 8 }} id="theme_card_radius" /></label>
       <label className="block"><span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('استدارة الأزرار', 'Button radius')} · {btnR}px</span>
         <input type="range" min={0} max={28} value={btnR} onChange={e => onSave({ button_radius: Number(e.target.value) })} style={{ width: '100%', marginTop: 8 }} id="theme_button_radius" /></label>
+
+      {/* Global typography (Priority G) — family + base size, applied live to the preview. */}
+      <div className="pt-2 space-y-2" style={{ borderTop: '1px solid var(--color-outline-variant)' }}>
+        <span className="text-[11px] font-bold inline-flex items-center gap-1.5" style={{ color: 'var(--color-on-surface-variant)' }}><TypeIcon size={12} />{L('الطباعة العامة', 'Global typography')}</span>
+        <div className="grid grid-cols-2 gap-1.5" id="theme_font_family">
+          {FONT_STACKS.map(f => { const on = (brand?.font_family || 'system') === f.v; return (
+            <button key={f.v} id={`theme_font_${f.v}`} onClick={() => onSave({ font_family: f.v })} className="text-[11px] py-2 rounded-lg cursor-pointer"
+              style={{ fontFamily: f.css, background: on ? 'rgba(163,249,91,0.16)' : 'var(--color-surface-container-high)', color: on ? 'var(--color-primary-fixed)' : 'var(--color-on-surface)', border: on ? '1px solid var(--color-primary-fixed)' : '1px solid var(--color-outline-variant)', fontWeight: 700 }}>{f.label}</button>
+          ); })}
+        </div>
+        <label className="block"><span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('حجم الخط الأساسي', 'Base font size')} · {Math.round((brand?.font_scale != null ? Number(brand.font_scale) : 1) * 100)}%</span>
+          <input type="range" min={0.85} max={1.25} step={0.05} value={brand?.font_scale != null ? Number(brand.font_scale) : 1} onChange={e => onSave({ font_scale: Number(e.target.value) })} style={{ width: '100%', marginTop: 8 }} id="theme_font_scale" /></label>
+      </div>
       <div className="flex gap-2 flex-wrap pt-1">
         {['#A3F95B', '#6EE7FF', '#F97316', '#F43F5E', '#8B5CF6', '#22D3EE'].map(c => <button key={c} onClick={() => onSave({ primary_color: c })} title={c} style={{ width: 26, height: 26, borderRadius: 8, background: c, border: '1px solid var(--color-outline-variant)', cursor: 'pointer' }} />)}
       </div>

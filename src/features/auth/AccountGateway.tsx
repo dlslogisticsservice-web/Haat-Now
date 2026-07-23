@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Store, Bike, Building2, Globe2, ShieldCheck, ChevronRight, Lock } from 'lucide-react';
-import { HaatLogo } from '../website/icons';
+import { HaatLogo } from '../../components/brand/HaatLogo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Account-type gateway — the FIRST screen of the auth flow. It NEVER signs anyone in

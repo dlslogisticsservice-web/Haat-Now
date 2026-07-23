@@ -7,8 +7,10 @@ import {
 import { SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseUI';
 import { toast } from '../../components/ui/feedback';
 import { card, inputStyle, iconBtn, Field, Select, Toggle, Btn, Chip, ItemDel, MediaField } from './studioUI';
-import { marketingService, type MarketingState, type Campaign, type CampaignKind, type CampaignStatus, type ConversionWidget, type WidgetKind, type PersonalizationRule, type PersonalizationDim, type Experiment, type ExperimentElement, type AppFormat } from '../../services/marketing.service';
+import { marketingService, type MarketingState, type Campaign, type CampaignKind, type CampaignStatus, type CampaignTargeting, type ConversionWidget, type WidgetKind, type PersonalizationRule, type PersonalizationDim, type Experiment, type ExperimentElement, type AppFormat } from '../../services/marketing.service';
 import type { WebsiteSite } from '../../services/website.service';
+// Cross-channel targeting reads the ONE channel registry — same source as the Studio.
+import { ACTIVE_CHANNELS } from '../../experience-channels/channels';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Marketing OS — the marketing modules that plug into Website Studio's navigator.
@@ -136,6 +138,8 @@ const CampaignCenter: React.FC<Bound> = ({ tenantId, user, L, state, setState })
             <Field label={L('اللغات', 'Languages (CSV)')} value={sel.targeting.languages.join(',')} onChange={v => up({ targeting: { ...sel.targeting, languages: v.split(',').map(x => x.trim()).filter(Boolean) } })} placeholder="ar,en" />
             <Select label={L('الجمهور', 'Audience')} value={sel.targeting.audience} onChange={v => up({ targeting: { ...sel.targeting, audience: v } })} options={[{ v: 'all', label: 'All' }, { v: 'new', label: 'New visitors' }, { v: 'returning', label: 'Returning' }, { v: 'guest', label: 'Guests' }, { v: 'loyal', label: 'Loyal' }]} />
           </div>
+          {/* Cross-channel targeting — one campaign, every experience channel. Empty = all. */}
+          <CampaignChannelPicker targeting={sel.targeting} L={L} onChange={t => up({ targeting: t })} />
           {/* Lifecycle */}
           <div className="flex flex-wrap gap-1.5 pt-1">
             <Btn onClick={() => setStatus('draft')} id="mkt_status_draft">{L('مسودة', 'Draft')}</Btn>
@@ -198,6 +202,40 @@ const ConversionCenter: React.FC<Bound> = ({ tenantId, user, lang, L, state, set
         </div>
       )}
     </Panel>
+  );
+};
+
+// Cross-channel campaign targeting. Toggling channels writes `targeting.channels`; an
+// empty selection means "all channels" (the backward-compatible default). Reuses the
+// one channel registry, so the campaign vocabulary matches the Studio exactly.
+const CampaignChannelPicker: React.FC<{ targeting: CampaignTargeting; L: (a: string, e: string) => string; onChange: (t: CampaignTargeting) => void }> = ({ targeting, L, onChange }) => {
+  const selected = targeting.channels ?? [];
+  const all = selected.length === 0;
+  const toggle = (id: string) => {
+    const next = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id];
+    onChange({ ...targeting, channels: next });
+  };
+  return (
+    <div className="pt-1" id="campaign_channels">
+      <span className="text-[11px] font-bold" style={{ color: 'var(--color-on-surface-variant)' }}>{L('القنوات', 'Channels')}</span>
+      <div className="flex flex-wrap gap-1.5 mt-1">
+        <button onClick={() => onChange({ ...targeting, channels: [] })} id="campaign_channel_all"
+          className="text-[11px] font-bold px-2.5 py-1 rounded-full cursor-pointer"
+          style={{ background: all ? 'var(--color-primary-fixed,#a3f95b)' : 'var(--color-surface-container-high)', color: all ? 'var(--color-on-primary-fixed,#0c2000)' : 'var(--color-on-surface-variant)' }}>
+          {L('كل القنوات', 'All channels')}
+        </button>
+        {ACTIVE_CHANNELS.map(c => {
+          const on = selected.includes(c.id);
+          return (
+            <button key={c.id} onClick={() => toggle(c.id)} id={`campaign_channel_${c.id}`}
+              className="text-[11px] font-bold px-2.5 py-1 rounded-full cursor-pointer"
+              style={{ background: on ? 'var(--color-primary-fixed,#a3f95b)' : 'var(--color-surface-container-high)', color: on ? 'var(--color-on-primary-fixed,#0c2000)' : 'var(--color-on-surface-variant)' }}>
+              {L(c.ar, c.en)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 };
 

@@ -8,6 +8,15 @@ import { trackingService } from '../../services/tracking.service';
 import { walletService } from '../../services/wallet.service';
 import { performanceService, type DriverPerformance } from '../../services/ops/performance.service';
 import { calculateDistanceKm, calculateEtaMinutes } from '../../services/location.service';
+// Experience Runtime (Waves 1–18) — the rollout gate decides which drivers are in this wave.
+import { useExperience, experiencePlatform, usePersonalizedExperiences } from '../../services/experience-platform.service';
+import type { ExperienceCandidate } from '../../experience-engine';
+import { ExperienceBanner, ExperienceKeyframes } from '../../components/experience/ExperienceSurfaces';
+import { resolveMergedContent, hydrateExperienceContent } from '../../services/experience-content.service';
+import { resolveExperienceIcon } from '../../components/experience/experienceIcons';
+import { contentTitle, contentBody } from '../../experience-content/content';
+import { emptyTrackState, shouldPush, recordPush, type TrackState } from '../../services/tracking-policy';
+import { monitoring } from '../../services/monitoring.service';
 import { sandboxStore } from '../../services/sandboxStore';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { Icon } from '../../components/ui/Icon';
@@ -16,7 +25,7 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Loader, EmptyState } from '../../components/ui/Primitives';
 import { DriverOpsPanel } from './DriverOpsPanel';
-import { OnboardingForm } from '../onboarding/OnboardingForm';
+import { OnboardingForm } from '../../components/onboarding/OnboardingForm';
 
 // ── Live driver-experience helpers (real device signals + animation) ──────────
 // Deterministic per-id metric so demo values are stable and realistic (not random flicker).
@@ -148,6 +157,8 @@ interface ActiveOrder {
   customer_id: string;
   customers?: { full_name: string; phone_number: string };
   merchant_branches?: { name: string };
+  delivery_lat?: number | null;
+  delivery_lng?: number | null;
 }
 interface OrdersFeed {
   id: string;
@@ -175,6 +186,8 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   const [fabOpen,                 setFabOpen]                 = useState(false);
   const feedChannelRef = useRef<any>(null);
   const watchIdRef     = useRef<number | null>(null);
+  // Throttle state for the live-tracking policy — one fix stream per active delivery.
+  const trackStateRef  = useRef<TrackState>(emptyTrackState());
 
   useEffect(() => { fetchDriverCore(); }, [driverId]);
 
@@ -197,16 +210,29 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
       toast.error(D('تحديد الموقع غير مدعوم في هذا المتصفح','Location is not supported in this browser'));
       return;
     }
+    trackStateRef.current = emptyTrackState();
     const id = navigator.geolocation.watchPosition(
       (pos) => {
-        trackingService.updateDriverLocation(drvId, pos.coords.latitude, pos.coords.longitude);
+        // Efficient updates: only push a fix that represents real movement or a heartbeat.
+        // Below-threshold jitter and sub-interval fires are dropped — battery + network.
+        const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude, at: Date.now(), accuracyM: pos.coords.accuracy };
+        const decision = shouldPush(trackStateRef.current, fix, fix.at);
+        if (!decision.push) return;
+        trackStateRef.current = recordPush(trackStateRef.current, fix);
+        trackingService.updateDriverLocation(drvId, fix.lat, fix.lng)
+          .then(({ error }) => { if (error) monitoring.log('error', `[location] update_failed: ${error.message || 'write failed'}`); })
+          .catch((e) => monitoring.log('error', `[location] update_failed: ${e instanceof Error ? e.message : 'push error'}`));
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) {
+          monitoring.log('warn', '[location] permission_denied');
           toast.error(D('لم تُمنح صلاحية تحديد الموقع. يُرجى تفعيلها من إعدادات المتصفح.','Location permission was denied. Please enable it in your browser settings.'));
+        } else {
+          // Position unavailable / timeout — a tracking interruption (poor signal).
+          monitoring.log('warn', `[location] slow_update: ${err.message || 'position unavailable'}`);
         }
       },
-      { enableHighAccuracy: true, timeout: 10000 },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
     );
     watchIdRef.current = id;
   };
@@ -376,6 +402,34 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
   const todayAnim      = useCountUp(totalEarned);
   const weekAnim       = useCountUp(weekEarn);
 
+  // ── Experience Runtime · gradual rollout for this driver ──
+  // The SAME rollout gate the render pipeline uses (Wave 15): deterministic per driver, so a
+  // driver stays in or out across sessions, and Ops can disable the wave instantly.
+  // MUST sit above every early return — hooks after a conditional return break hook order.
+  const dxDecision = experiencePlatform().engine.rollout.shouldExecute({
+    tenantId: 'haat', experienceId: `driver:${driverId ?? 'anonymous'}`, channel: 'driver',
+  });
+  const dxFlags = useExperience({ surface: 'driver', locale: lang === 'ar' ? 'ar' : 'en', role: 'driver', experienceId: 'driver-portal' });
+  useEffect(() => { void hydrateExperienceContent(); }, []);
+  const [dxDismissed, setDxDismissed] = useState<{ beta?: boolean; training?: boolean; safety?: boolean }>({});
+  // Wave 20.1 · the rollout gate still decides ELIGIBILITY for beta tools; Personalization decides
+  // which of the eligible driver surfaces is worth this driver's attention right now. A driver who
+  // has already read the training card sees the safety notice instead of the same card again.
+  const dxKey: { [id: string]: 'beta' | 'training' | 'safety' } = {
+    'flag.driver_beta_tools': 'beta', 'flag.driver_training': 'training', 'flag.driver_safety': 'safety',
+  };
+  const dxCandidates: ExperienceCandidate[] = [
+    { experienceId: 'flag.driver_beta_tools', priority: 30, eligible: dxDecision.execute || dxFlags.isOn('flag.driver_beta_tools') },
+    { experienceId: 'flag.driver_safety', priority: 25, eligible: dxFlags.isOn('flag.driver_safety') },
+    { experienceId: 'flag.driver_training', priority: 10, eligible: dxFlags.isOn('flag.driver_training') },
+  ].filter(c => (c as { eligible: boolean }).eligible && !dxDismissed[dxKey[c.experienceId]])
+   .map(({ experienceId, priority }) => ({ experienceId, priority }));
+  const dxShown = usePersonalizedExperiences(dxCandidates, 1);
+  const dxBeta = dxShown.includes('flag.driver_beta_tools');
+  const dxTraining = dxShown.includes('flag.driver_training');
+  const dxSafety = dxShown.includes('flag.driver_safety');
+  const dxRolloutLabel = `${D('الطرح', 'rollout')}: ${dxDecision.reason}${typeof dxDecision.bucket === 'number' ? ` · bucket ${dxDecision.bucket}` : ''}`;
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4" id="driver_core_loader">
@@ -421,7 +475,14 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
       </div>
       <div className="flex items-center justify-between pt-1">
         <div className="flex gap-2">
-          <button onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.customers?.full_name || job.merchant_branches?.name || 'destination')}`, '_blank')} title={D('الملاحة', 'Navigate')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition" style={{ background: 'rgba(158,212,66,0.14)', color: 'var(--color-lime-vb,#9ed442)' }}><Icon name="navigation" size={16} fill={1} /></button>
+          <button onClick={() => {
+            const lat = job.delivery_lat, lng = job.delivery_lng;
+            if (typeof lat === 'number' && typeof lng === 'number') {
+              window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+            } else {
+              toast.info(D('موقع التوصيل غير محدّد لهذا الطلب.', 'This order has no delivery location set.'));
+            }
+          }} title={D('الملاحة', 'Navigate')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition" style={{ background: 'rgba(158,212,66,0.14)', color: 'var(--color-lime-vb,#9ed442)' }}><Icon name="navigation" size={16} fill={1} /></button>
           <button onClick={() => { const ph = job.customers?.phone_number; if (ph) window.location.href = `tel:${ph}`; else toast.info(D('رقم العميل غير متاح في الوضع التجريبي', 'Customer phone unavailable in demo')); }} title={D('اتصال', 'Call')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)' }}><Icon name="call" size={16} fill={1} /></button>
           <button onClick={() => { const ph = job.customers?.phone_number; if (ph) window.open(`https://wa.me/${ph.replace(/[^0-9]/g, '')}`, '_blank'); else toast.info(D('الدردشة غير متاحة في الوضع التجريبي', 'Chat unavailable in demo')); }} title={D('محادثة', 'Chat')} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer active:scale-95 transition" style={{ background: 'rgba(255,255,255,0.06)', color: 'var(--color-on-surface)' }}><Icon name="chat" size={16} fill={1} /></button>
         </div>
@@ -444,6 +505,7 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
 
   return (
     <div className="min-h-screen flex flex-col" id="driver_app_container" dir={lang === 'ar' ? 'rtl' : 'ltr'} style={{ paddingTop: 'calc(0.75rem + env(safe-area-inset-top, 0px))' }}>
+      {/* Experience Runtime keyframes are injected with the banner below (rollout-gated). */}
 
       {/* ── Compact top bar: identity + online pill + language ── */}
       <div className="flex items-center justify-between px-5 pb-2" id="driver_topbar">
@@ -468,6 +530,54 @@ export const DriverApp = ({ driverId, onLogout }: DriverAppProps) => {
         {/* ════ HOME ════ */}
         {tab === 'home' && (
           <div className="space-y-4 animate-fade-in">
+
+            {/* ── EXPERIENCE RUNTIME · gradual rollout (Waves 15–18) ──
+                The rollout gate decides — per driver, deterministically — whether this
+                account is in the current wave. No second gate, no random draw. */}
+            {(dxBeta || dxSafety || dxTraining) && (
+              <>
+                <ExperienceKeyframes />
+                {dxBeta && (() => {
+                  // Same resolveMergedContent the Experience Studio edits — one source of truth.
+                  const c = resolveMergedContent('flag.driver_beta_tools'); if (!c) return null;
+                  return (
+                    <ExperienceBanner
+                      Icon={resolveExperienceIcon(c.icon)}
+                      title={contentTitle(c, lang === 'ar' ? 'ar' : 'en')}
+                      body={contentBody(c, lang === 'ar' ? 'ar' : 'en')}
+                      variant={c.variant}
+                      debugLabel={dxRolloutLabel}
+                      decision={dxFlags.context} experienceId="flag.driver_beta_tools" surface="driver"
+                      onDismiss={() => setDxDismissed(s => ({ ...s, beta: true }))}
+                    />
+                  );
+                })()}
+                {dxSafety && (() => {
+                  const c = resolveMergedContent('flag.driver_safety'); if (!c) return null;
+                  return (
+                    <ExperienceBanner
+                      Icon={resolveExperienceIcon(c.icon)}
+                      title={contentTitle(c, lang === 'ar' ? 'ar' : 'en')}
+                      body={contentBody(c, lang === 'ar' ? 'ar' : 'en')}
+                      decision={dxFlags.context} experienceId="flag.driver_safety" surface="driver"
+                      onDismiss={() => setDxDismissed(s => ({ ...s, safety: true }))}
+                    />
+                  );
+                })()}
+                {dxTraining && (() => {
+                  const c = resolveMergedContent('flag.driver_training'); if (!c) return null;
+                  return (
+                    <ExperienceBanner
+                      Icon={resolveExperienceIcon(c.icon)}
+                      title={contentTitle(c, lang === 'ar' ? 'ar' : 'en')}
+                      body={contentBody(c, lang === 'ar' ? 'ar' : 'en')}
+                      decision={dxFlags.context} experienceId="flag.driver_training" surface="driver"
+                      onDismiss={() => setDxDismissed(s => ({ ...s, training: true }))}
+                    />
+                  );
+                })()}
+              </>
+            )}
 
             {/* Driver status card */}
             <div className="rounded-[26px] p-4" style={{ background: 'linear-gradient(150deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 10px 30px -12px rgba(0,0,0,0.6)' }}>

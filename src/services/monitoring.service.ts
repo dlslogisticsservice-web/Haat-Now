@@ -23,10 +23,29 @@ function post(url: string, body: unknown) {
 // Guardian) can surface crashes/logs without a backend. Bounded, reset on reload (the
 // durable copy lives at the configured telemetry backend). Read-only companion to the
 // existing seam — no new service.
-export type MonitorEvent = { kind: 'error' | 'log' | 'event'; level?: string; message: string; stack?: string; meta?: unknown; at: string; url?: string };
+/** Where a captured signal came from. Optional: older callers simply omit it. */
+export type MonitorSource = 'react' | 'console' | 'api' | 'network' | 'performance' | 'app';
+export type MonitorEvent = { kind: 'error' | 'log' | 'event'; level?: string; message: string; stack?: string; meta?: unknown; at: string; url?: string; source?: MonitorSource };
 const EVENTS: MonitorEvent[] = [];
 const MAX_EVENTS = 50;
 function record(e: MonitorEvent) { EVENTS.push(e); if (EVENTS.length > MAX_EVENTS) EVENTS.splice(0, EVENTS.length - MAX_EVENTS); }
+
+// ── global capture (see monitoring.installGlobalCapture) ─────────────────────
+/** Hooks are installed once per document. */
+let installed = false;
+/**
+ * Re-entrancy guard. A capture hook must never trigger itself — patching console.error
+ * while recording through a path that logs, or capturing our own telemetry fetch, would
+ * spin. `guard` also swallows: telemetry may never become the incident it reports.
+ */
+let capturing = false;
+function guard(fn: () => void): void {
+  if (capturing) return;
+  capturing = true;
+  try { fn(); } catch { /* never throw from telemetry */ } finally { capturing = false; }
+}
+/** A main-thread block beyond this is user-visible jank. */
+const LONG_TASK_MS = 200;
 
 export const monitoring = {
   /** Report a crash / uncaught error. Console in dev; POST to the DSN when configured. */
@@ -65,4 +84,97 @@ export const monitoring = {
   /** Whether a real crash-reporting backend is wired (operator env). */
   isCrashReportingEnabled() { return !!SENTRY_DSN; },
   isAnalyticsEnabled() { return !!ANALYTICS_URL; },
+
+  /**
+   * Start capturing runtime health into THIS seam (no second collector exists).
+   * Idempotent; safe to call once at boot from main.tsx.
+   *
+   * Captures: uncaught errors + React render crashes (window 'error'), rejected promises,
+   * console.error/warn (where React reports component errors), failed API calls and network
+   * faults (fetch), and long tasks (performance).
+   *
+   * Telemetry must never become the incident: every hook is wrapped, re-entrancy is guarded,
+   * and our own telemetry endpoints are skipped so a failing DSN cannot feed itself.
+   */
+  installGlobalCapture(): void {
+    if (installed || typeof window === 'undefined') return;
+    installed = true;
+
+    window.addEventListener('error', (ev) => {
+      guard(() => record({
+        kind: 'error', source: 'react',
+        message: ev.message || 'Uncaught error',
+        stack: ev.error instanceof Error ? ev.error.stack : undefined,
+        at: new Date().toISOString(), url: location.href,
+      }));
+    });
+
+    window.addEventListener('unhandledrejection', (ev: PromiseRejectionEvent) => {
+      guard(() => record({
+        kind: 'error', source: 'react',
+        message: `Unhandled rejection: ${ev.reason instanceof Error ? ev.reason.message : String(ev.reason)}`,
+        stack: ev.reason instanceof Error ? ev.reason.stack : undefined,
+        at: new Date().toISOString(), url: location.href,
+      }));
+    });
+
+    // React reports component errors and key/prop warnings through console.
+    for (const level of ['error', 'warn'] as const) {
+      const original = console[level].bind(console);
+      console[level] = (...args: unknown[]) => {
+        original(...args);
+        guard(() => {
+          const message = args.map(a => (a instanceof Error ? a.message : typeof a === 'string' ? a : '')).join(' ').trim();
+          if (!message || message.startsWith('[log]') || message.startsWith('[monitoring')) return;  // our own output
+          record({ kind: 'log', level, source: 'console', message: message.slice(0, 300), at: new Date().toISOString(), url: location.href });
+        });
+      };
+    }
+
+    // API + network faults.
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      const telemetry = (SENTRY_DSN && url.startsWith(SENTRY_DSN)) || (ANALYTICS_URL && url.startsWith(ANALYTICS_URL));
+      const t0 = performance.now();
+      try {
+        const res = await nativeFetch(input as any, init);
+        if (!telemetry && !res.ok) {
+          guard(() => record({
+            kind: 'error', source: 'api',
+            message: `${res.status} ${res.statusText} — ${url}`,
+            meta: { status: res.status, ms: Math.round(performance.now() - t0) },
+            at: new Date().toISOString(), url,
+          }));
+        }
+        return res;
+      } catch (e) {
+        if (!telemetry) {
+          guard(() => record({
+            kind: 'error', source: 'network',
+            message: `Network failure — ${url}`,
+            stack: e instanceof Error ? e.stack : undefined,
+            at: new Date().toISOString(), url,
+          }));
+        }
+        throw e;
+      }
+    };
+
+    // Performance warnings — long tasks block the main thread (jank).
+    try {
+      const obs = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.duration < LONG_TASK_MS) continue;
+          guard(() => record({
+            kind: 'log', level: 'warn', source: 'performance',
+            message: `Long task blocked the main thread for ${Math.round(entry.duration)}ms`,
+            meta: { ms: Math.round(entry.duration) },
+            at: new Date().toISOString(), url: location.href,
+          }));
+        }
+      });
+      obs.observe({ entryTypes: ['longtask'] });
+    } catch { /* longtask unsupported (Safari/Firefox) — the other captures still run */ }
+  },
 };

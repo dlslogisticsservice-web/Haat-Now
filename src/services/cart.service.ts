@@ -1,9 +1,10 @@
 import { supabase } from '../lib/supabase';
 import { Product, ProductVariant } from './types';
+import { AUTH_MODE, IS_SANDBOX, type AuthMode } from '../config/runtime';
 
 // Sandbox has no real Supabase cart backend; remote sync is a no-op (local cart
 // is the source of truth). Prevents console-error spam on every session.
-const CART_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
+const CART_SANDBOX = IS_SANDBOX;
 
 export interface CartItem {
   id: string; // Composite unique key e.g. `${productId}_${variantId || 'none'}`
@@ -16,22 +17,35 @@ export interface CartState {
   items: CartItem[];
   appliedCoupon: { code: string; discountPercent: number } | null;
   branchId: string | null;
+  /** The build mode that created this cart. See getCart() for why it matters. */
+  mode?: AuthMode;
 }
+
+const emptyCart = (): CartState => ({ items: [], appliedCoupon: null, branchId: null, mode: AUTH_MODE });
 
 // Durable cloud CRM or localStorage shopping cart manager with remote synchronization
 export const cartService = {
   getCart(): CartState {
     const raw = localStorage.getItem('haat_cart');
-    if (!raw) return { items: [], appliedCoupon: null, branchId: null };
+    if (!raw) return emptyCart();
     try {
-      return JSON.parse(raw);
+      const cart = JSON.parse(raw) as CartState;
+      // The demo build and the production build share an origin, so localStorage carries
+      // across a mode switch. A cart filled in the demo holds invented products with
+      // non-UUID ids — it must never reappear as a real customer's cart (and vice versa).
+      // Carts written before this stamp existed have no `mode` and are discarded once.
+      if (cart.mode !== AUTH_MODE) {
+        localStorage.removeItem('haat_cart');
+        return emptyCart();
+      }
+      return cart;
     } catch {
-      return { items: [], appliedCoupon: null, branchId: null };
+      return emptyCart();
     }
   },
 
   saveCart(cart: CartState): void {
-    localStorage.setItem('haat_cart', JSON.stringify(cart));
+    localStorage.setItem('haat_cart', JSON.stringify({ ...cart, mode: AUTH_MODE }));
   },
 
   addToCart(product: Product, variant: ProductVariant | null, quantity = 1): CartState {

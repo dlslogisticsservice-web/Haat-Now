@@ -156,3 +156,30 @@ export function snapshotCoordinates(
     lng: source.longitude ?? null,
   };
 }
+
+// ── Live ETA (extends the base calc — does NOT replace it) ─────────────────────
+//
+// The base ETA (calculateEtaMinutes) is a pure geometric estimate. These helpers add the
+// LIVE dimension for driver tracking, still built on the SAME base calc so there is one
+// ETA model, not two. A traffic-aware provider plugs in via TrafficHook without touching
+// any of this — the hook only ADJUSTS the base minutes; it never re-derives them.
+
+/** Adjusts base ETA minutes given the trip distance. A real traffic provider supplies this. */
+export type TrafficHook = (baseMinutes: number, distanceKm: number) => number;
+
+/**
+ * Live ETA between a moving driver and a destination. Reuses calculateDistanceKm +
+ * calculateEtaMinutes; an optional traffic hook scales the result (e.g. ×1.4 in congestion).
+ */
+export function liveEtaMinutes(
+  fromLat: number, fromLng: number, toLat: number, toLng: number, traffic?: TrafficHook,
+): number {
+  const distanceKm = calculateDistanceKm(fromLat, fromLng, toLat, toLng);
+  const base = calculateEtaMinutes(distanceKm);
+  return traffic ? Math.max(1, Math.round(traffic(base, distanceKm))) : base;
+}
+
+/** Predicted arrival wall-clock time (ISO) from a reference time + ETA minutes. */
+export function predictArrivalIso(nowMs: number, etaMinutes: number): string {
+  return new Date(nowMs + etaMinutes * 60_000).toISOString();
+}

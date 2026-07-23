@@ -14,3 +14,11 @@ coverage/
 preview.log
 preview_err.log
 tatus
+
+# Local agent/session state — never commit
+.claude/
+
+# Generated test artifacts (screenshots + result JSON are regenerated every run)
+docs/testing/e2e_shots/
+docs/testing/public_shots/
+docs/testing/guardian-results.json

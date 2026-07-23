@@ -107,7 +107,8 @@ const ReviewPanel: React.FC<{ item: KycQueueItem; onDone: () => void; L: Lf }> =
   const viewDoc = async (path: string) => {
     const { url, error } = await onboardingService.signedDocUrl(path);
     if (error || !url) return toast.error(L('تعذر فتح المستند.', 'Could not open the document.'));
-    window.open(url, '_blank');
+    // noopener: a KYC document opens in a new tab; the opened page must not reach window.opener.
+    window.open(url, '_blank', 'noopener');
   };
   const reviewDoc = async (docId: string, status: 'approved' | 'rejected') => {
     setBusy(true); await onboardingService.reviewDocument(item.entity_type, docId, status); setBusy(false); await load();

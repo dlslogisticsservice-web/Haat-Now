@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { catalogRepository } from '../../repositories/catalog.repository';
-import { Heart, ChevronLeft, Star, Loader2, UtensilsCrossed, Plus, X, ShoppingCart } from 'lucide-react';
-import { resolveCategory, getCategoryCover, getProductFallback } from '../../utils/categoryImages';
+import { Heart, ChevronLeft, Loader2, UtensilsCrossed, Plus, X, ShoppingCart } from 'lucide-react';
+import { resolveCategory, getCategoryCover, getProductFallback, type CategoryKey } from '../../utils/categoryImages';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { useTranslation } from 'react-i18next';
 import { cxService } from '../../services/cx.service';
@@ -27,49 +27,104 @@ interface RestaurantScreenProps {
 
 // Cover + product fallbacks are now category-specific (see utils/categoryImages).
 // A pharmacy shows pharmacy imagery, a flower shop shows flowers — never food.
-const TABS = ['الوجبات', 'العروض', 'التقييمات', 'عن المطعم'];
+const TABS = ['الوجبات', 'العروض', 'التقييمات', 'عن المطعم'];   // internal ids — see tabLabel() for display
+/** Categories that serve meals; everything else sells products. */
+const FOOD_SERVICE: CategoryKey[] = ['restaurant', 'coffee'];
 
 // Self-contained demo menu (no backend) — the customer browse/order flow must work offline in sandbox.
 // Each restaurant gets a DISTINCT menu (cuisine chosen deterministically by branch id) so browsing
 // feels like a real catalogue rather than the same list everywhere.
 const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
-const MENUS: { dish: string; desc: string; base: number; sizes?: [string, string] }[][] = [
-  [ // مشاوي / grill
-    { dish: 'مشاوي مشكّلة', desc: 'تشكيلة لحوم مشوية على الفحم مع أرز بخاري.', base: 78, sizes: ['فردي', 'عائلي'] },
-    { dish: 'كبسة لحم', desc: 'أرز بسمتي مع لحم طري ومكسّرات.', base: 62 },
-    { dish: 'مندي دجاج', desc: 'دجاج مدخّن على الطريقة اليمنية.', base: 48, sizes: ['ربع', 'نصف'] },
-    { dish: 'شاورما لحم', desc: 'خبز صاج مع لحم وصلصة طحينة.', base: 28 },
-    { dish: 'كباب مشوي', desc: 'كباب لحم متبّل مشوي.', base: 44 },
-    { dish: 'سلطة فتوش', desc: 'خضار طازجة مع خبز محمّص.', base: 18 },
+type MenuItem = { dish: string; desc: string; base: number; sizes?: [string, string] };
+
+/**
+ * Menus are keyed by the merchant's CATEGORY — resolved from its name, exactly the
+ * way the imagery above already is. Selecting a menu by `hash(branchId)` alone let a
+ * pharmacy serve pizza and a coffee shop sell rice. Categories with several variants
+ * keep the per-branch variety, so two restaurants still differ.
+ */
+const MENUS_BY_CATEGORY: Partial<Record<CategoryKey, MenuItem[][]>> = {
+  restaurant: [
+    [ // مشاوي / grill
+      { dish: 'مشاوي مشكّلة', desc: 'تشكيلة لحوم مشوية على الفحم مع أرز بخاري.', base: 78, sizes: ['فردي', 'عائلي'] },
+      { dish: 'كبسة لحم', desc: 'أرز بسمتي مع لحم طري ومكسّرات.', base: 62 },
+      { dish: 'مندي دجاج', desc: 'دجاج مدخّن على الطريقة اليمنية.', base: 48, sizes: ['ربع', 'نصف'] },
+      { dish: 'شاورما لحم', desc: 'خبز صاج مع لحم وصلصة طحينة.', base: 28 },
+      { dish: 'كباب مشوي', desc: 'كباب لحم متبّل مشوي.', base: 44 },
+      { dish: 'سلطة فتوش', desc: 'خضار طازجة مع خبز محمّص.', base: 18 },
+    ],
+    [ // بيتزا / pizza & pasta
+      { dish: 'بيتزا مارجريتا', desc: 'صلصة طماطم وجبنة موزاريلا.', base: 42, sizes: ['وسط', 'كبير'] },
+      { dish: 'بيتزا بيبروني', desc: 'بيبروني مع جبن وفلفل.', base: 52, sizes: ['وسط', 'كبير'] },
+      { dish: 'باستا ألفريدو', desc: 'باستا بصلصة كريمة الفطر.', base: 46 },
+      { dish: 'لازانيا لحم', desc: 'طبقات باستا بلحم وجبن.', base: 54 },
+      { dish: 'سلطة سيزر', desc: 'خس وصلصة سيزر مع دجاج.', base: 32 },
+      { dish: 'خبز بالثوم', desc: 'خبز محمّص بزبدة الثوم.', base: 18 },
+    ],
   ],
-  [ // كافيه / cafe
+  coffee: [[
     { dish: 'قهوة سعودية', desc: 'قهوة عربية أصيلة بالهيل.', base: 14, sizes: ['صغير', 'كبير'] },
     { dish: 'لاتيه', desc: 'إسبريسو مع حليب مبخّر.', base: 19, sizes: ['وسط', 'كبير'] },
     { dish: 'شاي كرك', desc: 'شاي بالحليب والبهارات.', base: 12 },
     { dish: 'تشيز كيك', desc: 'تشيز كيك كريمي بصوص التوت.', base: 26 },
     { dish: 'كروسان زعتر', desc: 'كروسان طازج محشو بالزعتر.', base: 16 },
     { dish: 'موكا بارد', desc: 'قهوة مثلجة بالشوكولاتة.', base: 22 },
-  ],
-  [ // بيتزا / pizza & pasta
-    { dish: 'بيتزا مارجريتا', desc: 'صلصة طماطم وجبنة موزاريلا.', base: 42, sizes: ['وسط', 'كبير'] },
-    { dish: 'بيتزا بيبروني', desc: 'بيبروني مع جبن وفلفل.', base: 52, sizes: ['وسط', 'كبير'] },
-    { dish: 'باستا ألفريدو', desc: 'باستا بصلصة كريمة الفطر.', base: 46 },
-    { dish: 'لازانيا لحم', desc: 'طبقات باستا بلحم وجبن.', base: 54 },
-    { dish: 'سلطة سيزر', desc: 'خس وصلصة سيزر مع دجاج.', base: 32 },
-    { dish: 'خبز بالثوم', desc: 'خبز محمّص بزبدة الثوم.', base: 18 },
-  ],
-  [ // بقالة/سوبرماركت / grocery
+  ]],
+  market: [[
     { dish: 'أرز بسمتي ٥كجم', desc: 'أرز فاخر طويل الحبة.', base: 65 },
     { dish: 'زيت زيتون ١لتر', desc: 'زيت زيتون بكر ممتاز.', base: 48 },
     { dish: 'حليب طازج ٢لتر', desc: 'حليب كامل الدسم.', base: 14 },
     { dish: 'بيض طازج ٣٠حبة', desc: 'بيض مزارع طازج.', base: 26 },
     { dish: 'معكرونة ٥٠٠غ', desc: 'معكرونة قمح صلب.', base: 9 },
     { dish: 'جبن شيدر ٤٠٠غ', desc: 'جبن شيدر مبشور.', base: 22 },
-  ],
-];
-const sandboxMenu = (branchId: string) => {
+  ]],
+  pharmacy: [[
+    { dish: 'باراسيتامول ٥٠٠ملغ', desc: 'مسكّن وخافض للحرارة — ٢٠ قرص.', base: 12 },
+    { dish: 'فيتامين سي ١٠٠٠', desc: 'أقراص فوّارة لدعم المناعة.', base: 38, sizes: ['٣٠ حبة', '٦٠ حبة'] },
+    { dish: 'كمامات طبية ٥٠حبة', desc: 'كمامات ثلاث طبقات للاستعمال مرة واحدة.', base: 15 },
+    { dish: 'معقّم يدين ٥٠٠مل', desc: 'جل كحولي معقّم بنسبة ٧٠٪.', base: 18 },
+    { dish: 'جهاز قياس السكر', desc: 'جهاز منزلي مع ٢٥ شريط فحص.', base: 155 },
+    { dish: 'مرهم للحروق', desc: 'كريم موضعي للحروق السطحية.', base: 24 },
+  ]],
+  sweets: [[
+    { dish: 'كنافة نابلسية', desc: 'كنافة بالجبن مع قطر وفستق.', base: 32, sizes: ['وسط', 'كبير'] },
+    { dish: 'بقلاوة مشكّلة ٥٠٠غ', desc: 'تشكيلة بقلاوة بالفستق والجوز.', base: 45 },
+    { dish: 'تشيز كيك توت', desc: 'تشيز كيك كريمي بصوص التوت.', base: 28 },
+    { dish: 'كيك شوكولاتة', desc: 'كيك بطبقات الشوكولاتة الغنية.', base: 38, sizes: ['٦ أشخاص', '١٢ شخص'] },
+    { dish: 'معمول تمر ٥٠٠غ', desc: 'معمول محشو بعجوة التمر.', base: 30 },
+    { dish: 'بسبوسة بالقشطة', desc: 'بسبوسة طرية محشوة بالقشطة.', base: 22 },
+  ]],
+  perfume: [[
+    { dish: 'عود كمبودي ٣غ', desc: 'قطع عود طبيعي فاخر.', base: 180 },
+    { dish: 'دهن العود', desc: 'دهن عود مركّز — ٣ مل.', base: 250 },
+    { dish: 'بخور معطر ١٠٠غ', desc: 'بخور معمول بزيوت عطرية.', base: 65, sizes: ['١٠٠غ', '٢٥٠غ'] },
+    { dish: 'عطر شرقي', desc: 'مزيج من العنبر والمسك والورد.', base: 145, sizes: ['٥٠ مل', '١٠٠ مل'] },
+    { dish: 'مبخرة كهربائية', desc: 'مبخرة بتحكم في الحرارة.', base: 89 },
+    { dish: 'معطر أجواء', desc: 'بخاخ معطر للمنزل والمجالس.', base: 35 },
+  ]],
+  flowers: [[
+    { dish: 'بوكيه ورد جوري', desc: 'ورد جوري طازج مع تغليف فاخر.', base: 120, sizes: ['١٢ وردة', '٢٤ وردة'] },
+    { dish: 'باقة توليب', desc: 'توليب ملوّن مستورد.', base: 95 },
+    { dish: 'صندوق ورد فاخر', desc: 'صندوق مخملي منسّق بالورد.', base: 180 },
+    { dish: 'ورد أبيض وشوكولاتة', desc: 'باقة ورد أبيض مع علبة شوكولاتة.', base: 145 },
+    { dish: 'نبتة زينة داخلية', desc: 'نبتة طبيعية مع أصيص سيراميك.', base: 75 },
+    { dish: 'بطاقة تهنئة', desc: 'بطاقة مكتوبة بخط اليد.', base: 15 },
+  ]],
+  electronics: [[
+    { dish: 'سماعات لاسلكية', desc: 'سماعات بلوتوث مع عزل الضجيج.', base: 149, sizes: ['أبيض', 'أسود'] },
+    { dish: 'شاحن سريع ٢٥واط', desc: 'شاحن جداري بمنفذ تايب-سي.', base: 65 },
+    { dish: 'كفر جوال', desc: 'كفر واقٍ مقاوم للصدمات.', base: 35 },
+    { dish: 'باور بانك ١٠٠٠٠', desc: 'بطارية متنقلة بشحن سريع.', base: 89 },
+    { dish: 'كيبل تايب-سي', desc: 'كيبل مجدول بطول ٢ متر.', base: 25 },
+    { dish: 'ساعة ذكية', desc: 'ساعة رياضية مع قياس النبض.', base: 320 },
+  ]],
+};
+
+const sandboxMenu = (branchId: string, branchName: string) => {
   let h = 0; for (let i = 0; i < branchId.length; i++) h = (h * 31 + branchId.charCodeAt(i)) >>> 0;
-  const menu = MENUS[h % MENUS.length];
+  // Unmapped categories (e.g. gifts) fall back to neutral commerce — never food.
+  const variants = MENUS_BY_CATEGORY[resolveCategory(branchName)] ?? MENUS_BY_CATEGORY.market!;
+  const menu = variants[h % variants.length];
   const count = 5 + (h % 2); // 5–6 items
   return menu.slice(0, count).map((m, i) => ({
     id: `${branchId}-p${i + 1}`, name: m.dish, description: m.desc,
@@ -96,7 +151,8 @@ export const RestaurantScreen = ({
 }: RestaurantScreenProps) => {
   const { country, price } = useAppConfig();
   const { t } = useTranslation();
-  const tabLabel = (id: string) => id === 'الوجبات' ? t('restaurant.meals') : id === 'العروض' ? t('restaurant.offers') : id === 'التقييمات' ? t('restaurant.reviews') : t('restaurant.aboutStore');
+  // "Meals" only reads correctly for places that serve them; every other store sells products.
+  const tabLabel = (id: string) => id === 'الوجبات' ? t(FOOD_SERVICE.includes(branchCategory) ? 'restaurant.meals' : 'restaurant.products') : id === 'العروض' ? t('restaurant.offers') : id === 'التقييمات' ? t('restaurant.reviews') : t('restaurant.aboutStore');
   const cur = country.currency.symbolAr;
   const [products,        setProducts]        = useState<Product[]>([]);
   const [loading,         setLoading]         = useState(true);
@@ -133,7 +189,7 @@ export const RestaurantScreen = ({
   const fetchBranchMenu = async () => {
     try {
       setLoading(true);
-      if (SANDBOX) { setProducts(sandboxMenu(branchId) as any); return; }
+      if (SANDBOX) { setProducts(sandboxMenu(branchId, restaurantName) as any); return; }
       if (!isValidBranchId(branchId)) {
         // Mock/placeholder branch (catalog empty) — skip the broken uuid query.
         console.warn('fetchBranchMenu: non-UUID branchId, skipping product fetch:', branchId);
@@ -223,13 +279,11 @@ export const RestaurantScreen = ({
 
           {/* Rating row */}
           <div className="flex items-center justify-end gap-3 mb-3" style={{ fontSize: '13px' }}>
-            <span style={{ color: 'rgba(242,244,246,0.60)', textTransform: 'none', letterSpacing: 0 }}>{t('restaurant.luxuryRestaurant')}</span>
-            <span className="w-1 h-1 rounded-full bg-white/30" />
-            <span style={{ color: 'rgba(242,244,246,0.60)', textTransform: 'none', letterSpacing: 0 }}>500+</span>
-            <div className="flex items-center gap-1" style={{ color: 'var(--color-primary-fixed)' }}>
-              <Star size={13} fill="currentColor" strokeWidth={0} />
-              <span style={{ fontSize: '13px', fontWeight: 700, textTransform: 'none', letterSpacing: 0 }}>4.8</span>
-            </div>
+            {/* The store's real category — every merchant used to be labelled a restaurant. */}
+            <span style={{ color: 'rgba(242,244,246,0.60)', textTransform: 'none', letterSpacing: 0 }}>{t('cats.' + branchCategory)}</span>
+            {/* Real review count and rating are not computed yet — showing a fabricated
+                "500+ · 4.8" on a real store is a false consumer-protection claim. Hidden
+                until real ratings land (reviews already exist server-side via submit_review). */}
           </div>
 
           {/* Stats row */}
@@ -337,7 +391,6 @@ export const RestaurantScreen = ({
             {products.map((product, pIdx) => {
               const image = product.product_images?.[0]?.url || getProductFallback(product.name, branchCategory, pIdx);
               const qty   = getQtyInCart(product.id);
-              const rating = (4.3 + ((pIdx * 7) % 6) / 10).toFixed(1);
               return (
                 <div
                   key={product.id}
@@ -347,9 +400,7 @@ export const RestaurantScreen = ({
                 >
                   <div className="relative" style={{ height: '108px', background: '#060a0e' }} id={`product_img_${product.id}`}>
                     <img src={image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    <span className="absolute top-1.5 start-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(8,12,16,0.72)', backdropFilter: 'blur(8px)' }}>
-                      <Star size={9} color="#f0c840" fill="#f0c840" strokeWidth={0} /><span style={{ fontSize: '9px', color: 'white', fontWeight: 800 }}>{rating}</span>
-                    </span>
+                    {/* Per-product ratings are not computed yet — no fabricated star pill. */}
                     {qty > 0 && (
                       <span className="absolute top-1.5 end-1.5 w-6 h-6 rounded-full flex items-center justify-center font-bold" style={{ background: 'var(--color-primary-fixed)', color: 'var(--color-on-primary-fixed)', fontSize: '11px' }} id={`qty_badge_${product.id}`}>{qty}</span>
                     )}

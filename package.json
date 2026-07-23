@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "dev:live": "node scripts/live.cjs dev",
-    "build": "vite build && node scripts/gen-version.cjs",
+    "build": "vite build && node scripts/gen-version.cjs && npx tsx scripts/gen-guardian-snapshot.ts",
     "build:live": "node scripts/live.cjs build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit && node scripts/check-architecture.cjs",
+    "lint": "tsc --noEmit && node scripts/check-architecture.cjs && node scripts/check-demo-isolation.cjs",
     "check:arch": "node scripts/check-architecture.cjs",
     "check:env": "node scripts/check-env.cjs",
     "preflight": "npm run lint && npm run test:website && npm run build",

@@ -45,6 +45,8 @@ export const ordersRepository = {
     deliveryFee?: number | null;
     location?: Record<string, any> | null;
     idempotencyKey?: string | null;
+    serviceFee?: number | null;
+    couponCode?: string | null;
   }) {
     return supabase.rpc('create_order', {
       p_customer_id:     params.customerId,
@@ -53,6 +55,10 @@ export const ordersRepository = {
       p_delivery_fee:    params.deliveryFee ?? null,
       p_location:        params.location ?? null,
       p_idempotency_key: params.idempotencyKey ?? null,
+      // Server applies the service fee + coupon itself (bounded / validated) and remains
+      // the single source of truth for total_amount.
+      p_service_fee:     params.serviceFee ?? 0,
+      p_coupon_code:     params.couponCode ?? null,
     });
   },
 

@@ -21,6 +21,9 @@ export const orderService = {
       deliveryFee?: number | null;
     },
     idempotencyKey?: string,
+    // Server applies these itself (bounded fee / validated coupon) so total_amount stays
+    // server-authoritative — the client never dictates the money it pays.
+    pricing?: { serviceFee?: number | null; couponCode?: string | null },
   ): Promise<{ data: Order | null; error: any }> {
     // ── Phase 9 · P0-3: atomic, idempotent, server-priced path (live mode) ──────
     // One transaction (order + items + status history), totals computed server-side,
@@ -41,6 +44,8 @@ export const orderService = {
           branch_lng_snapshot: locationSnapshot.branchLngSnapshot  ?? null,
         } : null,
         idempotencyKey: idempotencyKey ?? null,
+        serviceFee: pricing?.serviceFee ?? null,
+        couponCode: pricing?.couponCode ?? null,
       });
 
       // If the RPC is missing (PostgREST PGRST202 / 404), fall through to the legacy path.

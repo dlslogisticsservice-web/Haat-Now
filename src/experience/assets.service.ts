@@ -6,7 +6,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { supabase } from '../lib/supabase';
 
-const SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox' || !supabase;
+// Demo mode is decided by the BUILD, never by whether a client object happens to exist:
+// `|| !supabase` meant a production deploy with missing env vars silently served demo
+// data. (main.tsx blocks that boot today, so this is closing the trap, not a live bug.)
+import { IS_SANDBOX as SANDBOX } from '../config/runtime';
 export const ASSET_BUCKET = 'experience-assets';
 const INDEX_KEY = 'haat_sb_experience_assets_v1';
 

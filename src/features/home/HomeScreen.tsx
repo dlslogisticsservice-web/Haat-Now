@@ -1,6 +1,5 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useHomeFeed } from '../../hooks/useHomeFeed';
-import type { BranchWithMerchant } from '../../services/home.service';
 import {
   Star, Clock, SearchX, Search, X, Zap, Bike, Shield, Tag,
   UtensilsCrossed, ShoppingCart, Pill, Coffee, CakeSlice, Gift, Flower2, Smartphone,
@@ -8,10 +7,18 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { CATEGORY_IMAGES, getCategoryCover, type CategoryKey } from '../../utils/categoryImages';
+import { DEMO_CONTENT_ENABLED } from '../../config/runtime';
 import { MarketplaceHero } from './MarketplaceHero';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { campaignService, Campaign } from '../../services/campaign.service';
 import { useTranslation } from 'react-i18next';
+// Experience Runtime (Waves 1–18) — this screen asks the ONE engine what to show.
+import { useExperience, usePersonalizedExperiences, trackInteraction } from '../../services/experience-platform.service';
+import type { ExperienceCandidate } from '../../experience-engine';
+import { ExperienceBanner, ExperienceHint, ExperienceKeyframes } from '../../components/experience/ExperienceSurfaces';
+import { resolveMergedContent, hydrateExperienceContent } from '../../services/experience-content.service';
+import { resolveExperienceIcon } from '../../components/experience/experienceIcons';
+import { contentTitle, contentBody } from '../../experience-content/content';
 
 // Map a marketplace category key to the on-screen category filter id.
 const CAT_KEY_TO_ID: Record<CategoryKey, string> = {
@@ -19,8 +26,24 @@ const CAT_KEY_TO_ID: Record<CategoryKey, string> = {
   sweets: 'cat-sweets', gifts: 'cat-perfume', perfume: 'cat-perfume', flowers: 'cat-flowers', electronics: 'cat-electronics',
 };
 
-/* ─── Types (BranchWithMerchant + DBOffer now owned by home.service) ─────────── */
+/* ─── Types (the branch/offer wire types stay owned by home.service) ─────────── */
 interface Category { id: string; name: string; cat: CategoryKey; Icon: LucideIcon; tintFrom: string; tintTo: string; patterns: string[]; }
+
+/**
+ * The ONE shape Home renders. A real branch and a fallback merchant both normalize
+ * to this, so categories, search, the merchant list and Featured all read the same
+ * dataset. Home used to render one dataset while filtering another — which is why
+ * every category and every search returned "no results".
+ */
+interface HomeMerchant {
+  id: string; name: string; cuisine: string; eta: string; delivery: string;
+  rating: string; min: string; badge: string; badgeLime: boolean;
+  /** Category key for fallback imagery; real branches use their logo. */
+  type?: string;
+  logoUrl?: string | null;
+  /** True for demo rows — they carry no real branch id, so they get no `branch_*` anchor. */
+  isFallback: boolean;
+}
 
 /* ─── Category Data — §5 Lovable ────────────────────────────── */
 const CATEGORIES: Category[] = [
@@ -34,28 +57,51 @@ const CATEGORIES: Category[] = [
   { id: 'cat-electronics', name: 'إلكترونيات',    cat: 'electronics', Icon: Smartphone,      tintFrom: 'rgba(163,249,91,0.28)',  tintTo: 'rgba(26,180,120,0.06)',  patterns: ['إلكترون','electronics','جوال'] },
 ];
 
-/* ─── Offer Banners ─────────────────────────────────────────── */
+/* Feature gates for controls whose destination does not exist yet. The markup is
+   kept intact and simply not rendered — a visible control that does nothing is worse
+   than no control. Flip to true in the same commit that lands the destination.
+     · SHOW_FILTERS   — needs a filter sheet (sort / price / rating / distance).
+     · SHOW_ALL_OFFERS — needs a dedicated offers screen; Home has no route to one. */
+const SHOW_FILTERS = false;
+const SHOW_ALL_OFFERS = false;
+
+/** Merchants shown before "More" lifts the cap. */
+const PREVIEW_COUNT = 4;
+
+/* ─── Offer banner palette — VISUAL STYLING ONLY ──────────────────────────────
+   Gradients + accent glows. REAL offers are rendered with these: a live offer brings
+   its own title and subtitle from the database and borrows only its colours here.
+   This is design, not content — which is why it is not gated. */
+const BANNER_PALETTE = [
+  { bg: 'linear-gradient(135deg,#0d2a08 0%,#061403 100%)', accent: 'rgba(163,249,91,0.40)' },
+  { bg: 'linear-gradient(135deg,#0c1a2e 0%,#060e1c 100%)', accent: 'rgba(100,170,255,0.30)' },
+  { bg: 'linear-gradient(135deg,#2a1008 0%,#140500 100%)', accent: 'rgba(255,140,60,0.35)' },
+];
+
+/* ─── Demo offer banners — FABRICATED CONTENT, sandbox only ───────────────────
+   Invented offers for the demo. Never rendered in production: a marketplace with no
+   live offers shows no offers section at all. Gated by DEMO_CONTENT_ENABLED and
+   enforced by scripts/check-demo-isolation.cjs. */
 const STATIC_BANNERS = [
-  { id: 'ob1', qualifier: 'عرض حصري',     title: 'خصم 50%',      subtitle: 'على البيتزا الطازجة',   bg: 'linear-gradient(135deg,#0d2a08 0%,#061403 100%)', accent: 'rgba(163,249,91,0.40)' },
-  { id: 'ob2', qualifier: 'مجاني تماماً', title: 'توصيل مجاني',  subtitle: 'على أول 3 طلبات',        bg: 'linear-gradient(135deg,#0c1a2e 0%,#060e1c 100%)', accent: 'rgba(100,170,255,0.30)' },
-  { id: 'ob3', qualifier: 'كومبو العائلة', title: 'خصم 30%',     subtitle: 'على طلبات الأسرة',      bg: 'linear-gradient(135deg,#2a1008 0%,#140500 100%)', accent: 'rgba(255,140,60,0.35)' },
+  { id: 'ob1', qualifier: 'عرض حصري',      title: 'خصم 50%',     subtitle: 'على البيتزا الطازجة', ...BANNER_PALETTE[0] },
+  { id: 'ob2', qualifier: 'مجاني تماماً',  title: 'توصيل مجاني', subtitle: 'على أول 3 طلبات',      ...BANNER_PALETTE[1] },
+  { id: 'ob3', qualifier: 'كومبو العائلة', title: 'خصم 30%',     subtitle: 'على طلبات الأسرة',    ...BANNER_PALETTE[2] },
 ];
 
-/* ─── Mock Restaurants (always-visible fallback) ────────────── */
-const MOCK_RESTAURANTS = [
-  { id: 'm1', name: 'مطعم الباشا',    cuisine: 'مشاوي • كباب فاخر',           eta: '25-35', delivery: 'مجاني',   rating: '4.9', min: '50',  type: 'grills',  badge: 'مميز',            badgeLime: true  },
-  { id: 'm2', name: 'بيتزا رومانو',   cuisine: 'إيطالي • بيتزا نابوليتانا',  eta: '30-45', delivery: '10', rating: '4.8', min: '40',  type: 'pizza',   badge: 'الأكثر طلباً',   badgeLime: false },
-  { id: 'm3', name: 'كافيه لاتيه',    cuisine: 'كافيه • مشروبات فاخرة',      eta: '20-30', delivery: 'مجاني',   rating: '4.7', min: '30',  type: 'coffee',  badge: 'اختيار الذواقة', badgeLime: false },
-  { id: 'm4', name: 'سوبر فريش',      cuisine: 'سوبر ماركت • مستلزمات يومية', eta: '45-60', delivery: '15', rating: '4.6', min: '80',  type: 'market',  badge: 'مميز',            badgeLime: true  },
-];
-
-const MOCK_FEATURED = [
-  { id: 'f1', name: 'مطعم الباشا',   type: 'grills'  },
-  { id: 'f2', name: 'بيتزا رومانو',  type: 'pizza'   },
-  { id: 'f3', name: 'كافيه لاتيه',   type: 'coffee'  },
-  { id: 'f4', name: 'سوبر فريش',     type: 'market'  },
-  { id: 'f5', name: 'صيدلية الشفاء', type: 'pharmacy'},
-  { id: 'f6', name: 'حلويات أصيل',   type: 'sweets'  },
+/* ─── Fallback merchants — the demo dataset (always-visible) ──────────────────
+   The ONE dataset Home falls back to when the backend returns no branches.
+   It must cover every category in CATEGORIES below (the category `patterns` match
+   these names) — otherwise selecting a category dead-ends on an empty result. */
+const FALLBACK_MERCHANTS = [
+  { id: 'm1', name: 'مطعم الباشا',         cuisine: 'مشاوي • كباب فاخر',            eta: '25-35', delivery: 'مجاني', rating: '4.9', min: '50',  type: 'grills',      badge: 'مميز',            badgeLime: true  },
+  { id: 'm2', name: 'بيتزا رومانو',        cuisine: 'إيطالي • بيتزا نابوليتانا',    eta: '30-45', delivery: '10',    rating: '4.8', min: '40',  type: 'pizza',       badge: 'الأكثر طلباً',    badgeLime: false },
+  { id: 'm3', name: 'كافيه لاتيه',         cuisine: 'كافيه • مشروبات فاخرة',        eta: '20-30', delivery: 'مجاني', rating: '4.7', min: '30',  type: 'coffee',      badge: 'اختيار الذواقة', badgeLime: false },
+  { id: 'm4', name: 'سوبر فريش',           cuisine: 'سوبر ماركت • مستلزمات يومية',  eta: '45-60', delivery: '15',    rating: '4.6', min: '80',  type: 'market',      badge: 'مميز',            badgeLime: true  },
+  { id: 'm5', name: 'صيدلية الشفاء',       cuisine: 'صيدلية • أدوية وصحة',          eta: '20-30', delivery: 'مجاني', rating: '4.8', min: '25',  type: 'pharmacy',    badge: 'مميز',            badgeLime: false },
+  { id: 'm6', name: 'حلويات أصيل',         cuisine: 'حلويات • كيك وشوكولاتة',       eta: '30-40', delivery: '10',    rating: '4.7', min: '35',  type: 'sweets',      badge: 'اختيار الذواقة', badgeLime: false },
+  { id: 'm7', name: 'عطور الشرق',          cuisine: 'عطور • عود وبخور',             eta: '35-50', delivery: '15',    rating: '4.6', min: '60',  type: 'perfume',     badge: 'مميز',            badgeLime: true  },
+  { id: 'm8', name: 'زهور المدينة',        cuisine: 'زهور • باقات وهدايا',          eta: '40-55', delivery: '12',    rating: '4.5', min: '45',  type: 'flowers',     badge: 'جديد',            badgeLime: false },
+  { id: 'm9', name: 'إلكترونيات المستقبل', cuisine: 'إلكترونيات • أجهزة وجوالات',   eta: '45-60', delivery: '20',    rating: '4.4', min: '100', type: 'electronics', badge: 'جديد',            badgeLime: false },
 ];
 
 /* ─── Banner Illustration — multi-vertical marketplace promo imagery ───────── */
@@ -93,10 +139,21 @@ interface HomeScreenProps {
   onSelectRestaurant: (branchId: string, restaurantName: string) => void;
   onNavigateToWallet?: () => void;
   customerId: string;
+  /** Filter state is owned by App (Home unmounts on navigation) so Back can restore it. */
+  selectedCat: string | null;
+  onSelectCat: (id: string | null) => void;
+  searchQuery: string;
+  onSearchQuery: (q: string) => void;
 }
 
 /* ─── Main Component ─────────────────────────────────────────── */
-export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
+export const HomeScreen = ({
+  onSelectRestaurant,
+  selectedCat,
+  onSelectCat: setSelectedCat,
+  searchQuery,
+  onSearchQuery: setSearchQuery,
+}: HomeScreenProps) => {
   const { country, lang } = useAppConfig();
   // PHASE G/H — active hero campaign for this country + impression tracking.
   const [heroCampaign, setHeroCampaign] = useState<Campaign | null>(null);
@@ -110,26 +167,12 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
   const cur = country.currency.symbolAr;
   // Home feed (branches + active offers) via the hook → service → repository chain.
   const { branches, offers, loading } = useHomeFeed();
-  const [selectedCat,    setSelectedCat]    = useState<string | null>(null);
-  const [searchQuery,    setSearchQuery]    = useState('');
   const [viewMode,       setViewMode]       = useState<'large' | 'compact'>(() => (typeof localStorage !== 'undefined' && localStorage.getItem('haat_view_mode') === 'large') ? 'large' : 'compact');
   const toggleViewMode = () => setViewMode(m => { const next = m === 'large' ? 'compact' : 'large'; try { localStorage.setItem('haat_view_mode', next); } catch { /* ignore */ } return next; });
   const [activeOfferIdx, setActiveOfferIdx] = useState(0);
 
-  const filteredBranches = useMemo(() => {
-    return branches.filter(branch => {
-      const q  = searchQuery.toLowerCase().trim();
-      const bn = (branch.merchants?.business_name || branch.name).toLowerCase();
-      const nameMatch = !q || bn.includes(q) || branch.name.toLowerCase().includes(q);
-      if (!selectedCat) return nameMatch;
-      const cat = CATEGORIES.find(c => c.id === selectedCat);
-      if (!cat) return nameMatch;
-      return nameMatch && cat.patterns.some(p =>
-        branch.name.toLowerCase().includes(p.toLowerCase()) ||
-        (branch.merchants?.business_name || '').toLowerCase().includes(p.toLowerCase()),
-      );
-    });
-  }, [branches, searchQuery, selectedCat]);
+  const [expanded, setExpanded] = useState(false);
+  const restaurantsRef = useRef<HTMLElement | null>(null);
 
   const isFiltering = !!searchQuery.trim() || !!selectedCat;
 
@@ -139,21 +182,128 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
         qualifier: 'خصم',
         title:     o.discount_percent ? `خصم ${o.discount_percent}%` : o.title,
         subtitle:  o.title,
-        bg:        STATIC_BANNERS[i % 3].bg,
-        accent:    STATIC_BANNERS[i % 3].accent,
+        bg:        BANNER_PALETTE[i % BANNER_PALETTE.length].bg,
+        accent:    BANNER_PALETTE[i % BANNER_PALETTE.length].accent,
       }))
-    : STATIC_BANNERS;
+    // Demo banners are sandbox-only; production with no live offers shows no offers.
+    : DEMO_CONTENT_ENABLED ? STATIC_BANNERS : [];
 
-  /* Always show content — use mock data when real data empty */
-  const showMock = !isFiltering && filteredBranches.length === 0;
 
-  const DELIVERY_FEES = ['مجاني', `15 ${cur}`, 'مجاني', `10 ${cur}`, `8 ${cur}`, 'مجاني'];
-  const ETAS          = ['25-35', '45-30', '35-50', '20-30', '30-45', '25-40'];
-  const RATINGS       = ['4.9', '4.7', '4.8', '4.6', '4.9', '4.7'];
-  const MIN_ORDERS    = ['50', '80', '60', '40', '70', '50'];
+  /* ── THE one logical dataset ────────────────────────────────────────────────
+     Real branches when the backend returns any, else the fallback demo dataset.
+     Categories, search, the merchant list and Featured all derive from THIS —
+     there is no second list to drift out of sync with. */
+  const sourceList = useMemo<HomeMerchant[]>(() => (
+    branches.length > 0
+      ? branches.map((b) => {
+          const name = b.merchants?.business_name || b.name;
+          // REAL merchants carry no rating/ETA/fee/minimum in the catalogue yet, so these
+          // are left EMPTY — never invented. Fabricating a 4.9 rating or a "free delivery"
+          // claim on a real store is a consumer-protection and pricing-representation risk.
+          // The card hides an empty field. Populate these from real branch data when it lands.
+          return {
+            id: b.id,
+            name,
+            cuisine: getCuisine(name),
+            eta:      '',
+            delivery: '',
+            rating:   '',
+            min:      '',
+            badge:     '',
+            badgeLime: false,
+            logoUrl: b.merchants?.logo_url ?? null,
+            isFallback: false,
+          };
+        })
+      // Demo merchants exist for the sandbox demo ONLY. An empty catalogue in
+      // production is an empty state — never invented merchants.
+      : DEMO_CONTENT_ENABLED
+        ? FALLBACK_MERCHANTS.map(m => ({ ...m, logoUrl: null, isFallback: true }))
+        : []
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the arrays above derive purely from `cur`
+  ), [branches, cur]);
+
+  /* The single filter, applied to the single dataset. */
+  const visible = useMemo(() => {
+    const q   = searchQuery.toLowerCase().trim();
+    const cat = selectedCat ? CATEGORIES.find(c => c.id === selectedCat) : null;
+    return sourceList.filter(m => {
+      const name = m.name.toLowerCase();
+      if (q && !name.includes(q) && !m.cuisine.toLowerCase().includes(q)) return false;
+      if (!cat) return true;
+      return cat.patterns.some(p => name.includes(p.toLowerCase()));
+    });
+  }, [sourceList, searchQuery, selectedCat]);
+
+  /** Clear every filter and bring the merchant list into view, fully expanded. */
+  const revealMerchants = useCallback(() => {
+    setSearchQuery(''); setSelectedCat(null); setExpanded(true);
+    restaurantsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  /* An offer carries no merchant id in the schema, so resolve it the way categories
+     already do — by matching its text against the same dataset. A marketplace-wide
+     offer ("free delivery on your first 3 orders") matches nothing and instead reveals
+     the merchant list, where it actually gets applied. Either way: never a dead CTA. */
+  const merchantForOffer = useCallback((offer: { title: string; subtitle: string }): HomeMerchant | null => {
+    const words = `${offer.title} ${offer.subtitle}`
+      .toLowerCase()
+      .split(/[\s،,.\-•%\d]+/)
+      .map(w => (w.startsWith('ال') ? w.slice(2) : w))   // strip the Arabic definite article
+      .filter(w => w.length >= 3);
+    return sourceList.find(m => {
+      const hay = `${m.name} ${m.cuisine}`.toLowerCase();
+      return words.some(w => hay.includes(w));
+    }) ?? null;
+  }, [sourceList]);
+
+  const openOffer = useCallback((offer: { title: string; subtitle: string }) => {
+    const m = merchantForOffer(offer);
+    if (m) onSelectRestaurant(m.id, m.name);
+    else revealMerchants();
+  }, [merchantForOffer, onSelectRestaurant, revealMerchants]);
+
+  // Dismissal state is keyed by short name; the engine speaks in flag ids.
+  const SURFACE_KEY: { [id: string]: 'welcome' | 'offers' | 'tour' } = {
+    'flag.customer_welcome': 'welcome', 'flag.customer_offers': 'offers', 'flag.customer_feature_tour': 'tour',
+  };
+
+  // ── Experience Runtime decision for this visitor (audiences → flags → experiments) ──
+  const xp = useExperience({ surface: 'customer', locale: lang === 'ar' ? 'ar' : 'en', experienceId: 'home' });
+  // Load authored content overrides once; useExperience re-renders this screen when they land.
+  useEffect(() => { void hydrateExperienceContent(); }, []);
+  const [xpDismissed, setXpDismissed] = useState<{ welcome?: boolean; offers?: boolean; tour?: boolean }>({});
+  // Exactly ONE surface is shown at a time. Which one is no longer a fixed priority chain — the
+  // Personalization Engine (Wave 20) ranks the eligible candidates for THIS visitor from their own
+  // behaviour, then applies frequency caps and fatigue. A visitor who keeps dismissing the welcome
+  // banner stops seeing it; a coupon seeker gets offers first. Stacking several would push the
+  // marketplace rails below the fold — the product content stays the hero of this screen.
+  const xpCandidates: ExperienceCandidate[] = [
+    { experienceId: 'flag.customer_welcome', priority: 30 },
+    { experienceId: 'flag.customer_offers', priority: 20 },
+    { experienceId: 'flag.customer_feature_tour', priority: 10 },
+  ].filter(c => xp.isOn(c.experienceId) && !xpDismissed[SURFACE_KEY[c.experienceId]]);
+  const xpChoice = usePersonalizedExperiences(xpCandidates, 1)[0] ?? '';
+
+  // Wave 20.1 · every marketplace interaction feeds the visitor profile. Opening a merchant is the
+  // strongest interest signal the customer app has, so it carries merchant, cuisine and store type.
+  const openMerchant = useCallback((id: string, name: string, cuisine?: string, storeType?: string) => {
+    trackInteraction(xp.context, 'merchant.open', { merchant: name, cuisine, storeType }, 'customer');
+    onSelectRestaurant(id, name);
+  }, [xp.context, onSelectRestaurant]);
+
+  const chooseCategory = useCallback((catId: string | null, catName?: string) => {
+    if (catId) trackInteraction(xp.context, 'category.select', { category: catName ?? catId }, 'customer');
+    setSelectedCat(catId);
+  }, [xp.context, setSelectedCat]);
+
+  const xpWelcome = xpChoice === 'flag.customer_welcome';
+  const xpOffers = xpChoice === 'flag.customer_offers';
+  const xpTour = xpChoice === 'flag.customer_feature_tour';
 
   return (
     <div id="home_screen_portal" dir={lang === 'ar' ? 'rtl' : 'ltr'} style={{ position: 'relative' }}>
+      <ExperienceKeyframes />
 
       {/* ══ 1. MARKETPLACE HERO — rotating multi-vertical carousel ══ */}
       {!isFiltering && (<>
@@ -200,12 +350,12 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
             <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', flexShrink: 0 }}>
               <X size={15} color="rgba(242,244,246,0.5)" strokeWidth={2.5} />
             </button>
-          ) : (
+          ) : SHOW_FILTERS ? (
             <>
               <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.20)', flexShrink: 0 }} />
               <button style={{ background: 'none', border: 'none', color: 'var(--color-primary-fixed)', fontSize: '12px', fontWeight: 700, cursor: 'pointer', padding: '0 2px', flexShrink: 0, whiteSpace: 'nowrap' }}>{t('home.filters')}</button>
             </>
-          )}
+          ) : null}
         </div>
       </section>
 
@@ -218,7 +368,7 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
             return (
               <button
                 key={cat.id}
-                onClick={() => setSelectedCat(isActive ? null : cat.id)}
+                onClick={() => chooseCategory(isActive ? null : cat.id, cat.name)}
                 className="category-card group active:scale-[0.95] transition-transform cursor-pointer"
                 aria-pressed={isActive}
                 style={{
@@ -266,10 +416,12 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
       </section>
 
       {/* ══ 4. OFFER BANNERS — focal point §10 ══ */}
-      {!isFiltering && (
+      {/* No offers → no offers section. An empty carousel under a heading is worse
+          than no heading, and inventing banners to fill it is worse still. */}
+      {!isFiltering && offerBanners.length > 0 && (
         <section className="mb-3" id="home_offers" style={{ position: 'relative', zIndex: 2 }}>
           <div className="flex items-center justify-between" style={{ marginBottom: '10px' }}>
-            <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t('common.viewAll')}</button>
+            {SHOW_ALL_OFFERS && <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t('common.viewAll')}</button>}
             <h2 className="flex items-center gap-2" style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>
               <Zap size={16} color="var(--color-primary-fixed)" strokeWidth={2.5} style={{ filter: 'drop-shadow(0 0 8px rgba(163,249,91,0.60))' }} />
               {t('home.exclusiveOffers')}
@@ -280,6 +432,8 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
             {offerBanners.map(offer => (
               <div
                 key={offer.id}
+                id={`offer_card_${offer.id}`}
+                onClick={() => openOffer(offer)}
                 className="flex-shrink-0 cursor-pointer active:scale-[0.97] transition-transform"
                 dir={lang === 'ar' ? 'rtl' : 'ltr'}
                 style={{
@@ -314,7 +468,9 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
                   {'subtitle' in offer && (offer as typeof STATIC_BANNERS[0]).subtitle && (
                     <p style={{ fontSize: '11px', color: 'rgba(180,184,188,0.90)', lineHeight: 1.3, margin: 0 }}>{(offer as typeof STATIC_BANNERS[0]).subtitle}</p>
                   )}
-                  <button type="button" className="animate-pulse-glow" style={{ alignSelf: 'flex-start', marginTop: '5px', height: '36px', padding: '0 18px', borderRadius: '18px', background: 'var(--color-primary-fixed)', border: 'none', color: '#0c2000', fontSize: '12px', fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 0 18px rgba(163,249,91,0.50), 0 3px 10px rgba(0,0,0,0.40)' }}>
+                  <button type="button" id={`offer_cta_${offer.id}`} className="animate-pulse-glow"
+                    onClick={e => { e.stopPropagation(); openOffer(offer); }}
+                    style={{ alignSelf: 'flex-start', marginTop: '5px', height: '36px', padding: '0 18px', borderRadius: '18px', background: 'var(--color-primary-fixed)', border: 'none', color: '#0c2000', fontSize: '12px', fontWeight: 800, cursor: 'pointer', whiteSpace: 'nowrap', boxShadow: '0 0 18px rgba(163,249,91,0.50), 0 3px 10px rgba(0,0,0,0.40)' }}>
                     {t('restaurant.orderNow')}
                   </button>
                 </div>
@@ -330,14 +486,15 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
       )}
 
       {/* ══ 5. RESTAURANTS ══ */}
-      <section className="mb-4" id="home_restaurants" style={{ position: 'relative', zIndex: 2 }}>
+      <section className="mb-4" id="home_restaurants" ref={restaurantsRef} style={{ position: 'relative', zIndex: 2 }}>
         <div className="flex items-center justify-between mb-3">
           <button type="button" onClick={toggleViewMode} id="view_mode_toggle" aria-label={t('home.toggleView')}
             className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--color-primary-fixed)' }}>
             {viewMode === 'large' ? <LayoutGrid size={16} strokeWidth={2} /> : <LayoutList size={16} strokeWidth={2} />}
           </button>
-          {!isFiltering && <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px', marginInlineStart: 'auto', marginInlineEnd: '8px' }}>
+          {/* "More" lifts the 4-merchant cap — shown only while there is more to reveal. */}
+          {!isFiltering && !expanded && visible.length > PREVIEW_COUNT && <button type="button" id="home_more_merchants" onClick={() => setExpanded(true)} style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px', marginInlineStart: 'auto', marginInlineEnd: '8px' }}>
             {t('common.more')} <ChevronLeft size={14} strokeWidth={2.5} />
           </button>}
           <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>
@@ -347,52 +504,50 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
 
         {loading ? (
           <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="rounded-2xl skeleton" style={{ height: '240px' }} />)}</div>
-        ) : isFiltering && filteredBranches.length === 0 ? (
-          <div className="flex flex-col items-center gap-3 py-8 text-center glass rounded-2xl" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+        ) : visible.length === 0 ? (
+          /* Two different empty states. Filtering → "nothing matched, clear it".
+             Not filtering → the catalogue itself is empty (production, no merchants
+             onboarded yet). Neither one may invent content to fill the space. */
+          <div className="flex flex-col items-center gap-3 py-8 text-center glass rounded-2xl" id={isFiltering ? 'home_no_results' : 'home_no_merchants'} style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
             <SearchX size={28} color="rgba(170,176,182,0.50)" strokeWidth={1.5} />
-            <p style={{ color: '#f2f4f6', fontSize: '15px', fontWeight: 600 }}>{`${t('home.noResults')} "${searchQuery}"`}</p>
-            <button onClick={() => { setSearchQuery(''); setSelectedCat(null); }} style={{ padding: '8px 20px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(170,176,182,0.80)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>{t('home.showAllStores')}</button>
+            <p style={{ color: '#f2f4f6', fontSize: '15px', fontWeight: 600 }}>
+              {!isFiltering ? t('home.noMerchants') : searchQuery.trim() ? `${t('home.noResults')} "${searchQuery}"` : t('home.noResults')}
+            </p>
+            {!isFiltering
+              ? <p style={{ color: 'rgba(170,176,182,0.70)', fontSize: '13px', maxWidth: '260px' }}>{t('home.noMerchantsSub')}</p>
+              : <button onClick={() => { setSearchQuery(''); setSelectedCat(null); }} style={{ padding: '8px 20px', borderRadius: '999px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.10)', color: 'rgba(170,176,182,0.80)', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>{t('home.showAllStores')}</button>}
           </div>
         ) : (
           <div className={viewMode === 'compact' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3' : 'space-y-3'} id="restaurants_list">
-            {(showMock ? MOCK_RESTAURANTS : (isFiltering ? filteredBranches : filteredBranches.slice(0, 4))).map((item, idx) => {
-              const isMock   = 'type' in item;
-              const r        = isMock ? item as typeof MOCK_RESTAURANTS[0] : null;
-              const branch   = isMock ? null : item as BranchWithMerchant;
-              const name     = isMock ? r!.name : (branch!.merchants?.business_name || branch!.name);
-              const cuisine  = isMock ? r!.cuisine : getCuisine(name);
-              const eta      = isMock ? r!.eta      : ETAS[idx % 6];
-              const delivery = isMock ? r!.delivery : DELIVERY_FEES[idx % 6];
-              const rating   = isMock ? r!.rating   : RATINGS[idx % 6];
-              const minOrd   = isMock ? r!.min      : MIN_ORDERS[idx % 6];
-              const badgeLime = isMock ? r!.badgeLime : (idx % 3 === 0);
-              const badge    = isMock ? r!.badge    : ['مميز','اختيار الذواقة','الأكثر طلباً'][idx % 3];
-              const typeKey  = isMock ? r!.type     : undefined;
-              const id       = isMock ? r!.id       : branch!.id;
-              const logoUrl  = !isMock ? branch!.merchants?.logo_url : null;
+            {(isFiltering || expanded ? visible : visible.slice(0, PREVIEW_COUNT)).map((m) => {
+              const { id, name, cuisine, eta, delivery, rating, min: minOrd, badge, badgeLime, type: typeKey, logoUrl } = m;
               if (viewMode === 'compact') return (
-                <div key={id} onClick={() => onSelectRestaurant(id, name)}
+                <div key={id} onClick={() => openMerchant(id, name, cuisine, typeKey)}
                   className="rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform"
-                  id={isMock ? undefined : `branch_${id}`}
+                  id={m.isFallback ? undefined : `branch_${id}`}
                   style={{ border: '1px solid rgba(255,255,255,0.08)', background: 'linear-gradient(180deg,#1c2026,#13171a)' }}>
                   <div className="relative" style={{ height: '92px', background: '#060a0e' }}>
                     {logoUrl ? <img src={logoUrl} alt={name} className="w-full h-full object-cover" /> : <RestaurantPhoto type={typeKey} name={name} />}
-                    <div className="absolute top-2 start-2 flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'rgba(8,12,16,0.72)', backdropFilter: 'blur(12px)' }}>
-                      <Star size={10} color="#f0c840" fill="#f0c840" strokeWidth={0} /><span style={{ fontSize: '10px', color: 'white', fontWeight: 800 }}>{rating}</span>
-                    </div>
+                    {rating && (
+                      <div className="absolute top-2 start-2 flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'rgba(8,12,16,0.72)', backdropFilter: 'blur(12px)' }}>
+                        <Star size={10} color="#f0c840" fill="#f0c840" strokeWidth={0} /><span style={{ fontSize: '10px', color: 'white', fontWeight: 800 }}>{rating}</span>
+                      </div>
+                    )}
                   </div>
                   <div className="px-2.5 py-2">
                     <h3 className="truncate" style={{ color: '#f2f4f6', fontSize: '13px', fontWeight: 700, textAlign: 'right', margin: 0 }}>{name}</h3>
                     <p className="truncate" style={{ color: 'rgba(160,165,170,0.65)', fontSize: '10px', textAlign: 'right' }}>{cuisine}</p>
-                    <div className="flex items-center justify-between mt-1" style={{ fontSize: '10px', color: 'rgba(170,176,182,0.8)' }}>
-                      <span>{minOrd}</span><span>{eta}</span>
-                    </div>
+                    {(minOrd || eta) && (
+                      <div className="flex items-center justify-between mt-1" style={{ fontSize: '10px', color: 'rgba(170,176,182,0.8)' }}>
+                        <span>{minOrd}</span><span>{eta}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
               return (
-                <div key={id} onClick={() => onSelectRestaurant(id, name)}
-                  className="rounded-2xl overflow-hidden cursor-pointer active:scale-[0.99] transition-transform" id={isMock ? undefined : `branch_${id}`}
+                <div key={id} onClick={() => openMerchant(id, name, cuisine, typeKey)}
+                  className="rounded-2xl overflow-hidden cursor-pointer active:scale-[0.99] transition-transform" id={m.isFallback ? undefined : `branch_${id}`}
                   style={{
                     boxShadow: '0 14px 40px rgba(0,0,0,0.60), 0 4px 12px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.08)',
                     borderTop: '1px solid rgba(255,255,255,0.12)',
@@ -410,15 +565,19 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(8,11,14,0.98) 0%, rgba(8,11,14,0.50) 38%, rgba(8,11,14,0.08) 65%, transparent 80%)' }} />
                     {/* Top vignette */}
                     <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.28) 0%, transparent 30%)' }} />
-                    {/* Badge — top end (RTL = top left visually) */}
-                    <div className="absolute top-3 end-3 px-2.5 py-1 rounded-full" style={{ background: badgeLime ? 'var(--color-primary-fixed)' : 'rgba(10,14,18,0.72)', border: badgeLime ? 'none' : '1px solid rgba(255,255,255,0.18)', color: badgeLime ? '#0a1c00' : 'rgba(255,255,255,0.88)', fontSize: '11px', fontWeight: 700, backdropFilter: 'blur(12px)', boxShadow: badgeLime ? '0 0 14px rgba(163,249,91,0.55)' : '0 2px 8px rgba(0,0,0,0.50)' }}>
-                      {badge}
-                    </div>
-                    {/* Rating pill — top start */}
-                    <div className="absolute top-3 start-3 flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ background: 'rgba(8,12,16,0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 2px 8px rgba(0,0,0,0.50)' }}>
-                      <Star size={11} color="#f0c840" fill="#f0c840" strokeWidth={0} />
-                      <span style={{ fontSize: '11px', color: 'white', fontWeight: 800 }}>{rating}</span>
-                    </div>
+                    {/* Badge — top end (RTL = top left visually). Hidden when not a real badge. */}
+                    {badge && (
+                      <div className="absolute top-3 end-3 px-2.5 py-1 rounded-full" style={{ background: badgeLime ? 'var(--color-primary-fixed)' : 'rgba(10,14,18,0.72)', border: badgeLime ? 'none' : '1px solid rgba(255,255,255,0.18)', color: badgeLime ? '#0a1c00' : 'rgba(255,255,255,0.88)', fontSize: '11px', fontWeight: 700, backdropFilter: 'blur(12px)', boxShadow: badgeLime ? '0 0 14px rgba(163,249,91,0.55)' : '0 2px 8px rgba(0,0,0,0.50)' }}>
+                        {badge}
+                      </div>
+                    )}
+                    {/* Rating pill — top start. Hidden until a real rating exists. */}
+                    {rating && (
+                      <div className="absolute top-3 start-3 flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ background: 'rgba(8,12,16,0.72)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.14)', boxShadow: '0 2px 8px rgba(0,0,0,0.50)' }}>
+                        <Star size={11} color="#f0c840" fill="#f0c840" strokeWidth={0} />
+                        <span style={{ fontSize: '11px', color: 'white', fontWeight: 800 }}>{rating}</span>
+                      </div>
+                    )}
                   </div>
                   {/* Card body */}
                   <div className="px-4 py-3" style={{ background: 'linear-gradient(180deg, #1c2026 0%, #13171a 100%)' }}>
@@ -430,13 +589,17 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
                       <h3 style={{ color: '#f2f4f6', fontSize: '16px', fontWeight: 700, letterSpacing: '-0.01em', margin: 0 }}>{name}</h3>
                     </div>
                     <p style={{ color: 'rgba(160,165,170,0.65)', fontSize: '12px', marginBottom: '10px', textAlign: 'right' }}>{cuisine}</p>
-                    <div className="flex items-center justify-end gap-4">
-                      <span className="flex items-center gap-1">
-                        <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)' }}>{t('home.minLabel')} {minOrd} {cur}</span>
-                      </span>
-                      <span className="flex items-center gap-1.5"><Bike size={12} color="rgba(163,249,91,0.55)" strokeWidth={2} /><span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.60)' }}>{delivery}</span></span>
-                      <span className="flex items-center gap-1.5"><Clock size={12} color="rgba(255,255,255,0.35)" strokeWidth={2} /><span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.60)' }}>{eta} {t('common.minutesShort')}</span></span>
-                    </div>
+                    {(minOrd || delivery || eta) && (
+                      <div className="flex items-center justify-end gap-4">
+                        {minOrd && (
+                          <span className="flex items-center gap-1">
+                            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.40)' }}>{t('home.minLabel')} {minOrd} {cur}</span>
+                          </span>
+                        )}
+                        {delivery && <span className="flex items-center gap-1.5"><Bike size={12} color="rgba(163,249,91,0.55)" strokeWidth={2} /><span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.60)' }}>{delivery}</span></span>}
+                        {eta && <span className="flex items-center gap-1.5"><Clock size={12} color="rgba(255,255,255,0.35)" strokeWidth={2} /><span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.60)' }}>{eta} {t('common.minutesShort')}</span></span>}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -446,34 +609,30 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
       </section>
 
       {/* ══ 6. FEATURED STORES — horizontal circles ══ */}
-      {!isFiltering && (
+      {!isFiltering && sourceList.length > 0 && (
         <section className="mb-4" id="home_featured_circles" style={{ position: 'relative', zIndex: 2 }}>
           <div className="flex items-center justify-between mb-3">
-            <button type="button" style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px' }}>
+            <button type="button" id="home_featured_view_all" onClick={revealMerchants} style={{ color: 'var(--color-primary-fixed)', fontSize: '13px', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '2px' }}>
               {t('common.viewAll')} <ChevronLeft size={14} strokeWidth={2.5} />
             </button>
             <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#f2f4f6', letterSpacing: '-0.01em' }}>{t('home.featured')}</h2>
           </div>
           <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-            {(branches.length > 0 ? branches : MOCK_FEATURED).slice(0, 6).map(item => {
-              const bn   = 'merchants' in item ? (item as BranchWithMerchant).merchants?.business_name || item.name : item.name;
-              const tp   = 'type' in item ? (item as typeof MOCK_FEATURED[0]).type : undefined;
-              const id   = item.id;
-              return (
+            {/* Same dataset as the list above — Featured is a view of it, not a copy. */}
+            {sourceList.slice(0, 6).map(({ id, name: bn, type: tp, logoUrl }) => (
                 <button key={`circle_${id}`}
-                  onClick={() => onSelectRestaurant(id, bn)}
+                  onClick={() => openMerchant(id, bn, undefined, tp)}
                   className="flex-shrink-0 flex flex-col items-center gap-2 active:scale-[0.95] transition-transform cursor-pointer"
                   style={{ background: 'none', border: 'none', width: '72px', padding: 0 }}>
                   <div style={{ width: '66px', height: '66px', borderRadius: '50%', overflow: 'hidden', background: '#0c1014', border: '2px solid rgba(255,255,255,0.12)', boxShadow: '0 6px 20px rgba(0,0,0,0.55)', flexShrink: 0 }}>
-                    {'merchants' in item && (item as BranchWithMerchant).merchants?.logo_url
-                      ? <img src={(item as BranchWithMerchant).merchants.logo_url!} alt={bn} className="w-full h-full object-cover" />
+                    {logoUrl
+                      ? <img src={logoUrl} alt={bn} className="w-full h-full object-cover" />
                       : <RestaurantPhoto type={tp} name={bn} />
                     }
                   </div>
                   <span style={{ fontSize: '10px', color: 'rgba(242,244,246,0.60)', textAlign: 'center', lineHeight: 1.3, maxWidth: '72px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{bn}</span>
                 </button>
-              );
-            })}
+            ))}
           </div>
         </section>
       )}
@@ -509,6 +668,56 @@ export const HomeScreen = ({ onSelectRestaurant }: HomeScreenProps) => {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* ══ EXPERIENCE RUNTIME — audience/flag/experiment driven surface ══
+          Decided by the ONE Experience Engine (Waves 1–18) via useExperience(); this screen only
+          renders what the runtime already decided. Placed BELOW the marketplace rails on purpose:
+          the home screen renders its rails from what is initially in view, so anything inserted
+          above them changes what the product surfaces — the merchandising content stays first. */}
+      {!isFiltering && (xpWelcome || xpOffers || xpTour) && (
+        <section id="home_experience_surfaces" style={{ display: 'grid', gap: 10, margin: '4px 0 16px' }}>
+          {xpWelcome && (() => {
+            // Content resolves through the ONE shared source; an edit in the Experience
+            // Studio changes this banner because both read resolveMergedContent.
+            const c = resolveMergedContent('flag.customer_welcome'); if (!c) return null;
+            const arm = xp.variantOf('exp.welcome_tone');
+            return (
+              <ExperienceBanner
+                Icon={resolveExperienceIcon(c.icon)}
+                title={contentTitle(c, lang === 'ar' ? 'ar' : 'en', arm)}
+                body={contentBody(c, lang === 'ar' ? 'ar' : 'en')}
+                variant={arm}
+                decision={xp.context} experienceId="flag.customer_welcome" surface="customer"
+                onDismiss={() => setXpDismissed(d => ({ ...d, welcome: true }))}
+              />
+            );
+          })()}
+          {xpOffers && (() => {
+            const c = resolveMergedContent('flag.customer_offers'); if (!c) return null;
+            return (
+              <ExperienceBanner
+                Icon={resolveExperienceIcon(c.icon)}
+                title={contentTitle(c, lang === 'ar' ? 'ar' : 'en')}
+                body={contentBody(c, lang === 'ar' ? 'ar' : 'en')}
+                variant={xp.variantOf('exp.offer_emphasis')}
+                decision={xp.context} experienceId="flag.customer_offers" surface="customer"
+                signals={c.signals}
+                onDismiss={() => setXpDismissed(d => ({ ...d, offers: true }))}
+              />
+            );
+          })()}
+          {xpTour && (() => {
+            const c = resolveMergedContent('flag.customer_feature_tour'); if (!c) return null;
+            return (
+              <ExperienceHint
+                text={contentTitle(c, lang === 'ar' ? 'ar' : 'en')}
+                decision={xp.context} experienceId="flag.customer_feature_tour" surface="customer"
+                onDismiss={() => setXpDismissed(d => ({ ...d, tour: true }))}
+              />
+            );
+          })()}
         </section>
       )}
 

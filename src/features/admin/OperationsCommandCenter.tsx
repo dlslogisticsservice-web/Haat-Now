@@ -12,6 +12,8 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { useAppConfig } from '../../contexts/AppConfigContext';
 import { AdminDataTable, Column } from '../../components/admin/AdminDataTable';
+import { capabilities as providerCapabilities, declaredEmailVendor } from '../../providers/registry';
+import { monitoring } from '../../services/monitoring.service';
 
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
 const surface = { background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' };
@@ -159,9 +161,68 @@ export const OperationsCommandCenter: React.FC = () => {
         ] as Column<ZoneAnalytics>[]}
       />
 
+      <EmailOperations L={L} />
+
       <OpsSlaMonitor />
       <OpsExecutionConsole />
       <OpsIncidentLog />
     </div>
+  );
+};
+
+/**
+ * Executive Command Center — Transactional Email operations. Read-only extension of the
+ * Operations Dashboard (no redesign). Provider status comes from the Provider Registry;
+ * delivery/failure signals come from the monitoring seam ([email] events). Live queue/
+ * retry counts require the server-side email worker (not yet running), so they read 0
+ * honestly rather than inventing traffic.
+ */
+const EmailOperations: React.FC<{ L: (ar: string, en: string) => string }> = ({ L }) => {
+  const cap = providerCapabilities().find(c => c.capability === 'email');
+  const evts = monitoring.recentEvents().filter(e => typeof e.message === 'string' && e.message.includes('[email]'));
+  const count = (needle: string) => evts.filter(e => e.message.includes(needle)).length;
+  const sends = count('send_failed');
+  const templates = count('template_failed');
+  const bounces = count('bounce');
+  const total = evts.length;
+  const failRate = total > 0 ? Math.round(((sends + templates) / total) * 100) : 0;
+  const statusColor = cap?.status === 'active' ? 'var(--color-lime-vb, #9ed442)' : cap?.status === 'demo' ? '#fbbf24' : 'var(--color-on-surface-variant)';
+
+  return (
+    <Card className="p-4" id="ecc_email_ops">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-headline-sm font-bold">{L('عمليات البريد المعاملاتي', 'Transactional Email Ops')}</h3>
+        <Badge variant={cap?.status === 'active' ? 'success' : cap?.status === 'demo' ? 'warning' : 'secondary'}>
+          {L('المزوّد', 'Provider')}: {declaredEmailVendor() || cap?.status || 'none'}
+        </Badge>
+      </div>
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+        {[
+          [L('المزوّد', 'Provider'), cap?.status ?? 'none', statusColor],
+          [L('قائمة الانتظار', 'Queue'), '0', undefined],
+          [L('في إعادة المحاولة', 'Retry queue'), '0', undefined],
+          [L('فشل الإرسال', 'Send failures'), String(sends), sends ? 'var(--color-error)' : undefined],
+          [L('الارتداد', 'Bounces'), String(bounces), bounces ? '#fbbf24' : undefined],
+          [L('نسبة الفشل', 'Failure rate'), `${failRate}%`, failRate ? 'var(--color-error)' : undefined],
+        ].map(([label, val, color], i) => (
+          <Card key={i} className="p-3 text-center">
+            <p className="text-headline-sm font-bold" style={color ? { color: color as string } : {}}>{val}</p>
+            <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>{label}</p>
+          </Card>
+        ))}
+      </div>
+      <div className="mt-3">
+        <p className="text-xs font-semibold mb-1" style={{ color: 'var(--color-on-surface-variant)' }}>{L('أحدث أحداث التسليم', 'Recent delivery events')}</p>
+        {evts.length === 0 ? (
+          <p className="text-xs" style={{ color: 'var(--color-on-surface-variant)' }}>
+            {L('لا أحداث بريد في هذه الجلسة. يتطلّب البثّ الحيّ عامل الإرسال من جهة الخادم.', 'No email events this session. Live delivery requires the server-side send worker.')}
+          </p>
+        ) : (
+          <div className="space-y-0.5 font-mono text-[11px]" style={{ color: 'var(--color-on-surface-variant)' }}>
+            {evts.slice(0, 6).map((e, i) => <div key={i}>{new Date(e.at).toLocaleTimeString()} · {e.message.slice(0, 80)}</div>)}
+          </div>
+        )}
+      </div>
+    </Card>
   );
 };

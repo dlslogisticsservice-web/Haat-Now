@@ -11,6 +11,12 @@ import { MISSING_SUPABASE_VARS } from './lib/supabase';
 import { APP_VERSION } from './config/version';
 import { PublicSiteApp } from './features/website/PublicSiteApp';
 import { resolvePublicRequest } from './features/website/runtime';
+import { monitoring } from './services/monitoring.service';
+
+// Start runtime-health capture before anything renders, so a crash during boot is caught
+// too. Feeds the existing monitoring seam (its ring buffer backs Launch Guardian) and the
+// configured DSN when the operator sets one. No-ops if called twice.
+monitoring.installGlobalCapture();
 
 // Runtime entry point: the FLAGSHIP marketing website is the canonical public root — `/` renders the
 // website; the role application (customer/merchant/driver/admin) is a first-class route under `/app`.

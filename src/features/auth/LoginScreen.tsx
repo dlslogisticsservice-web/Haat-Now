@@ -5,7 +5,7 @@ import {
   ChevronDown, Smartphone,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { HaatLogo } from '../website/icons';
+import { HaatLogo } from '../../components/brand/HaatLogo';
 
 const GOOGLE_LOGO = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBDbupKZkEB-5NrKOCMTxGgYZHrReUAdgg-BvQGyYALDpBHdLIlTIw_BDQl0pm1tgugDEDWPmLCr6oLrK2gFJj3gLCtWwTXehYGzwV6__C73Bc24EKFFUhUPpLkOu8TVwLu7rRwflBQ1gh6LbqkeZAM-m_eIiY2AqxwG1GRuZAkpOHYYgC7JprOYcLsKIahr54pbgN8shms5WwaJ7YPVH3LeYys8MggBrciMyeWdSnZI9ThpbkYRboqcCdfoS21q96ynnYlxxmRiHhs';
 
@@ -35,7 +35,9 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
     const { error } = await authService.sendOtp(phoneNumber);
     setLoading(false);
     if (error) {
-      setMessage({ text: t('auth.sendError'), type: 'error' });
+      // Prefer the explicit reason (cooldown / lockout / provider) over the generic key —
+      // an OTP failure must tell the user what happened, never fail silently or vaguely.
+      setMessage({ text: error.message || t('auth.sendError'), type: 'error' });
     } else {
       setMessage({ text: t('auth.otpSent'), type: 'success' });
       setStep('otp');
@@ -50,7 +52,9 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
     const { data, error } = await authService.verifyOtp(phoneNumber, otpToken);
     setLoading(false);
     if (error) {
-      setMessage({ text: t('auth.invalidCode'), type: 'error' });
+      // Policy denials (replay / attempt limit / lockout) carry a specific message; a
+      // plain wrong code falls back to the generic key. Explicit, never silent.
+      setMessage({ text: (error.code ? error.message : '') || t('auth.invalidCode'), type: 'error' });
     } else if (data.user) {
       onLoginSuccess({
         id: data.user.id,

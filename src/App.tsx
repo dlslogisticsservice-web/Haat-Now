@@ -99,6 +99,11 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'home' | 'restaurant' | 'checkout' | 'orders' | 'wallet' | 'profile' | 'discover'>('home');
   const [selectedBranchId,     setSelectedBranchId]     = useState<string>('');
   const [selectedBranchName,   setSelectedBranchName]   = useState<string>('');
+  // Home's filter lives here, next to the selected merchant, because Home unmounts on
+  // navigation. Owning it at the navigation root is what lets Back restore the list the
+  // customer was actually looking at.
+  const [homeCategory,         setHomeCategory]         = useState<string | null>(null);
+  const [homeQuery,            setHomeQuery]            = useState<string>('');
   const [selectedTrackingOrderId, setSelectedTrackingOrderId] = useState<string | undefined>(undefined);
 
   // ── UI overlays ─────────────────────────────────────────────────
@@ -415,6 +420,10 @@ export default function App() {
               {currentScreen === 'home' && (
                 <HomeScreen
                   customerId={session.id}
+                  selectedCat={homeCategory}
+                  onSelectCat={setHomeCategory}
+                  searchQuery={homeQuery}
+                  onSearchQuery={setHomeQuery}
                   onSelectRestaurant={(bId, rName) => {
                     setSelectedBranchId(bId);
                     setSelectedBranchName(rName);

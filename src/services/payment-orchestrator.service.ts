@@ -14,6 +14,7 @@
 import { supabase } from '../lib/supabase';
 import { authService } from './auth.service';
 import { buildCodRecord, COD_PROVIDER } from '../website-platform/finance/cod';
+import { monitoring } from './monitoring.service';
 
 export const paymentOrchestrator = {
   /**
@@ -31,6 +32,9 @@ export const paymentOrchestrator = {
     } as any);
     // Additive label so reporting/receipts show COD (column added by the COD migration).
     await supabase.from('orders').update({ payment_method: COD_PROVIDER } as any).eq('id', rec.orderId);
+    // The COD attempt is accepted (cash is collected at delivery) even if the ledger write
+    // failed — but that write failure must be VISIBLE to Guardian, not silently swallowed.
+    if (error) monitoring.log('error', `[payment] cod_ledger_failed: ${error.message || 'insert failed'}`, { orderId: rec.orderId });
     return { ok: true, data: { ...rec, recorded: !error } };
   },
 
@@ -63,6 +67,8 @@ export const paymentOrchestrator = {
     if (supabase) {
       await supabase.from('payment_idempotency').update({ status: ok ? 'completed' : 'failed', result: data, updated_at: new Date().toISOString() } as any).eq('idempotency_key', key);
     }
+    // A gateway rejection is a real failure — surface it, never fake a successful charge.
+    if (!ok) monitoring.log('error', `[payment] gateway_failed: ${(data as any)?.error || res.status}`, { orderId: req.orderId });
     return { ok, data };
   },
 

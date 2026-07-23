@@ -6,14 +6,25 @@
 // (auth_is_admin) in production; the console is admin-only in the UI.
 // ─────────────────────────────────────────────────────────────────────────────
 import { adminCrud } from './admin-crud.service';
+import { authService } from './auth.service';
 
 const events = adminCrud('operation_events');
 const shifts = adminCrud('driver_shifts');
 const orders = adminCrud('orders');
 const drivers = adminCrud('drivers');
 
+/**
+ * Append to the ops timeline. `actor_id` matters: an audit trail that cannot say WHO
+ * performed an action is not an audit trail. The column has always existed in
+ * 20260627000006; it was simply never populated.
+ */
 async function log(action: string, entityType: string, entityId: string, meta?: Record<string, any>) {
-  await events.create({ action, entity_type: entityType, entity_id: entityId, meta: meta || null, created_at: new Date().toISOString() });
+  let actorId: string | null = null;
+  try { actorId = await authService.getAuthUserId(); } catch { /* attribution is best-effort */ }
+  await events.create({
+    action, entity_type: entityType, entity_id: entityId,
+    actor_id: actorId, meta: meta || null, created_at: new Date().toISOString(),
+  });
 }
 
 export const opsExecution = {
@@ -47,16 +58,25 @@ export const opsExecution = {
   },
 
   // ── Shifts (attendance / check-in / check-out) ──
+  // The live `driver_shifts` table (20260614000028:59) uses actual_start/actual_end
+  // and constrains status to scheduled|active|closed. This service previously wrote
+  // started_at/ended_at with status 'open' — columns and a value that do not exist —
+  // so both actions failed in a live build while working in sandbox, where
+  // localStorage accepts any shape. Now matched to the real schema.
   async startShift(driverId: string): Promise<{ error: any }> {
-    const { error } = await shifts.create({ driver_id: driverId, status: 'open', started_at: new Date().toISOString(), created_at: new Date().toISOString() });
+    const { error } = await shifts.create({
+      driver_id: driverId, status: 'active', actual_start: new Date().toISOString(),
+    });
     if (!error) await log('shift_started', 'driver', driverId);
     return { error };
   },
   async endShift(driverId: string): Promise<{ error: any }> {
     const { data } = await shifts.list();
-    const open = [...data].filter((s: any) => s.driver_id === driverId && s.status === 'open').sort((a: any, b: any) => String(b.started_at || '').localeCompare(String(a.started_at || '')))[0];
+    const open = [...data]
+      .filter((s: any) => s.driver_id === driverId && s.status === 'active')
+      .sort((a: any, b: any) => String(b.actual_start || '').localeCompare(String(a.actual_start || '')))[0];
     if (!open) return { error: { message: 'no_open_shift' } };
-    const { error } = await shifts.update(open.id, { status: 'closed', ended_at: new Date().toISOString() });
+    const { error } = await shifts.update(open.id, { status: 'closed', actual_end: new Date().toISOString() });
     if (!error) await log('shift_closed', 'driver', driverId);
     return { error };
   },
