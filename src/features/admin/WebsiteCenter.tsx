@@ -34,7 +34,7 @@ import { AppRuntimePreview } from './AppRuntimePreview';
 import { SelectionManager } from '../../runtime/selection/SelectionManager';
 import type { RuntimeNode } from '../../runtime/selection/RuntimeNode';
 import { RuntimeNodeInspector } from './RuntimeNodeInspector';
-import { writeBinding } from './runtimeWriter';
+import { RuntimeEditStore } from '../../runtime/selection/EditStore';
 import {
   saveExperienceContentOverride, resetExperienceContent, contentOverride,
   contentSnapshot, restoreContentSnapshot, hydrateExperienceContent,
@@ -149,14 +149,15 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   const [runtimeNode, setRuntimeNode] = useState<RuntimeNode | null>(null);
   const [selectMode, setSelectMode] = useState(true);
   useEffect(() => selectionMgr.subscribe(s => setRuntimeNode(s.selected)), [selectionMgr]);
-  // Phase 8D — live LOCAL editing: the overlay writes the selected element here; the edit
-  // handler applies the new value to the running runtime (DOM only — no persistence).
-  const selectedElRef = useRef<Element | null>(null);
+  // Phase 8E — Runtime Edit Session Engine. One in-memory store per Studio session is the
+  // single source of truth for local edits; a reconciler (in AppRuntimePreview) projects it
+  // onto the runtime after every render, so edits survive re-renders. No persistence.
+  const editStore = useRef(new RuntimeEditStore()).current;
+  useEffect(() => { editStore.clear(); }, [channel, editStore]); // new session per channel
   const editRuntimeProp = (key: string, value: string | boolean) => {
-    const el = selectedElRef.current; const md = runtimeNode?.studioComponent;
-    if (!el || !md) return;
-    const prop = md.editableProps.find(p => p.key === key);
-    if (prop) writeBinding(el, prop, value);
+    const md = runtimeNode?.studioComponent;
+    if (!md || !runtimeNode) return;
+    editStore.set({ nodeId: runtimeNode.id, channel, screen: channelScreen, componentId: md.id, propKey: key, value });
   };
   // App-shell overrides (Theme / App Bar / Bottom Nav editors) per channel — authored in
   // the App Studio, autosaved client-side, and applied live to the phone canvas.
@@ -624,7 +625,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
                 ? <StudioFlow channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision} view={canvasView}
                     onSelectScreen={(s) => { setChannelScreen(s); setCanvasView('canvas'); }} />
                 : canvasView === 'runtime'
-                ? <AppRuntimePreview channel={channel} screenId={channelScreen} device={device} lang={lang} selectMode={selectMode} manager={selectionMgr} elementRef={selectedElRef} />
+                ? <AppRuntimePreview channel={channel} screenId={channelScreen} device={device} lang={lang} selectMode={selectMode} manager={selectionMgr} editStore={editStore} />
                 : <div style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: 'top center', transition: 'transform .15s ease', width: '100%' }}>
                     <ChannelPreview key={`${channel}:${channelScreen}`} contentVersion={contentBump} channel={channel} screenId={channelScreen} device={device} lang={lang} locale={lang} country="SA"
                       authoring={authoring} previewState={previewState} shell={shellOf} onSelect={(id) => { editSession.current = null; setAuthoring(a => ({ ...a, selectedId: id })); }}

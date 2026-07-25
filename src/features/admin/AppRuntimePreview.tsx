@@ -19,7 +19,9 @@ import { DEMO_CONTENT_ENABLED } from '../../config/runtime';
 import { getRuntime } from '../../runtime/registry';
 import type { RuntimeContext } from '../../runtime/RuntimeAdapter';
 import type { SelectionManager } from '../../runtime/selection/SelectionManager';
+import type { RuntimeEditStore } from '../../runtime/selection/EditStore';
 import { RuntimeSelectionOverlay } from './RuntimeSelectionOverlay';
+import { RuntimeReconciler } from './runtimeReconciler';
 // Side-effects: register the Runtime Adapters so getRuntime(<channel>) resolves.
 import '../../runtime/adapters/customer.adapter';
 import '../../runtime/adapters/merchant.adapter';
@@ -63,15 +65,26 @@ export interface AppRuntimePreviewProps {
   manager?: SelectionManager;
   /** Phase 8D — the Studio reads the selected DOM element here to apply live edits. */
   elementRef?: React.MutableRefObject<Element | null>;
+  /** Phase 8E — the Runtime Edit Store; a reconciler projects it onto the live runtime. */
+  editStore?: RuntimeEditStore;
 }
 
-export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, screenId, device, lang, selectMode, manager, elementRef }) => {
+export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, screenId, device, lang, selectMode, manager, elementRef, editStore }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const width = DEVICE_W[device] ?? 390;
   const hostRef = useRef<HTMLDivElement>(null);
 
   // Clear the selection when the mounted screen/channel changes (new context).
   useEffect(() => { manager?.clear(); }, [channel, screenId, manager]);
+
+  // Phase 8E — keep the live runtime consistent with the Edit Store across every re-render.
+  useEffect(() => {
+    const root = hostRef.current;
+    if (!editStore || !root) return;
+    const reconciler = new RuntimeReconciler(root, editStore);
+    reconciler.start();
+    return () => reconciler.stop();
+  }, [editStore, channel, screenId]);
 
   // Build the runtime context. A preview identity exists only in sandbox; in production-data
   // mode there is no identity, so identity-requiring screens fall back to the note (never faked).
