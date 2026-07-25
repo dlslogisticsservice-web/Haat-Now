@@ -7,9 +7,11 @@
 // (rendered disabled). No editing, no saving (that is Phase 8C). Unmapped DOM regions are
 // shown honestly as "unmapped element", never dressed up with a fake business name.
 // ─────────────────────────────────────────────────────────────────────────────
-import React from 'react';
-import { MousePointerClick, Info, Layers, Link2, SlidersHorizontal, ChevronRight, Database } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MousePointerClick, Info, Layers, Link2, SlidersHorizontal, ChevronRight, Database, Pencil } from 'lucide-react';
 import type { RuntimeNode, ResolvedValue } from '../../runtime/selection/RuntimeNode';
+import type { EditablePropSpec } from '../../runtime/StudioMetadata';
+import { isEditable } from './runtimeWriter';
 
 const card: React.CSSProperties = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)', borderRadius: 12 };
 const lbl: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, color: 'var(--color-on-surface-variant)' };
@@ -44,10 +46,52 @@ function renderValue(rv: ResolvedValue | undefined, L: (a: string, e: string) =>
   }
 }
 
-export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'ar' | 'en' }> = ({ node, lang }) => {
+export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'ar' | 'en'; onEdit?: (key: string, value: string | boolean) => void }> = ({ node, lang, onEdit }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const nm = (n?: { ar: string; en: string }) => (n ? (lang === 'ar' ? n.ar : n.en) : '');
+  // Phase 8D — local edit state (in-memory only), reset when the selected node changes.
+  const [edits, setEdits] = useState<Record<string, string | boolean>>({});
+  useEffect(() => { setEdits({}); }, [node?.id]);
+  const applyEdit = (key: string, value: string | boolean) => { setEdits(e => ({ ...e, [key]: value })); onEdit?.(key, value); };
+
+  const editStyle: React.CSSProperties = { width: '100%', padding: '6px 9px', borderRadius: 8, fontSize: 11.5, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)', border: '1px solid var(--color-outline-variant)', outline: 'none' };
+  // Live LOCAL editor for one editable prop (text / image / color / boolean).
+  const renderEditor = (p: EditablePropSpec, rv: ResolvedValue | undefined): React.ReactNode => {
+    const cur = p.key in edits ? edits[p.key] : (rv?.value ?? '');
+    if (p.type === 'boolean') {
+      const on = cur === true;
+      return (
+        <button id={`rt_toggle_${p.key}`} onClick={() => applyEdit(p.key, !on)} className="cursor-pointer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', padding: 0 }}>
+          <span style={{ width: 34, height: 19, borderRadius: 999, background: on ? 'var(--color-primary-fixed)' : 'var(--color-outline-variant)', position: 'relative', flexShrink: 0 }}>
+            <span style={{ position: 'absolute', top: 2, insetInlineStart: on ? 17 : 2, width: 15, height: 15, borderRadius: 999, background: '#fff', transition: 'inset-inline-start .12s' }} />
+          </span>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-on-surface)' }}>{on ? L('نعم', 'On') : L('لا', 'Off')}</span>
+        </button>
+      );
+    }
+    if (p.type === 'color') {
+      const s = String(cur || '');
+      const hex = /^#[0-9a-fA-F]{6}$/.test(s) ? s : '#a3f95b';
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input id={`rt_color_${p.key}`} type="color" value={hex} onChange={e => applyEdit(p.key, e.target.value)} style={{ width: 34, height: 30, border: '1px solid var(--color-outline-variant)', borderRadius: 8, background: 'transparent', cursor: 'pointer' }} />
+          <input value={s} onChange={e => applyEdit(p.key, e.target.value)} style={{ ...editStyle, flex: 1 }} />
+        </div>
+      );
+    }
+    if (p.type === 'image') {
+      const s = String(cur || '');
+      return (
+        <div style={{ display: 'grid', gap: 6 }}>
+          <input id={`rt_image_${p.key}`} value={s} placeholder="https://…" onChange={e => applyEdit(p.key, e.target.value)} style={editStyle} />
+          {s && <img src={s} alt="" style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--color-outline-variant)' }} />}
+        </div>
+      );
+    }
+    // text / richtext / url
+    return <input id={`rt_edit_${p.key}`} value={String(cur ?? '')} onChange={e => applyEdit(p.key, e.target.value)} style={editStyle} />;
+  };
 
   if (!node) {
     return (
@@ -129,23 +173,24 @@ export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'a
 
       {/* Live property values — resolved from the running runtime, shown READ-ONLY */}
       <div style={{ ...card, padding: 12, display: 'grid', gap: 10 }}>
-        <p style={{ margin: 0, ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}><SlidersHorizontal size={12} />{L('القيم الحيّة (قراءة فقط)', 'Live values (read-only)')}</p>
+        <p style={{ margin: 0, ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}><SlidersHorizontal size={12} />{onEdit ? L('القيم الحيّة (تحرير محلّي)', 'Live values (local editing)') : L('القيم الحيّة (قراءة فقط)', 'Live values (read-only)')}</p>
         {md.editableProps.length ? md.editableProps.map(p => {
           const rv = resolved[p.key];
+          const canEdit = !!onEdit && isEditable(p.type);
           return (
             <div key={p.key} className="rt-prop" style={{ display: 'grid', gap: 4, paddingBottom: 8, borderBottom: '1px solid var(--color-outline-variant)' }}>
               <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-on-surface)' }}>{nm(p.label)}</span>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-on-surface)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{canEdit && <Pencil size={10} style={{ color: 'var(--color-primary-fixed,#a3f95b)' }} />}{nm(p.label)}</span>
                 <span style={{ display: 'inline-flex', gap: 4 }}>
                   <span style={{ ...chip, fontSize: 9.5 }}>{p.type}</span>
                   {p.binding && <span style={{ ...chip, fontSize: 9.5 }}>{p.binding.source}</span>}
                 </span>
               </span>
-              <div className="rt-value">{renderValue(rv, L)}</div>
+              <div className="rt-value">{canEdit ? renderEditor(p, rv) : renderValue(rv, L)}</div>
               {p.binding && <code style={{ fontSize: 9.5, color: 'var(--color-on-surface-variant)' }}>{p.binding.path}</code>}
               <span style={{ display: 'flex', gap: 10, fontSize: 9, color: 'var(--color-on-surface-variant)' }}>
                 <span>{L('افتراضي', 'Default')}: {p.defaultValue ?? '—'}</span>
-                <span>{L('للقراءة فقط', 'read-only')}: {p.binding?.readonly ? L('نعم', 'yes') : L('لا', 'no')}</span>
+                <span>{L('محلّي', 'local')}: {canEdit ? L('قابل للتحرير', 'editable') : L('قراءة فقط', 'read-only')}</span>
                 <span>{L('آخر تحديث', 'Updated')}: —</span>
               </span>
             </div>
@@ -155,7 +200,7 @@ export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'a
 
       <p style={{ margin: 0, fontSize: 10.5, lineHeight: 1.5, color: 'var(--color-on-surface-variant)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
         <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-        {L('قيم حيّة من التشغيل الفعلي — قراءة فقط. التحرير والحفظ يأتيان في المرحلة 8D.', 'Live values from the actual runtime — read-only. Editing & saving arrive in Phase 8D.')}
+        {L('تحرير محلّي فقط — يظهر فوراً في المعاينة، بلا حفظ ولا قاعدة بيانات. يعيد التحديث القيم الأصلية.', 'Local editing only — updates the preview instantly, no save, no database. A refresh restores the originals.')}
       </p>
     </div>
   );

@@ -74,8 +74,11 @@ const MERCHANT_DASHBOARD: MappedComponent[] = [
   { match: '#merchant_portal_full', metadata: { id: 'merchant.root', type: 'screen', displayName: t('بوابة التاجر', 'Merchant Portal'), editableProps: [], bindings: [], events: [], themeTokens: [], animations: [] } },
   { match: '#merchant_topbar', metadata: { id: 'merchant.topbar', type: 'appbar', displayName: t('الشريط العلوي للتاجر', 'Merchant Top Bar'), editableProps: [], bindings: [{ source: 'data', path: 'merchant.profile', readonly: true }], events: [], themeTokens: ['--color-primary-fixed'], animations: [] } },
   { match: '#merchant_branch_header_card', metadata: { id: 'merchant.branch_header', type: 'card', displayName: t('بطاقة الفرع', 'Branch Header Card'),
-    editableProps: [{ key: 'name', label: t('اسم الفرع', 'Branch name'), type: 'text', binding: { source: 'data', path: 'branch.name', readonly: true } }],
-    bindings: [{ source: 'data', path: 'branch', readonly: true }], events: [], themeTokens: [], animations: [] } },
+    editableProps: [
+      { key: 'title', label: t('عنوان الأداة', 'Widget title'), type: 'text', selector: 'h1', binding: { source: 'data', path: 'branch.name' } },
+      { key: 'accent', label: t('لون التمييز', 'Accent color'), type: 'color', token: '--color-primary-fixed', binding: { source: 'theme', path: 'theme.primary', readonly: true } },
+    ],
+    bindings: [{ source: 'data', path: 'branch', readonly: true }], events: [], themeTokens: ['--color-primary-fixed'], animations: [] } },
   { match: '#merchant_kpi_area, #merchant_analytics_row', metadata: { id: 'merchant.analytics', type: 'widget', displayName: t('أداة تحليلات التاجر', 'Merchant Analytics Widget'),
     editableProps: [{ key: 'metrics', label: t('المؤشرات الحالية', 'Current metrics'), type: 'text', binding: { source: 'data', path: 'merchant.analytics', readonly: true } }],
     bindings: [{ source: 'data', path: 'merchant.analytics', readonly: true }], events: [], themeTokens: [], animations: [] } },

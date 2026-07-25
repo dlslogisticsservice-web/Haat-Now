@@ -67,9 +67,11 @@ export interface RuntimeSelectionOverlayProps {
   lang: 'ar' | 'en';
   manager: SelectionManager;
   onSelect?: (node: RuntimeNode | null) => void;
+  /** Phase 8D — the Studio reads the selected DOM element from here to apply live edits. */
+  elementRef?: React.MutableRefObject<Element | null>;
 }
 
-export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = ({ hostRef, enabled, channel, screen, lang, manager, onSelect }) => {
+export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = ({ hostRef, enabled, channel, screen, lang, manager, onSelect, elementRef }) => {
   const hoverElRef = useRef<Element | null>(null);
   const selElRef = useRef<Element | null>(null);
   const [hoverB, setHoverB] = useState<RuntimeNodeBounds | null>(null);
@@ -123,15 +125,16 @@ export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = (
       if (built) {
         // Phase 8C — resolve the component's editable props to their CURRENT live values.
         if (built.node.mapped && built.node.studioComponent) built.node.resolvedValues = resolveProps(built.node.studioComponent, built.element);
-        selElRef.current = built.element; setSelB(boundsOf(built.element, host)); setSelLabel(built.node.component);
+        selElRef.current = built.element; if (elementRef) elementRef.current = built.element;
+        setSelB(boundsOf(built.element, host)); setSelLabel(built.node.component);
         manager.select(built.node); onSelect?.(built.node);
-      } else { selElRef.current = null; setSelB(null); manager.clear(); onSelect?.(null); }
+      } else { selElRef.current = null; if (elementRef) elementRef.current = null; setSelB(null); manager.clear(); onSelect?.(null); }
     };
     const refresh = () => {
       if (hoverElRef.current) setHoverB(boundsOf(hoverElRef.current, host));
       if (selElRef.current) setSelB(boundsOf(selElRef.current, host));
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { selElRef.current = null; setSelB(null); manager.clear(); onSelect?.(null); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { selElRef.current = null; if (elementRef) elementRef.current = null; setSelB(null); manager.clear(); onSelect?.(null); } };
 
     host.addEventListener('mousemove', onMove);
     host.addEventListener('mouseleave', onLeave);
@@ -147,7 +150,7 @@ export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = (
       window.removeEventListener('resize', refresh);
       window.removeEventListener('keydown', onKey);
     };
-  }, [enabled, channel, screen, lang, hostRef, manager, onSelect]);
+  }, [enabled, channel, screen, lang, hostRef, manager, onSelect, elementRef]);
 
   useEffect(() => { if (!enabled) { setHoverB(null); setSelB(null); hoverElRef.current = null; selElRef.current = null; } }, [enabled]);
 

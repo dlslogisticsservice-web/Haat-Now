@@ -61,9 +61,11 @@ export interface AppRuntimePreviewProps {
   /** Runtime Selection Layer (Phase 8A): when true, hovering/clicking selects components. */
   selectMode?: boolean;
   manager?: SelectionManager;
+  /** Phase 8D — the Studio reads the selected DOM element here to apply live edits. */
+  elementRef?: React.MutableRefObject<Element | null>;
 }
 
-export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, screenId, device, lang, selectMode, manager }) => {
+export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, screenId, device, lang, selectMode, manager, elementRef }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const width = DEVICE_W[device] ?? 390;
   const hostRef = useRef<HTMLDivElement>(null);
@@ -105,7 +107,7 @@ export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, s
               </Suspense>
             </ScreenBoundary>
           </div>
-          {manager && <RuntimeSelectionOverlay hostRef={hostRef} enabled={!!selectMode} channel={channel} screen={screenId} lang={lang} manager={manager} />}
+          {manager && <RuntimeSelectionOverlay hostRef={hostRef} enabled={!!selectMode} channel={channel} screen={screenId} lang={lang} manager={manager} elementRef={elementRef} />}
         </div>
       ) : (
         <div style={{ padding: '28px 18px', textAlign: 'center', color: 'var(--color-on-surface-variant)', maxWidth: 360 }}>
