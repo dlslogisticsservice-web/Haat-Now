@@ -31,6 +31,9 @@ import { ChannelTree } from './ChannelTree';
 import { StudioFlow, type FlowView } from './StudioFlow';
 import { AppStudioPanels } from './AppStudioPanels';
 import { AppRuntimePreview } from './AppRuntimePreview';
+import { SelectionManager } from '../../runtime/selection/SelectionManager';
+import type { RuntimeNode } from '../../runtime/selection/RuntimeNode';
+import { RuntimeNodeInspector } from './RuntimeNodeInspector';
 import {
   saveExperienceContentOverride, resetExperienceContent, contentOverride,
   contentSnapshot, restoreContentSnapshot, hydrateExperienceContent,
@@ -140,6 +143,11 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   const [canvasView, setCanvasView] = useState<'canvas' | FlowView | 'runtime'>('canvas');
   const [previewState, setPreviewState] = useState<PreviewState>('default');
   const [zoom, setZoom] = useState(1);
+  // Runtime Selection Layer (Phase 8A): one SelectionManager drives the overlay + inspector.
+  const selectionMgr = useRef(new SelectionManager()).current;
+  const [runtimeNode, setRuntimeNode] = useState<RuntimeNode | null>(null);
+  const [selectMode, setSelectMode] = useState(true);
+  useEffect(() => selectionMgr.subscribe(s => setRuntimeNode(s.selected)), [selectionMgr]);
   // App-shell overrides (Theme / App Bar / Bottom Nav editors) per channel — authored in
   // the App Studio, autosaved client-side, and applied live to the phone canvas.
   const [appShell, setAppShell] = useState<Record<string, AppShellOverride>>({});
@@ -574,6 +582,14 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
                     </select>
                   </label>
                 )}
+                {/* Runtime Selection Layer (Phase 8A) — toggle select vs interact in the Live App */}
+                {canvasView === 'runtime' && (
+                  <button id="studio_select_toggle" onClick={() => setSelectMode(v => !v)} title={L('وضع التحديد', 'Select mode')}
+                    className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-bold ms-1"
+                    style={{ padding: '4px 10px', borderRadius: 999, border: 'none', background: selectMode ? 'var(--color-primary-fixed)' : 'var(--color-surface-container-high)', color: selectMode ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}>
+                    <MousePointerClick size={13} />{selectMode ? L('تحديد', 'Select') : L('تفاعل', 'Interact')}
+                  </button>
+                )}
               </>
             )}
             {channel !== 'website' && canvasView === 'canvas' && (
@@ -598,7 +614,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
                 ? <StudioFlow channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision} view={canvasView}
                     onSelectScreen={(s) => { setChannelScreen(s); setCanvasView('canvas'); }} />
                 : canvasView === 'runtime'
-                ? <AppRuntimePreview channel={channel} screenId={channelScreen} device={device} lang={lang} />
+                ? <AppRuntimePreview channel={channel} screenId={channelScreen} device={device} lang={lang} selectMode={selectMode} manager={selectionMgr} />
                 : <div style={{ transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: 'top center', transition: 'transform .15s ease', width: '100%' }}>
                     <ChannelPreview key={`${channel}:${channelScreen}`} contentVersion={contentBump} channel={channel} screenId={channelScreen} device={device} lang={lang} locale={lang} country="SA"
                       authoring={authoring} previewState={previewState} shell={shellOf} onSelect={(id) => { editSession.current = null; setAuthoring(a => ({ ...a, selectedId: id })); }}
@@ -636,7 +652,9 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
 
         {/* RIGHT — properties */}
         <div style={{ ...card, padding: 14, overflow: 'auto' }} id="studio_right">
-          {channel !== 'website' ? (
+          {channel !== 'website' && canvasView === 'runtime' ? (
+            <RuntimeNodeInspector node={runtimeNode} lang={lang} />
+          ) : channel !== 'website' ? (
             <AppStudioPanels channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision}
               selectedId={authoring.selectedId} contentVersion={contentBump}
               overrideOf={contentOverride}

@@ -12,12 +12,14 @@
 // Merchant/Driver adapters are not registered yet (M5); for those channels getRuntime
 // returns undefined and the honest note is shown, never a fake screen.
 // ─────────────────────────────────────────────────────────────────────────────
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useMemo, useRef, useEffect } from 'react';
 import { Loader2, MonitorSmartphone } from 'lucide-react';
 import type { ChannelId } from '../../experience-channels/channels';
 import { DEMO_CONTENT_ENABLED } from '../../config/runtime';
 import { getRuntime } from '../../runtime/registry';
 import type { RuntimeContext } from '../../runtime/RuntimeAdapter';
+import type { SelectionManager } from '../../runtime/selection/SelectionManager';
+import { RuntimeSelectionOverlay } from './RuntimeSelectionOverlay';
 // Side-effects: register the Runtime Adapters so getRuntime(<channel>) resolves.
 import '../../runtime/adapters/customer.adapter';
 import '../../runtime/adapters/merchant.adapter';
@@ -56,11 +58,18 @@ export interface AppRuntimePreviewProps {
   screenId: string;
   device: 'desktop' | 'tablet' | 'mobile';
   lang: 'ar' | 'en';
+  /** Runtime Selection Layer (Phase 8A): when true, hovering/clicking selects components. */
+  selectMode?: boolean;
+  manager?: SelectionManager;
 }
 
-export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, screenId, device, lang }) => {
+export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, screenId, device, lang, selectMode, manager }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const width = DEVICE_W[device] ?? 390;
+  const hostRef = useRef<HTMLDivElement>(null);
+
+  // Clear the selection when the mounted screen/channel changes (new context).
+  useEffect(() => { manager?.clear(); }, [channel, screenId, manager]);
 
   // Build the runtime context. A preview identity exists only in sandbox; in production-data
   // mode there is no identity, so identity-requiring screens fall back to the note (never faked).
@@ -86,12 +95,17 @@ export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, s
         <MonitorSmartphone size={13} />{L('التطبيق الحقيقي — مكوّنات الإنتاج', 'Live app runtime — production components')}
       </div>
       {LazyScreen ? (
-        <div style={{ width, maxWidth: '100%', height: 720, maxHeight: '72vh', overflow: 'auto', borderRadius: 26, border: '1px solid var(--color-outline-variant)', background: 'var(--color-background,#0a0f0c)', boxShadow: '0 24px 70px -34px rgba(0,0,0,.7)', position: 'relative', contain: 'layout paint' }}>
-          <ScreenBoundary screenId={screenId}>
-            <Suspense fallback={<div style={{ height: '100%', display: 'grid', placeItems: 'center' }}><Loader2 className="animate-spin" size={28} style={{ color: 'var(--color-primary-fixed,#a3f95b)' }} /></div>}>
-              <LazyScreen ctx={ctx} />
-            </Suspense>
-          </ScreenBoundary>
+        // Outer wrapper is the selection host (position:relative, does not scroll); the inner
+        // frame scrolls the app; the overlay draws outlines over the wrapper (pointer-safe).
+        <div ref={hostRef} style={{ position: 'relative', width, maxWidth: '100%' }}>
+          <div style={{ width: '100%', height: 720, maxHeight: '72vh', overflow: 'auto', borderRadius: 26, border: '1px solid var(--color-outline-variant)', background: 'var(--color-background,#0a0f0c)', boxShadow: '0 24px 70px -34px rgba(0,0,0,.7)', position: 'relative', contain: 'layout paint' }}>
+            <ScreenBoundary screenId={screenId}>
+              <Suspense fallback={<div style={{ height: 320, display: 'grid', placeItems: 'center' }}><Loader2 className="animate-spin" size={28} style={{ color: 'var(--color-primary-fixed,#a3f95b)' }} /></div>}>
+                <LazyScreen ctx={ctx} />
+              </Suspense>
+            </ScreenBoundary>
+          </div>
+          {manager && <RuntimeSelectionOverlay hostRef={hostRef} enabled={!!selectMode} channel={channel} screen={screenId} manager={manager} />}
         </div>
       ) : (
         <div style={{ padding: '28px 18px', textAlign: 'center', color: 'var(--color-on-surface-variant)', maxWidth: 360 }}>
