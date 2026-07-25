@@ -43,9 +43,17 @@ export interface RuntimeNode {
   childComponents?: string[];
   /** True when resolved to a declared component; false for an unmapped DOM element. */
   mapped?: boolean;
+  /** Phase 8C — live values resolved from the runtime, keyed by editable-prop key. */
+  resolvedValues?: Record<string, ResolvedValue>;
 }
 
 export interface RuntimeSelectionState {
   hover: RuntimeNode | null;
   selected: RuntimeNode | null;
+}
+
+// ── Phase 8C — a live value resolved from the running runtime (read-only, never fabricated) ──
+export interface ResolvedValue {
+  kind: 'text' | 'image' | 'color' | 'bool' | 'number' | 'count' | 'empty';
+  value: string | number | boolean | null;
 }

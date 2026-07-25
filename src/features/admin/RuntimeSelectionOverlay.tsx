@@ -11,6 +11,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { SelectionManager } from '../../runtime/selection/SelectionManager';
 import type { RuntimeNode, RuntimeNodeBounds } from '../../runtime/selection/RuntimeNode';
 import { componentsFor, type MappedComponent } from '../../runtime/selection/componentMap';
+import { resolveProps } from './runtimeValues';
 
 const INLINE_TAGS = new Set(['SPAN', 'A', 'SVG', 'PATH', 'IMG', 'I', 'B', 'EM', 'STRONG', 'SMALL', 'CODE', 'BR', 'USE', 'CIRCLE', 'RECT', 'LINE']);
 
@@ -120,6 +121,8 @@ export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = (
       const t = e.target as Element | null;
       const built = t && t !== host ? buildFrom(t) : null;
       if (built) {
+        // Phase 8C — resolve the component's editable props to their CURRENT live values.
+        if (built.node.mapped && built.node.studioComponent) built.node.resolvedValues = resolveProps(built.node.studioComponent, built.element);
         selElRef.current = built.element; setSelB(boundsOf(built.element, host)); setSelLabel(built.node.component);
         manager.select(built.node); onSelect?.(built.node);
       } else { selElRef.current = null; setSelB(null); manager.clear(); onSelect?.(null); }

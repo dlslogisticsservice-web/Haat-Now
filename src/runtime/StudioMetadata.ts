@@ -39,6 +39,13 @@ export interface EditablePropSpec {
   options?: { value: string; label: { ar: string; en: string } }[];
   binding?: BindingRef;
   validation?: ValidationSpec;
+  // ── Phase 8C — live value resolution hints (how to read the current value; never editing) ──
+  /** Sub-element within the component to read the live value from (default: the component). */
+  selector?: string;
+  /** CSS custom property to read for color/theme values. */
+  token?: string;
+  /** Declared default value, shown when a default exists. */
+  defaultValue?: string;
 }
 
 export interface EventSpec {
