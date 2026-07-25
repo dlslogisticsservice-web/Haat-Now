@@ -45,6 +45,11 @@ export interface RuntimeNode {
   mapped?: boolean;
   /** Phase 8C — live values resolved from the runtime, keyed by editable-prop key. */
   resolvedValues?: Record<string, ResolvedValue>;
+  // ── Phase 8F — instance identity (this specific instance among siblings) ──
+  /** Stable key of THIS instance (id / img-alt / aria / text). Edits target it exactly. */
+  instanceId?: string;
+  /** Instance key of the enclosing mapped component instance (hierarchy). */
+  parentInstance?: string;
 }
 
 export interface RuntimeSelectionState {

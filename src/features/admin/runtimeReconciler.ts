@@ -14,9 +14,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { componentsFor } from '../../runtime/selection/componentMap';
 import { writeBinding } from './runtimeWriter';
+import { instanceKeyOf } from './runtimeInstance';
 import type { RuntimeEditStore, RuntimeEdit } from '../../runtime/selection/EditStore';
 
-/** Apply every stored edit to the runtime subtree under `root` (re-locating components by anchor). */
+/** Apply every stored edit to the EXACT instance it targets (Phase 8F — no sibling spill). */
 export function applyEdits(root: Element, edits: RuntimeEdit[]): void {
   for (const r of edits) {
     const comp = componentsFor(r.channel, r.screen).find(m => m.metadata.id === r.componentId);
@@ -24,7 +25,10 @@ export function applyEdits(root: Element, edits: RuntimeEdit[]): void {
     const prop = comp.metadata.editableProps.find(p => p.key === r.propKey);
     if (!prop) continue;
     if (prop.type === 'color') { writeBinding(root, prop, r.value, root); continue; } // theme var on the root
-    root.querySelectorAll(comp.match).forEach(el => writeBinding(el, prop, r.value, root));
+    // Re-locate the SPECIFIC instance by its stable key among all candidates of this type.
+    const candidates = Array.from(root.querySelectorAll(comp.match));
+    const target = candidates.find(el => instanceKeyOf(el) === r.instanceKey);
+    if (target) writeBinding(target, prop, r.value, root);
   }
 }
 

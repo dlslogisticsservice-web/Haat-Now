@@ -12,6 +12,7 @@ import type { SelectionManager } from '../../runtime/selection/SelectionManager'
 import type { RuntimeNode, RuntimeNodeBounds } from '../../runtime/selection/RuntimeNode';
 import { componentsFor, type MappedComponent } from '../../runtime/selection/componentMap';
 import { resolveProps } from './runtimeValues';
+import { instanceKeyOf } from './runtimeInstance';
 
 const INLINE_TAGS = new Set(['SPAN', 'A', 'SVG', 'PATH', 'IMG', 'I', 'B', 'EM', 'STRONG', 'SMALL', 'CODE', 'BR', 'USE', 'CIRCLE', 'RECT', 'LINE']);
 
@@ -45,8 +46,8 @@ function boundsOf(el: Element, host: Element): RuntimeNodeBounds {
   return { x: r.left - h.left, y: r.top - h.top, width: r.width, height: r.height };
 }
 
-/** Walk target→host, find the innermost declared component + its ancestor chain + children. */
-function resolveMapped(target: Element, host: Element, mapped: MappedComponent[]): { comp: MappedComponent; element: Element; chain: MappedComponent[] } | null {
+/** Walk target→host, find the innermost declared component + its ancestor chain (root-first). */
+function resolveMapped(target: Element, host: Element, mapped: MappedComponent[]): { comp: MappedComponent; element: Element; chainEls: { comp: MappedComponent; element: Element }[] } | null {
   if (!mapped.length) return null;
   const chain: { comp: MappedComponent; element: Element }[] = [];
   let cur: Element | null = target;
@@ -56,7 +57,7 @@ function resolveMapped(target: Element, host: Element, mapped: MappedComponent[]
   }
   if (!chain.length) return null;
   const inner = chain[0];
-  return { comp: inner.comp, element: inner.element, chain: chain.slice().reverse().map(c => c.comp) };
+  return { comp: inner.comp, element: inner.element, chainEls: chain.slice().reverse() };
 }
 
 export interface RuntimeSelectionOverlayProps {
@@ -90,15 +91,20 @@ export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = (
       if (resolved) {
         const md = resolved.comp.metadata;
         const el = resolved.element;
+        const instanceKey = instanceKeyOf(el);
+        const chainEls = resolved.chainEls;
+        const parentEl = chainEls.length >= 2 ? chainEls[chainEls.length - 2].element : null;
         const children = mapped
           .filter(m => m.metadata.id !== md.id && el !== el.querySelector(m.match) && !!el.querySelector(m.match))
           .map(m => nameOf(m.metadata.displayName));
         const node: RuntimeNode = {
-          id: `${channel}:${screen}:${md.id}`, channel, screen,
+          // Instance-scoped id: two cards of the same type get DIFFERENT node ids.
+          id: `${channel}:${screen}:${md.id}#${instanceKey}`, channel, screen,
           component: nameOf(md.displayName), bounds: boundsOf(el, host), path: pathOf(el, host),
           metadataRef: md.id, studioComponent: md, mapped: true,
-          breadcrumb: resolved.chain.map(c => nameOf(c.metadata.displayName)),
+          breadcrumb: chainEls.map(c => nameOf(c.comp.metadata.displayName)),
           childComponents: [...new Set(children)],
+          instanceId: instanceKey, parentInstance: parentEl ? instanceKeyOf(parentEl) : undefined,
         };
         return { node, element: el };
       }

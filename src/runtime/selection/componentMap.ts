@@ -44,7 +44,7 @@ const CUSTOMER_HOME: MappedComponent[] = [
     bindings: [{ source: 'data', path: 'catalog.categories', readonly: true }], events: [{ name: 'category.select', label: t('اختيار فئة', 'Select category') }], themeTokens: [], animations: [], children: ['customer.home.category_card'] } },
   { match: '.category-card', metadata: { id: 'customer.home.category_card', type: 'card', displayName: t('بطاقة فئة', 'Category Card'),
     editableProps: [
-      { key: 'name', label: t('الاسم', 'Name'), type: 'text', binding: { source: 'data', path: 'category.name', readonly: true } },
+      { key: 'name', label: t('الاسم', 'Name'), type: 'text', selector: 'span', binding: { source: 'data', path: 'category.name' } },
       { key: 'image', label: t('الصورة', 'Image'), type: 'image', selector: 'img', binding: { source: 'data', path: 'category.cover' } },
       { key: 'active', label: t('الحالة (نشط)', 'State (active)'), type: 'boolean', binding: { source: 'data', path: 'category.active', readonly: true } },
     ], bindings: [{ source: 'data', path: 'category', readonly: true }], events: [], themeTokens: [], animations: ['scale'], parent: 'customer.home.categories' } },
@@ -53,14 +53,15 @@ const CUSTOMER_HOME: MappedComponent[] = [
     bindings: [{ source: 'data', path: 'marketing.offers', readonly: true }], events: [{ name: 'offer.open', label: t('فتح عرض', 'Open offer') }], themeTokens: [], animations: [], children: ['customer.home.offer_card'] } },
   { match: '[id^="offer_"]:not([id^="offer_cta_"])', metadata: { id: 'customer.home.offer_card', type: 'card', displayName: t('بطاقة عرض', 'Offer Card'),
     editableProps: [
-      { key: 'title', label: t('العنوان', 'Title'), type: 'text', binding: { source: 'data', path: 'offer.title', readonly: true } },
-      { key: 'discount', label: t('الخصم', 'Discount'), type: 'text', binding: { source: 'data', path: 'offer.discount', readonly: true } },
+      { key: 'title', label: t('العنوان', 'Title'), type: 'text', selector: 'p:nth-of-type(2)', binding: { source: 'data', path: 'offer.title' } },
+      { key: 'cta', label: t('زر الإجراء', 'CTA label'), type: 'text', selector: 'button', binding: { source: 'data', path: 'offer.cta' } },
     ], bindings: [{ source: 'data', path: 'offer', readonly: true }], events: [], themeTokens: [], animations: [], parent: 'customer.home.offers' } },
   { match: '#home_restaurants', metadata: { id: 'customer.home.restaurants', type: 'list', cmsSection: 'merchants', displayName: t('قائمة المطاعم', 'Restaurant List'),
     editableProps: [{ key: 'items', label: t('عدد المطاعم', 'Merchant count'), type: 'select', selector: '[id^="branch_"]', binding: { source: 'data', path: 'catalog.merchants', readonly: true } }],
     bindings: [{ source: 'data', path: 'catalog.merchants', readonly: true }], events: [{ name: 'merchant.open', label: t('فتح مطعم', 'Open merchant') }], themeTokens: [], animations: [], children: ['customer.home.restaurant_card'] } },
-  { match: '[id^="branch_"]', metadata: { id: 'customer.home.restaurant_card', type: 'card', displayName: t('بطاقة مطعم', 'Restaurant Card'),
+  { match: '#restaurants_list > div', metadata: { id: 'customer.home.restaurant_card', type: 'card', displayName: t('بطاقة مطعم', 'Restaurant Card'),
     editableProps: [
+      { key: 'name', label: t('الاسم', 'Name'), type: 'text', selector: 'h3', binding: { source: 'data', path: 'merchant.name' } },
       { key: 'rating', label: t('التقييم', 'Rating'), type: 'number', binding: { source: 'data', path: 'merchant.rating', readonly: true } },
       { key: 'logo', label: t('الشعار', 'Logo'), type: 'image', selector: 'img', binding: { source: 'data', path: 'merchant.logo_url' } },
     ], bindings: [{ source: 'data', path: 'merchant', readonly: true }], events: [{ name: 'card.open', label: t('فتح', 'Open') }], themeTokens: [], animations: ['scale'], parent: 'customer.home.restaurants' } },

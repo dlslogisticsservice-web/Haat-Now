@@ -18,6 +18,8 @@ export interface RuntimeEdit {
   screen: string;
   /** Declared component id (looked up in the component map to re-locate + apply). */
   componentId: string;
+  /** Phase 8F — the exact instance this edit targets (never spills to sibling instances). */
+  instanceKey: string;
   /** Editable-property key. */
   propKey: string;
   value: string | boolean;

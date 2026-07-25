@@ -157,7 +157,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   const editRuntimeProp = (key: string, value: string | boolean) => {
     const md = runtimeNode?.studioComponent;
     if (!md || !runtimeNode) return;
-    editStore.set({ nodeId: runtimeNode.id, channel, screen: channelScreen, componentId: md.id, propKey: key, value });
+    editStore.set({ nodeId: runtimeNode.id, channel, screen: channelScreen, componentId: md.id, instanceKey: runtimeNode.instanceId ?? '', propKey: key, value });
   };
   // App-shell overrides (Theme / App Bar / Bottom Nav editors) per channel — authored in
   // the App Studio, autosaved client-side, and applied live to the phone canvas.

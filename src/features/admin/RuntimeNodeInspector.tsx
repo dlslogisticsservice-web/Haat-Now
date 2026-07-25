@@ -150,7 +150,9 @@ export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'a
             <React.Fragment key={i}><ChevronRight size={11} /><span style={{ color: i === (node.breadcrumb!.length - 1) ? 'var(--color-primary-fixed,#a3f95b)' : 'var(--color-on-surface)', fontWeight: 700 }}>{b}</span></React.Fragment>
           ))}
         </div>
-        <div style={{ display: 'grid', gap: 2 }}><span style={lbl}>{L('الأصل', 'Parent')}</span><span style={val}>{md.parent ?? L('الجذر', 'root')}</span></div>
+        <div style={{ display: 'grid', gap: 2 }}><span style={lbl}>{L('معرّف النسخة', 'Instance ID')}</span><span id="runtime_instance_id" style={{ ...val, color: 'var(--color-primary-fixed,#a3f95b)' }}>{node.instanceId ?? '—'}</span></div>
+        <div style={{ display: 'grid', gap: 2 }}><span style={lbl}>{L('مسار وقت التشغيل', 'Runtime path')}</span><span style={{ ...val, fontFamily: 'ui-monospace,monospace', fontSize: 10.5 }}>{node.id}</span></div>
+        <div style={{ display: 'grid', gap: 2 }}><span style={lbl}>{L('الأصل', 'Parent')}</span><span style={val}>{md.parent ?? L('الجذر', 'root')}{node.parentInstance ? ` · ${node.parentInstance}` : ''}</span></div>
         <div style={{ display: 'grid', gap: 2 }}>
           <span style={lbl}>{L('الأبناء', 'Children')}</span>
           {(node.childComponents && node.childComponents.length) ? (
