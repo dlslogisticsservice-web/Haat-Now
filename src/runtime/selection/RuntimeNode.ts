@@ -12,6 +12,8 @@
 // sprint); selection works today without it.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type { StudioComponentMetadata } from '../StudioMetadata';
+
 export interface RuntimeNodeBounds {
   x: number;
   y: number;
@@ -24,14 +26,23 @@ export interface RuntimeNode {
   id: string;
   channel: string;
   screen: string;
-  /** Human label for the node (aria-label / role / tag heuristic, or declared metadata name). */
+  /** Display label — the resolved business name (Phase 8B) if mapped, else a DOM heuristic. */
   component: string;
   /** Bounds relative to the overlay host, in CSS px. */
   bounds: RuntimeNodeBounds;
-  /** Id into the screen's StudioComponentMetadata[] — undefined until metadata is declared. */
+  /** Id into the screen's StudioComponentMetadata[] — the resolved component id, if mapped. */
   metadataRef?: string;
   /** Child-index path from the screen root (the basis for `id`; useful for nesting later). */
   path: number[];
+  // ── Phase 8B — resolved Studio identity (undefined when the node is an unmapped element) ──
+  /** The declared component metadata this node resolves to (real business identity). */
+  studioComponent?: StudioComponentMetadata;
+  /** Component display-name chain from the outermost mapped ancestor → this node. */
+  breadcrumb?: string[];
+  /** Declared child component display-names found inside this node. */
+  childComponents?: string[];
+  /** True when resolved to a declared component; false for an unmapped DOM element. */
+  mapped?: boolean;
 }
 
 export interface RuntimeSelectionState {

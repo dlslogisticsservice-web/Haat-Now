@@ -51,6 +51,10 @@ export interface StudioComponentMetadata {
   /** Stable id — survives refactors; the Studio addresses components by this, not by file. */
   id: string;
   displayName: { ar: string; en: string };
+  /** Business component type (banner/grid/carousel/card/widget/…) — drives inspector labels. */
+  type?: string;
+  /** CMS section id this component reads from, when applicable (else undefined). */
+  cmsSection?: string;
   /** Informational only (human hint); never used for editing logic. */
   reactName?: string;
   editableProps: EditablePropSpec[];
@@ -61,6 +65,8 @@ export interface StudioComponentMetadata {
   /** Named animations this component can play. */
   animations: string[];
   validation?: ValidationSpec;
+  /** Parent component id (hierarchy, declared not inferred). */
+  parent?: string;
   /** Child component ids (the component tree, declared not inferred). */
   children?: string[];
 }

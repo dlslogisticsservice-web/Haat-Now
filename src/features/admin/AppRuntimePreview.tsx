@@ -105,7 +105,7 @@ export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, s
               </Suspense>
             </ScreenBoundary>
           </div>
-          {manager && <RuntimeSelectionOverlay hostRef={hostRef} enabled={!!selectMode} channel={channel} screen={screenId} manager={manager} />}
+          {manager && <RuntimeSelectionOverlay hostRef={hostRef} enabled={!!selectMode} channel={channel} screen={screenId} lang={lang} manager={manager} />}
         </div>
       ) : (
         <div style={{ padding: '28px 18px', textAlign: 'center', color: 'var(--color-on-surface-variant)', maxWidth: 360 }}>

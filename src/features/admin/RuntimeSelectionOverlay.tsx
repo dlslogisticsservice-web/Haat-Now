@@ -1,23 +1,19 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Runtime Selection Overlay (Phase 8A · Runtime Selection Layer).
+// Runtime Selection Overlay (Phase 8A selection + Phase 8B component mapping).
 //
-// Makes any Runtime-rendered surface selectable WITHOUT touching the runtime, the app
-// components, or React internals. It reads the DOM with standard APIs only
-// (event.target, getComputedStyle, getBoundingClientRect) and draws hover / selected
-// outlines in its OWN pointer-safe layer — it never mutates the app's DOM and never
-// reads a React fiber. Clicks are intercepted (capture phase) so the preview enters a
-// "select" mode; disable the overlay to return the app to full interactivity.
-//
-// The visual language (primary outline, identity label) matches the Website Studio's
-// selection styling — same tokens, no duplicated component.
+// Makes any Runtime surface selectable using standard DOM APIs only (event.target,
+// getComputedStyle, getBoundingClientRect, element.matches) — never a React fiber, never
+// mutating the app DOM. On selection it RESOLVES the region to a declared Studio component
+// via the Runtime Component Map (real business identity: Hero Banner, Category Grid, …),
+// falling back to a DOM heuristic label only for unmapped regions (clearly flagged).
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useEffect, useRef, useState } from 'react';
 import type { SelectionManager } from '../../runtime/selection/SelectionManager';
 import type { RuntimeNode, RuntimeNodeBounds } from '../../runtime/selection/RuntimeNode';
+import { componentsFor, type MappedComponent } from '../../runtime/selection/componentMap';
 
 const INLINE_TAGS = new Set(['SPAN', 'A', 'SVG', 'PATH', 'IMG', 'I', 'B', 'EM', 'STRONG', 'SMALL', 'CODE', 'BR', 'USE', 'CIRCLE', 'RECT', 'LINE']);
 
-/** Walk up from a leaf/inline target to the nearest block-level element (capped at root). */
 function resolveBlock(target: Element, root: Element): Element | null {
   let el: Element | null = target;
   while (el && el !== root && el.parentElement) {
@@ -28,7 +24,6 @@ function resolveBlock(target: Element, root: Element): Element | null {
   return el && el !== root ? el : (target !== root ? target : null);
 }
 
-/** Child-index path from root → el (stable id basis across re-renders). */
 function pathOf(el: Element, root: Element): number[] {
   const path: number[] = [];
   let cur: Element | null = el;
@@ -39,11 +34,8 @@ function pathOf(el: Element, root: Element): number[] {
   return path;
 }
 
-function labelOf(el: Element): string {
-  return el.getAttribute('data-rt-name')
-    || el.getAttribute('aria-label')
-    || el.getAttribute('role')
-    || el.tagName.toLowerCase();
+function domLabel(el: Element): string {
+  return el.getAttribute('aria-label') || el.getAttribute('role') || el.tagName.toLowerCase();
 }
 
 function boundsOf(el: Element, host: Element): RuntimeNodeBounds {
@@ -52,17 +44,31 @@ function boundsOf(el: Element, host: Element): RuntimeNodeBounds {
   return { x: r.left - h.left, y: r.top - h.top, width: r.width, height: r.height };
 }
 
+/** Walk target→host, find the innermost declared component + its ancestor chain + children. */
+function resolveMapped(target: Element, host: Element, mapped: MappedComponent[]): { comp: MappedComponent; element: Element; chain: MappedComponent[] } | null {
+  if (!mapped.length) return null;
+  const chain: { comp: MappedComponent; element: Element }[] = [];
+  let cur: Element | null = target;
+  while (cur && cur !== host) {
+    for (const m of mapped) { try { if (cur.matches(m.match)) { chain.push({ comp: m, element: cur }); break; } } catch { /* invalid selector — skip */ } }
+    cur = cur.parentElement;
+  }
+  if (!chain.length) return null;
+  const inner = chain[0];
+  return { comp: inner.comp, element: inner.element, chain: chain.slice().reverse().map(c => c.comp) };
+}
+
 export interface RuntimeSelectionOverlayProps {
   hostRef: React.RefObject<HTMLElement>;
   enabled: boolean;
   channel: string;
   screen: string;
+  lang: 'ar' | 'en';
   manager: SelectionManager;
   onSelect?: (node: RuntimeNode | null) => void;
 }
 
-export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = ({ hostRef, enabled, channel, screen, manager, onSelect }) => {
-  // DOM element refs kept privately for bounds recomputation (never leaked into the node model).
+export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = ({ hostRef, enabled, channel, screen, lang, manager, onSelect }) => {
   const hoverElRef = useRef<Element | null>(null);
   const selElRef = useRef<Element | null>(null);
   const [hoverB, setHoverB] = useState<RuntimeNodeBounds | null>(null);
@@ -72,36 +78,51 @@ export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = (
   useEffect(() => {
     const host = hostRef.current;
     if (!enabled || !host) return;
+    const mapped = componentsFor(channel, screen);
+    const nameOf = (n: { ar: string; en: string }) => (lang === 'ar' ? n.ar : n.en);
 
-    const buildNode = (el: Element): RuntimeNode => {
+    // Build a RuntimeNode from a raw event target, resolving its declared component identity.
+    const buildFrom = (target: Element): { node: RuntimeNode; element: Element } | null => {
+      const resolved = resolveMapped(target, host, mapped);
+      if (resolved) {
+        const md = resolved.comp.metadata;
+        const el = resolved.element;
+        const children = mapped
+          .filter(m => m.metadata.id !== md.id && el !== el.querySelector(m.match) && !!el.querySelector(m.match))
+          .map(m => nameOf(m.metadata.displayName));
+        const node: RuntimeNode = {
+          id: `${channel}:${screen}:${md.id}`, channel, screen,
+          component: nameOf(md.displayName), bounds: boundsOf(el, host), path: pathOf(el, host),
+          metadataRef: md.id, studioComponent: md, mapped: true,
+          breadcrumb: resolved.chain.map(c => nameOf(c.metadata.displayName)),
+          childComponents: [...new Set(children)],
+        };
+        return { node, element: el };
+      }
+      const el = resolveBlock(target, host);
+      if (!el) return null;
       const path = pathOf(el, host);
-      return { id: `${channel}:${screen}:${path.join('.')}`, channel, screen, component: labelOf(el), bounds: boundsOf(el, host), path };
+      const node: RuntimeNode = {
+        id: `${channel}:${screen}:${path.join('.')}`, channel, screen,
+        component: domLabel(el), bounds: boundsOf(el, host), path, mapped: false,
+      };
+      return { node, element: el };
     };
 
     const onMove = (e: MouseEvent) => {
-      const t = e.target as Element | null;
-      if (!t || t === host) return;
-      const el = resolveBlock(t, host);
-      if (!el) return;
-      hoverElRef.current = el;
-      setHoverB(boundsOf(el, host));
-      manager.setHover(buildNode(el));
+      const t = e.target as Element | null; if (!t || t === host) return;
+      const built = buildFrom(t); if (!built) return;
+      hoverElRef.current = built.element; setHoverB(boundsOf(built.element, host)); manager.setHover(built.node);
     };
     const onLeave = () => { hoverElRef.current = null; setHoverB(null); manager.setHover(null); };
     const onClick = (e: MouseEvent) => {
-      // Select mode: intercept so the underlying app does not act on the click.
       e.preventDefault(); e.stopPropagation();
       const t = e.target as Element | null;
-      const el = t && t !== host ? resolveBlock(t, host) : null;
-      if (el) {
-        selElRef.current = el;
-        const b = boundsOf(el, host);
-        setSelB(b); setSelLabel(labelOf(el));
-        const node = buildNode(el);
-        manager.select(node); onSelect?.(node);
-      } else {
-        selElRef.current = null; setSelB(null); manager.clear(); onSelect?.(null);
-      }
+      const built = t && t !== host ? buildFrom(t) : null;
+      if (built) {
+        selElRef.current = built.element; setSelB(boundsOf(built.element, host)); setSelLabel(built.node.component);
+        manager.select(built.node); onSelect?.(built.node);
+      } else { selElRef.current = null; setSelB(null); manager.clear(); onSelect?.(null); }
     };
     const refresh = () => {
       if (hoverElRef.current) setHoverB(boundsOf(hoverElRef.current, host));
@@ -111,8 +132,8 @@ export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = (
 
     host.addEventListener('mousemove', onMove);
     host.addEventListener('mouseleave', onLeave);
-    host.addEventListener('click', onClick, true); // capture: beat the app's own handlers
-    host.addEventListener('scroll', refresh, true); // catch inner scroll containers
+    host.addEventListener('click', onClick, true);
+    host.addEventListener('scroll', refresh, true);
     window.addEventListener('resize', refresh);
     window.addEventListener('keydown', onKey);
     return () => {
@@ -123,9 +144,8 @@ export const RuntimeSelectionOverlay: React.FC<RuntimeSelectionOverlayProps> = (
       window.removeEventListener('resize', refresh);
       window.removeEventListener('keydown', onKey);
     };
-  }, [enabled, channel, screen, hostRef, manager, onSelect]);
+  }, [enabled, channel, screen, lang, hostRef, manager, onSelect]);
 
-  // Clearing visuals when disabled.
   useEffect(() => { if (!enabled) { setHoverB(null); setSelB(null); hoverElRef.current = null; selElRef.current = null; } }, [enabled]);
 
   if (!enabled) return null;

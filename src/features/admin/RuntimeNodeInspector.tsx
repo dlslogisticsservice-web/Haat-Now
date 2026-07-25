@@ -1,23 +1,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Runtime Node Inspector (Phase 8A · Runtime Selection Layer).
+// Runtime Node Inspector (Phase 8B · Runtime Component Mapping).
 //
-// READ-ONLY. Displays the currently-selected RuntimeNode — no property editing, no
-// bindings, no metadata mutation (those belong to later Phase 8 sprints). Its job is to
-// prove the selection flow: click a runtime component → the inspector opens with the
-// node's identity. It renders in the App Studio right rail when the Live App is in
-// select mode and a node is selected.
+// READ-ONLY. When a selected Runtime Node resolves to a declared Studio component, this
+// shows its real business identity — name, type, channel/screen, CMS source, hierarchy
+// (breadcrumb / parent / children), binding references, and editable-property DEFINITIONS
+// (rendered disabled). No editing, no saving (that is Phase 8C). Unmapped DOM regions are
+// shown honestly as "unmapped element", never dressed up with a fake business name.
 // ─────────────────────────────────────────────────────────────────────────────
 import React from 'react';
-import { MousePointerClick, Info } from 'lucide-react';
+import { MousePointerClick, Info, Layers, Link2, SlidersHorizontal, ChevronRight, Database } from 'lucide-react';
 import type { RuntimeNode } from '../../runtime/selection/RuntimeNode';
 
 const card: React.CSSProperties = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)', borderRadius: 12 };
 const lbl: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, color: 'var(--color-on-surface-variant)' };
 const val: React.CSSProperties = { fontSize: 12, color: 'var(--color-on-surface)', fontWeight: 600, wordBreak: 'break-all' };
+const chip: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' };
 
 export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'ar' | 'en' }> = ({ node, lang }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
+  const nm = (n?: { ar: string; en: string }) => (n ? (lang === 'ar' ? n.ar : n.en) : '');
 
   if (!node) {
     return (
@@ -31,33 +33,89 @@ export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'a
     );
   }
 
-  const rows: { k: string; v: string }[] = [
-    { k: L('المكوّن', 'Component'), v: node.component },
-    { k: L('القناة', 'Channel'), v: node.channel },
-    { k: L('الشاشة', 'Screen'), v: node.screen },
-    { k: L('المعرّف', 'Node id'), v: node.id },
-    { k: L('العمق', 'Depth'), v: String(node.path.length) },
-    { k: L('الأبعاد', 'Bounds'), v: `${Math.round(node.bounds.width)}×${Math.round(node.bounds.height)}` },
-    { k: L('مرجع البيانات الوصفية', 'Metadata ref'), v: node.metadataRef ?? L('غير معرّف بعد', 'not declared yet') },
-  ];
+  const md = node.studioComponent;
+
+  // Unmapped region — honest fallback (no fabricated business name).
+  if (!node.mapped || !md) {
+    return (
+      <div id="runtime_node_inspector" data-node-id={node.id} data-mapped="0" dir={dir} style={{ display: 'grid', gap: 10 }}>
+        <div>
+          <span style={lbl}>{L('عنصر غير مُعرَّف', 'Unmapped element')}</span>
+          <h3 style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 800, color: 'var(--color-on-surface)' }}>{node.component}</h3>
+        </div>
+        <div style={{ ...card, padding: 12, display: 'grid', gap: 9 }}>
+          <div style={{ display: 'grid', gap: 2 }}><span style={lbl}>{L('القناة/الشاشة', 'Channel / screen')}</span><span style={val}>{node.channel} · {node.screen}</span></div>
+          <div style={{ display: 'grid', gap: 2 }}><span style={lbl}>{L('العمق', 'Depth')}</span><span style={val}>{node.path.length}</span></div>
+          <div style={{ display: 'grid', gap: 2 }}><span style={lbl}>{L('الأبعاد', 'Bounds')}</span><span style={val}>{Math.round(node.bounds.width)}×{Math.round(node.bounds.height)}</span></div>
+        </div>
+        <p style={{ margin: 0, fontSize: 10.5, color: 'var(--color-on-surface-variant)' }}>{L('هذا العنصر ليس مكوّن استوديو مُعرَّفاً. المكوّنات المُعرَّفة تُظهر هويّتها الكاملة.', 'This region is not a declared Studio component. Declared components resolve to their full identity.')}</p>
+      </div>
+    );
+  }
 
   return (
-    <div id="runtime_node_inspector" data-node-id={node.id} dir={dir} style={{ display: 'grid', gap: 10 }}>
+    <div id="runtime_node_inspector" data-node-id={node.id} data-mapped="1" data-component={md.id} dir={dir} style={{ display: 'grid', gap: 10 }}>
+      {/* Identity */}
       <div>
-        <span style={lbl}>{L('عنصر وقت التشغيل المحدّد', 'Selected runtime node')}</span>
-        <h3 style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 800, color: 'var(--color-on-surface)' }}>{node.component}</h3>
+        <span style={lbl}>{L('مكوّن الاستوديو', 'Studio component')}</span>
+        <h3 id="runtime_component_name" style={{ margin: '2px 0 0', fontSize: 16, fontWeight: 800, color: 'var(--color-on-surface)' }}>{node.component}</h3>
+        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+          {md.type && <span style={{ ...chip, background: 'color-mix(in srgb,var(--color-primary-fixed) 16%,transparent)', color: 'var(--color-primary-fixed,#a3f95b)' }}>{md.type}</span>}
+          <span style={chip}>{node.channel}</span>
+          <span style={chip}>{node.screen}</span>
+          {md.cmsSection && <span style={chip}><Database size={9} style={{ display: 'inline', marginInlineEnd: 3 }} />{md.cmsSection}</span>}
+        </div>
       </div>
-      <div style={{ ...card, padding: 12, display: 'grid', gap: 9 }}>
-        {rows.map(r => (
-          <div key={r.k} style={{ display: 'grid', gap: 2 }}>
-            <span style={lbl}>{r.k}</span>
-            <span style={val}>{r.v}</span>
+
+      {/* Hierarchy */}
+      <div style={{ ...card, padding: 12, display: 'grid', gap: 8 }}>
+        <p style={{ margin: 0, ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}><Layers size={12} />{L('التسلسل الهرمي', 'Hierarchy')}</p>
+        <div id="runtime_breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap', fontSize: 11 }}>
+          <span style={{ color: 'var(--color-on-surface-variant)' }}>{node.channel}</span><ChevronRight size={11} />
+          <span style={{ color: 'var(--color-on-surface-variant)' }}>{node.screen}</span>
+          {(node.breadcrumb ?? []).map((b, i) => (
+            <React.Fragment key={i}><ChevronRight size={11} /><span style={{ color: i === (node.breadcrumb!.length - 1) ? 'var(--color-primary-fixed,#a3f95b)' : 'var(--color-on-surface)', fontWeight: 700 }}>{b}</span></React.Fragment>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gap: 2 }}><span style={lbl}>{L('الأصل', 'Parent')}</span><span style={val}>{md.parent ?? L('الجذر', 'root')}</span></div>
+        <div style={{ display: 'grid', gap: 2 }}>
+          <span style={lbl}>{L('الأبناء', 'Children')}</span>
+          {(node.childComponents && node.childComponents.length) ? (
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>{node.childComponents.map(c => <span key={c} style={chip}>{c}</span>)}</div>
+          ) : <span style={{ ...val, color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>{L('لا يوجد', 'none')}</span>}
+        </div>
+      </div>
+
+      {/* Bindings */}
+      <div style={{ ...card, padding: 12, display: 'grid', gap: 8 }}>
+        <p style={{ margin: 0, ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}><Link2 size={12} />{L('مراجع الربط', 'Binding references')}</p>
+        {md.bindings.length ? md.bindings.map((b, i) => (
+          <div key={i} className="rt-binding" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+            <span style={{ ...chip, background: 'var(--color-surface-container-high)' }}>{b.source}</span>
+            <code style={{ fontSize: 11, color: 'var(--color-on-surface)' }}>{b.path}</code>
+            {b.readonly && <span style={{ fontSize: 9, color: 'var(--color-on-surface-variant)' }}>{L('قراءة فقط', 'read-only')}</span>}
           </div>
-        ))}
+        )) : <span style={{ ...val, color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>{L('لا مراجع ربط', 'no bindings')}</span>}
       </div>
+
+      {/* Editable property definitions — shown DISABLED (no editing in this phase) */}
+      <div style={{ ...card, padding: 12, display: 'grid', gap: 8 }}>
+        <p style={{ margin: 0, ...lbl, display: 'flex', alignItems: 'center', gap: 5 }}><SlidersHorizontal size={12} />{L('الخصائص القابلة للتحرير (معطّلة)', 'Editable properties (disabled)')}</p>
+        {md.editableProps.length ? md.editableProps.map(p => (
+          <div key={p.key} className="rt-prop" style={{ display: 'grid', gap: 3, opacity: 0.75 }}>
+            <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-on-surface)' }}>{nm(p.label)}</span>
+              <span style={{ fontSize: 9.5, color: 'var(--color-on-surface-variant)' }}>{p.type}</span>
+            </span>
+            <input disabled value={p.binding ? `${p.binding.source}:${p.binding.path}` : ''} readOnly
+              style={{ width: '100%', padding: '6px 9px', borderRadius: 8, fontSize: 11.5, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)', border: '1px solid var(--color-outline-variant)', cursor: 'not-allowed' }} />
+          </div>
+        )) : <span style={{ ...val, color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>{L('لا خصائص معلنة', 'no declared properties')}</span>}
+      </div>
+
       <p style={{ margin: 0, fontSize: 10.5, lineHeight: 1.5, color: 'var(--color-on-surface-variant)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
         <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-        {L('طبقة التحديد فقط — لا يوجد تحرير بعد. تحرير الخصائص والربط يأتي في المرحلة 8B.', 'Selection layer only — no editing yet. Property editing & bindings arrive in Phase 8B.')}
+        {L('تعريف فقط — لا تحرير بعد. تحرير الخصائص والربط يأتي في المرحلة 8C.', 'Identification only — no editing yet. Property editing & bindings arrive in Phase 8C.')}
       </p>
     </div>
   );
