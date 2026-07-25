@@ -180,6 +180,20 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
     }
     editStore.commit(input);
   };
+  // Phase 8H — Transaction Undo/Redo keyboard shortcuts, scoped to the app runtime editing mode
+  // (not the website channel, which owns its own history). Ctrl/⌘+Z undo · Ctrl/⌘+Shift+Z or
+  // Ctrl/⌘+Y redo. Drives the SAME transaction engine as the inspector buttons — one source of truth.
+  useEffect(() => {
+    if (channel === 'website' || canvasView !== 'runtime') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { if (editStore.undo()) e.preventDefault(); }
+      else if ((k === 'z' && e.shiftKey) || k === 'y') { if (editStore.redo()) e.preventDefault(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [channel, canvasView, editStore]);
   // App-shell overrides (Theme / App Bar / Bottom Nav editors) per channel — authored in
   // the App Studio, autosaved client-side, and applied live to the phone canvas.
   const [appShell, setAppShell] = useState<Record<string, AppShellOverride>>({});

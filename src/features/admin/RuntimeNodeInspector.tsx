@@ -10,7 +10,7 @@
 // Unmapped DOM regions are shown honestly as "unmapped element", never a fake business name.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from 'react';
-import { MousePointerClick, Info, Layers, Link2, SlidersHorizontal, ChevronRight, Database, Pencil, AlertTriangle, ListChecks } from 'lucide-react';
+import { MousePointerClick, Info, Layers, Link2, SlidersHorizontal, ChevronRight, Database, Pencil, AlertTriangle, ListChecks, Undo2, Redo2 } from 'lucide-react';
 import type { RuntimeNode, ResolvedValue } from '../../runtime/selection/RuntimeNode';
 import type { EditablePropSpec } from '../../runtime/StudioMetadata';
 import type { RuntimeEditStore, RuntimeTransaction, DirtyState } from '../../runtime/selection/EditStore';
@@ -153,7 +153,12 @@ export const RuntimeNodeInspector: React.FC<{
   // Phase 8G — the transactions for THIS instance drive its per-property + rolled-up status.
   const nodeTxns = store?.transactionsForNode(node.id) ?? [];
   const instState = instanceState(nodeTxns);
-  const log = store?.log() ?? [];
+  // Phase 8H — undo/redo stack state for the timeline + controls.
+  const canUndo = store?.canUndo() ?? false;
+  const canRedo = store?.canRedo() ?? false;
+  const histIndex = store?.historyIndex() ?? -1;
+  const histCount = store?.historyCount() ?? 0;
+  const hist = store?.historyView() ?? [];
 
   // Unmapped region — honest fallback (no fabricated business name).
   if (!node.mapped || !md) {
@@ -192,6 +197,22 @@ export const RuntimeNodeInspector: React.FC<{
           )}
         </div>
       </div>
+
+      {/* Undo / Redo controls (Phase 8H) — drive the transaction stack; keyboard Ctrl/⌘+Z / +Shift+Z / +Y too. */}
+      {onEdit && store && (
+        <div style={{ ...card, padding: 10, display: 'flex', alignItems: 'center', gap: 8 }} id="runtime_undo_redo" data-can-undo={canUndo ? '1' : '0'} data-can-redo={canRedo ? '1' : '0'}>
+          <button id="runtime_undo_btn" onClick={() => store.undo()} disabled={!canUndo} title={L('تراجع (Ctrl+Z)', 'Undo (Ctrl+Z)')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--color-outline-variant)', fontSize: 11.5, fontWeight: 700, cursor: canUndo ? 'pointer' : 'not-allowed', opacity: canUndo ? 1 : 0.4, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
+            <Undo2 size={13} />{L('تراجع', 'Undo')}
+          </button>
+          <button id="runtime_redo_btn" onClick={() => store.redo()} disabled={!canRedo} title={L('إعادة (Ctrl+Shift+Z)', 'Redo (Ctrl+Shift+Z)')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--color-outline-variant)', fontSize: 11.5, fontWeight: 700, cursor: canRedo ? 'pointer' : 'not-allowed', opacity: canRedo ? 1 : 0.4, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
+            <Redo2 size={13} />{L('إعادة', 'Redo')}
+          </button>
+          <span style={{ marginInlineStart: 'auto', ...lbl }}>{L('المعاملة', 'Transaction')}</span>
+          <span id="runtime_tx_index" style={{ ...chip, fontFamily: 'ui-monospace,monospace', fontSize: 10.5 }}>{histIndex + 1} / {histCount}</span>
+        </div>
+      )}
 
       {/* Hierarchy */}
       <div style={{ ...card, padding: 12, display: 'grid', gap: 8 }}>
@@ -268,21 +289,26 @@ export const RuntimeNodeInspector: React.FC<{
         }) : <span style={{ ...val, color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>{L('لا خصائص معلنة', 'no declared properties')}</span>}
       </div>
 
-      {/* Transaction log — in-memory, session-only. Updates live as edits are committed. */}
+      {/* Transaction history — the undo/redo timeline. Current step highlighted; undone steps stay
+          visible (dimmed) and Redo restores them. In-memory, session-only. Updates live. */}
       {onEdit && (
-        <div style={{ ...card, padding: 12, display: 'grid', gap: 8 }} id="runtime_transaction_log" data-count={log.length}>
+        <div style={{ ...card, padding: 12, display: 'grid', gap: 8 }} id="runtime_transaction_log" data-count={histCount} data-pointer={histIndex}>
           <p style={{ margin: 0, ...lbl, display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'space-between' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ListChecks size={12} />{L('سجلّ المعاملات (الجلسة)', 'Transaction log (session)')}</span>
-            <span style={{ ...chip, fontSize: 9.5 }}>{log.length}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ListChecks size={12} />{L('سجلّ المعاملات (تراجع/إعادة)', 'Transaction history (undo/redo)')}</span>
+            <span style={{ ...chip, fontSize: 9.5 }}>{histCount}</span>
           </p>
-          {log.length ? (
-            <div style={{ display: 'grid', gap: 5, maxHeight: 190, overflow: 'auto' }}>
-              {log.slice(0, 24).map((e, i) => (
-                <div key={`${e.id}-${i}`} className="rt-tx-log-row" data-tx-state={e.state} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, padding: '4px 6px', borderRadius: 8, background: 'var(--color-surface-container-high)' }}>
-                  <code style={{ fontSize: 9, color: 'var(--color-on-surface-variant)', flexShrink: 0 }}>{e.id}</code>
+          {histCount ? (
+            <div style={{ display: 'grid', gap: 5, maxHeight: 200, overflow: 'auto' }}>
+              {hist.map((e, i) => (
+                <div key={`${e.id}-${i}`} className="rt-tx-hist-row" data-hist-index={i} data-active={e.active ? '1' : '0'} data-current={e.current ? '1' : '0'}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, padding: '4px 6px', borderRadius: 8,
+                    background: e.current ? 'color-mix(in srgb,var(--color-primary-fixed,#a3f95b) 22%,transparent)' : 'var(--color-surface-container-high)',
+                    border: e.current ? '1px solid var(--color-primary-fixed,#a3f95b)' : '1px solid transparent',
+                    opacity: e.active ? 1 : 0.45 }}>
+                  <span style={{ ...chip, fontSize: 8.5, padding: '1px 5px' }}>{i + 1}</span>
                   <span style={{ fontWeight: 700, color: 'var(--color-on-surface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.componentId.split('.').pop()}·{e.propKey}</span>
-                  <span style={{ color: 'var(--color-on-surface-variant)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{showVal(e.previousValue, L)} → {showVal(e.currentValue, L)}</span>
-                  <StatePill state={e.state} lang={lang} />
+                  <span style={{ color: 'var(--color-on-surface-variant)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textDecoration: e.active ? 'none' : 'line-through' }}>{showVal(e.from, L)} → {showVal(e.to, L)}</span>
+                  {e.current && <span style={{ ...chip, fontSize: 8.5, padding: '1px 6px', background: 'var(--color-primary-fixed,#a3f95b)', color: 'var(--color-on-primary-fixed,#05310f)' }}>{L('الآن', 'now')}</span>}
                 </div>
               ))}
             </div>

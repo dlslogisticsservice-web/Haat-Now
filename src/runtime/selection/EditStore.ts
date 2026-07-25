@@ -1,12 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Runtime Edit Store (Phase 8E · 8F · 8G).
+// Runtime Edit Store (Phase 8E · 8F · 8G · 8H).
 //
 // The single source of truth for LOCAL runtime edits. Phase 8G turns each edit into a managed
 // TRANSACTION: the store validates every value, records the previous/current/applied values,
-// stamps a dirty state, and appends to an in-memory, session-only transaction log. It is still
-// pure state — no DOM, no React, no persistence (no store/CMS/Supabase/API/localStorage/
-// sessionStorage). A reconciler (features/admin/runtimeReconciler) projects the APPLIED value
-// of each transaction onto the live runtime after every render.
+// stamps a dirty state, and appends to an in-memory, session-only transaction log. Phase 8H adds
+// an Undo/Redo engine ON TOP of those transactions: a transaction stack + pointer records every
+// change to the runtime; undo/redo move the pointer and restore the transaction snapshot at that
+// step — the reconciler then projects the restored appliedValue, so the live runtime steps
+// backward/forward. It is still pure state — no DOM, no React, no persistence (no store/CMS/
+// Supabase/API/localStorage/sessionStorage). A reconciler (features/admin/runtimeReconciler)
+// projects the APPLIED value of each transaction onto the live runtime after every render.
 //
 // Key invariants:
 //   • Only a VALID value is applied to the runtime — an invalid edit is recorded (so the
@@ -64,6 +67,26 @@ export interface CommitInput {
   previousValue: string | boolean;
 }
 
+/** One reversible step on the undo stack: the transaction snapshot before and after a change. */
+interface HistoryEntry {
+  key: string;
+  before: RuntimeTransaction; // snapshot to restore on undo (a baseline snapshot for the first edit)
+  after: RuntimeTransaction;  // snapshot to restore on redo (the committed edit)
+}
+
+/** A shaped history row for the Inspector timeline. */
+export interface HistoryView {
+  id: string;
+  componentId: string;
+  propKey: string;
+  from: string | boolean;
+  to: string | boolean;
+  /** True for steps at or before the pointer (applied); false for undone steps (still visible). */
+  active: boolean;
+  /** True for the single step the pointer currently rests on. */
+  current: boolean;
+}
+
 type Listener = () => void;
 const MAX_LOG = 100;
 
@@ -72,8 +95,24 @@ export class RuntimeEditStore {
   private logEntries: RuntimeTransaction[] = [];
   private listeners = new Set<Listener>();
   private seq = 0;
+  // Phase 8H — the undo/redo transaction stack. `history` is the ordered list of runtime changes;
+  // `pointer` is the index of the last APPLIED change (-1 = fully undone / nothing applied).
+  private history: HistoryEntry[] = [];
+  private pointer = -1;
 
   private key(nodeId: string, propKey: string): string { return `${nodeId}::${propKey}`; }
+
+  /** A synthetic "at baseline" snapshot — what undoing the FIRST edit of a key restores to. */
+  private baselineSnap(tx: RuntimeTransaction): RuntimeTransaction {
+    return { ...tx, currentValue: tx.previousValue, appliedValue: tx.previousValue, valid: true, error: '', state: 'resolved' };
+  }
+
+  /** Record a reversible step; truncates any redo branch first (branch-safe). */
+  private pushHistory(entry: HistoryEntry): void {
+    if (this.pointer < this.history.length - 1) this.history.length = this.pointer + 1;
+    this.history.push(entry);
+    this.pointer = this.history.length - 1;
+  }
 
   /** Look up the editable-property spec so we can validate against its declared rules. */
   private propSpec(input: CommitInput) {
@@ -123,8 +162,53 @@ export class RuntimeEditStore {
 
     this.txns.set(k, tx);
     this.appendLog(tx);
+    // Phase 8H — only a change that actually moves the runtime (a valid, different applied value)
+    // becomes a reversible step; invalid/no-op commits update state but add nothing to undo.
+    const beforeApplied = existing ? existing.appliedValue : previousValue;
+    if (valid && appliedValue !== beforeApplied) {
+      this.pushHistory({ key: k, before: existing ?? this.baselineSnap(tx), after: tx });
+    }
     this.emit();
     return tx;
+  }
+
+  // ── Undo / Redo (Phase 8H) — move the pointer and restore the transaction snapshot at that
+  // step; the reconciler projects the restored appliedValue, so the runtime steps back/forward. ──
+  canUndo(): boolean { return this.pointer >= 0; }
+  canRedo(): boolean { return this.pointer < this.history.length - 1; }
+  /** Index of the last applied change (-1 when fully undone). */
+  historyIndex(): number { return this.pointer; }
+  historyCount(): number { return this.history.length; }
+
+  undo(): boolean {
+    if (!this.canUndo()) return false;
+    const e = this.history[this.pointer];
+    this.txns.set(e.key, e.before); // restore the previous snapshot (baseline → 'resolved')
+    this.pointer--;
+    this.emit();
+    return true;
+  }
+
+  redo(): boolean {
+    if (!this.canRedo()) return false;
+    this.pointer++;
+    const e = this.history[this.pointer];
+    this.txns.set(e.key, e.after); // re-apply the committed edit ('dirty')
+    this.emit();
+    return true;
+  }
+
+  /** The undo timeline for the Inspector — active (applied) vs undone (still visible) steps. */
+  historyView(): HistoryView[] {
+    return this.history.map((e, i) => ({
+      id: e.after.id,
+      componentId: e.after.componentId,
+      propKey: e.after.propKey,
+      from: e.before.appliedValue,
+      to: e.after.appliedValue,
+      active: i <= this.pointer,
+      current: i === this.pointer,
+    }));
   }
 
   /**
@@ -183,11 +267,13 @@ export class RuntimeEditStore {
   all(): RuntimeTransaction[] { return [...this.txns.values()]; }
   count(): number { return this.txns.size; }
 
-  /** Dispose the session (channel change / session end). */
+  /** Dispose the session (channel change / session end) — including the undo stack. */
   clear(): void {
-    if (this.txns.size || this.logEntries.length) {
+    if (this.txns.size || this.logEntries.length || this.history.length) {
       this.txns.clear();
       this.logEntries = [];
+      this.history = [];
+      this.pointer = -1;
       this.emit();
     }
   }
