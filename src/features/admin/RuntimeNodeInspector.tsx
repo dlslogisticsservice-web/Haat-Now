@@ -1,22 +1,57 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Runtime Node Inspector (Phase 8B · Runtime Component Mapping).
+// Runtime Node Inspector (Phase 8B · 8C · 8D · 8F · 8G).
 //
-// READ-ONLY. When a selected Runtime Node resolves to a declared Studio component, this
-// shows its real business identity — name, type, channel/screen, CMS source, hierarchy
-// (breadcrumb / parent / children), binding references, and editable-property DEFINITIONS
-// (rendered disabled). No editing, no saving (that is Phase 8C). Unmapped DOM regions are
-// shown honestly as "unmapped element", never dressed up with a fake business name.
+// Shows a selected Runtime component's real business identity — name, type, channel/screen,
+// CMS source, hierarchy (breadcrumb / instance id / parent / children), binding references,
+// and its editable properties with LOCAL editors. Phase 8G surfaces the Edit Transaction
+// Engine: each edited property shows its Dirty State (Clean / Pending / Dirty / Invalid /
+// Resolved), Validation State, and Previous → Current values, plus a live session-only
+// Transaction Log. No Save/Publish button — edits are local, in-memory, transaction-managed.
+// Unmapped DOM regions are shown honestly as "unmapped element", never a fake business name.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from 'react';
-import { MousePointerClick, Info, Layers, Link2, SlidersHorizontal, ChevronRight, Database, Pencil } from 'lucide-react';
+import { MousePointerClick, Info, Layers, Link2, SlidersHorizontal, ChevronRight, Database, Pencil, AlertTriangle, ListChecks } from 'lucide-react';
 import type { RuntimeNode, ResolvedValue } from '../../runtime/selection/RuntimeNode';
 import type { EditablePropSpec } from '../../runtime/StudioMetadata';
+import type { RuntimeEditStore, RuntimeTransaction, DirtyState } from '../../runtime/selection/EditStore';
 import { isEditable } from './runtimeWriter';
 
 const card: React.CSSProperties = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)', borderRadius: 12 };
 const lbl: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, color: 'var(--color-on-surface-variant)' };
 const val: React.CSSProperties = { fontSize: 12, color: 'var(--color-on-surface)', fontWeight: 600, wordBreak: 'break-all' };
 const chip: React.CSSProperties = { fontSize: 10.5, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface-variant)' };
+
+// Dirty-state → label + colours. One source of truth for every badge in the inspector.
+const STATE_META: Record<DirtyState, { ar: string; en: string; color: string; bg: string }> = {
+  clean: { ar: 'نظيف', en: 'Clean', color: 'var(--color-on-surface-variant)', bg: 'var(--color-surface-container-high)' },
+  pending: { ar: 'قيد التحقق', en: 'Pending', color: '#c99a00', bg: 'color-mix(in srgb,#c99a00 20%,transparent)' },
+  dirty: { ar: 'معدّل', en: 'Dirty', color: 'var(--color-primary-fixed,#a3f95b)', bg: 'color-mix(in srgb,var(--color-primary-fixed,#a3f95b) 20%,transparent)' },
+  invalid: { ar: 'غير صالح', en: 'Invalid', color: '#ff6b6b', bg: 'color-mix(in srgb,#ff6b6b 20%,transparent)' },
+  resolved: { ar: 'مُسوّى', en: 'Resolved', color: '#5aa9ff', bg: 'color-mix(in srgb,#5aa9ff 20%,transparent)' },
+};
+
+/** A small colour-coded pill naming a transaction/instance dirty state. */
+const StatePill: React.FC<{ state: DirtyState; lang: 'ar' | 'en'; id?: string; className?: string; extra?: Record<string, string> }> = ({ state, lang, id, className, extra }) => {
+  const m = STATE_META[state];
+  return <span id={id} className={className} data-state={state} {...extra} style={{ ...chip, fontSize: 9.5, background: m.bg, color: m.color }}>{lang === 'ar' ? m.ar : m.en}</span>;
+};
+
+/** Compact, human display of a transaction value (empty → em dash, boolean → On/Off). */
+const showVal = (v: string | boolean | undefined, L: (a: string, e: string) => string): string => {
+  if (v === undefined || v === '') return '—';
+  if (typeof v === 'boolean') return v ? L('نعم', 'On') : L('لا', 'Off');
+  return String(v);
+};
+
+/** Roll the per-property transaction states up to one instance status. */
+function instanceState(txns: RuntimeTransaction[]): DirtyState {
+  if (!txns.length) return 'clean';
+  if (txns.some(t => t.state === 'invalid')) return 'invalid';
+  if (txns.some(t => t.state === 'pending')) return 'pending';
+  if (txns.some(t => t.state === 'dirty')) return 'dirty';
+  if (txns.some(t => t.state === 'resolved')) return 'resolved';
+  return 'clean';
+}
 
 // Type-aware, READ-ONLY preview of a resolved live value (thumbnail / chip / disabled toggle …).
 function renderValue(rv: ResolvedValue | undefined, L: (a: string, e: string) => string): React.ReactNode {
@@ -46,7 +81,15 @@ function renderValue(rv: ResolvedValue | undefined, L: (a: string, e: string) =>
   }
 }
 
-export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'ar' | 'en'; onEdit?: (key: string, value: string | boolean) => void }> = ({ node, lang, onEdit }) => {
+export const RuntimeNodeInspector: React.FC<{
+  node: RuntimeNode | null;
+  lang: 'ar' | 'en';
+  onEdit?: (key: string, value: string | boolean) => void;
+  /** Phase 8G — the transaction store; drives dirty state, validation, and the transaction log. */
+  store?: RuntimeEditStore;
+  /** Bumped by the parent on every store change so the transaction UI re-renders live. */
+  txTick?: number;
+}> = ({ node, lang, onEdit, store }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const nm = (n?: { ar: string; en: string }) => (n ? (lang === 'ar' ? n.ar : n.en) : '');
@@ -107,6 +150,10 @@ export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'a
 
   const md = node.studioComponent;
   const resolved = node.resolvedValues || {};
+  // Phase 8G — the transactions for THIS instance drive its per-property + rolled-up status.
+  const nodeTxns = store?.transactionsForNode(node.id) ?? [];
+  const instState = instanceState(nodeTxns);
+  const log = store?.log() ?? [];
 
   // Unmapped region — honest fallback (no fabricated business name).
   if (!node.mapped || !md) {
@@ -132,11 +179,17 @@ export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'a
       <div>
         <span style={lbl}>{L('مكوّن الاستوديو', 'Studio component')}</span>
         <h3 id="runtime_component_name" style={{ margin: '2px 0 0', fontSize: 16, fontWeight: 800, color: 'var(--color-on-surface)' }}>{node.component}</h3>
-        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           {md.type && <span style={{ ...chip, background: 'color-mix(in srgb,var(--color-primary-fixed) 16%,transparent)', color: 'var(--color-primary-fixed,#a3f95b)' }}>{md.type}</span>}
           <span style={chip}>{node.channel}</span>
           <span style={chip}>{node.screen}</span>
           {md.cmsSection && <span style={chip}><Database size={9} style={{ display: 'inline', marginInlineEnd: 3 }} />{md.cmsSection}</span>}
+          {onEdit && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginInlineStart: 'auto' }}>
+              <span style={lbl}>{L('الحالة', 'Status')}</span>
+              <StatePill state={instState} lang={lang} id="runtime_instance_status" className="rt-instance-status" />
+            </span>
+          )}
         </div>
       </div>
 
@@ -179,26 +232,63 @@ export const RuntimeNodeInspector: React.FC<{ node: RuntimeNode | null; lang: 'a
         {md.editableProps.length ? md.editableProps.map(p => {
           const rv = resolved[p.key];
           const canEdit = !!onEdit && isEditable(p.type);
+          const tx = store?.transactionFor(node.id, p.key);
           return (
-            <div key={p.key} className="rt-prop" style={{ display: 'grid', gap: 4, paddingBottom: 8, borderBottom: '1px solid var(--color-outline-variant)' }}>
+            <div key={p.key} className="rt-prop" data-prop={p.key} data-state={tx?.state ?? 'clean'} style={{ display: 'grid', gap: 4, paddingBottom: 8, borderBottom: '1px solid var(--color-outline-variant)' }}>
               <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--color-on-surface)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{canEdit && <Pencil size={10} style={{ color: 'var(--color-primary-fixed,#a3f95b)' }} />}{nm(p.label)}</span>
-                <span style={{ display: 'inline-flex', gap: 4 }}>
+                <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                  {tx && <StatePill state={tx.state} lang={lang} className="rt-prop-state" extra={{ 'data-prop-state': p.key }} />}
                   <span style={{ ...chip, fontSize: 9.5 }}>{p.type}</span>
-                  {p.binding && <span style={{ ...chip, fontSize: 9.5 }}>{p.binding.source}</span>}
                 </span>
               </span>
               <div className="rt-value">{canEdit ? renderEditor(p, rv) : renderValue(rv, L)}</div>
+              {/* Validation error — shown immediately, so an invalid edit is impossible to miss. */}
+              {tx && !tx.valid && tx.error && (
+                <span className="rt-prop-error" data-prop-error={p.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#ff6b6b' }}>
+                  <AlertTriangle size={10} />{tx.error}
+                </span>
+              )}
               {p.binding && <code style={{ fontSize: 9.5, color: 'var(--color-on-surface-variant)' }}>{p.binding.path}</code>}
-              <span style={{ display: 'flex', gap: 10, fontSize: 9, color: 'var(--color-on-surface-variant)' }}>
-                <span>{L('افتراضي', 'Default')}: {p.defaultValue ?? '—'}</span>
-                <span>{L('محلّي', 'local')}: {canEdit ? L('قابل للتحرير', 'editable') : L('قراءة فقط', 'read-only')}</span>
-                <span>{L('آخر تحديث', 'Updated')}: —</span>
-              </span>
+              {/* Transaction Status — previous → current for the managed transaction. */}
+              {tx ? (
+                <span style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 9, color: 'var(--color-on-surface-variant)' }}>
+                  <span className="rt-prop-prev">{L('السابق', 'Previous')}: <b style={{ color: 'var(--color-on-surface)' }}>{showVal(tx.previousValue, L)}</b></span>
+                  <span className="rt-prop-current">{L('الحالي', 'Current')}: <b style={{ color: tx.valid ? 'var(--color-on-surface)' : '#ff6b6b' }}>{showVal(tx.currentValue, L)}</b></span>
+                  <span className="rt-prop-txid" style={{ fontFamily: 'ui-monospace,monospace' }}>{tx.id}</span>
+                </span>
+              ) : (
+                <span style={{ display: 'flex', gap: 10, fontSize: 9, color: 'var(--color-on-surface-variant)' }}>
+                  <span>{L('افتراضي', 'Default')}: {p.defaultValue ?? '—'}</span>
+                  <span>{L('محلّي', 'local')}: {canEdit ? L('قابل للتحرير', 'editable') : L('قراءة فقط', 'read-only')}</span>
+                </span>
+              )}
             </div>
           );
         }) : <span style={{ ...val, color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>{L('لا خصائص معلنة', 'no declared properties')}</span>}
       </div>
+
+      {/* Transaction log — in-memory, session-only. Updates live as edits are committed. */}
+      {onEdit && (
+        <div style={{ ...card, padding: 12, display: 'grid', gap: 8 }} id="runtime_transaction_log" data-count={log.length}>
+          <p style={{ margin: 0, ...lbl, display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'space-between' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ListChecks size={12} />{L('سجلّ المعاملات (الجلسة)', 'Transaction log (session)')}</span>
+            <span style={{ ...chip, fontSize: 9.5 }}>{log.length}</span>
+          </p>
+          {log.length ? (
+            <div style={{ display: 'grid', gap: 5, maxHeight: 190, overflow: 'auto' }}>
+              {log.slice(0, 24).map((e, i) => (
+                <div key={`${e.id}-${i}`} className="rt-tx-log-row" data-tx-state={e.state} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, padding: '4px 6px', borderRadius: 8, background: 'var(--color-surface-container-high)' }}>
+                  <code style={{ fontSize: 9, color: 'var(--color-on-surface-variant)', flexShrink: 0 }}>{e.id}</code>
+                  <span style={{ fontWeight: 700, color: 'var(--color-on-surface)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.componentId.split('.').pop()}·{e.propKey}</span>
+                  <span style={{ color: 'var(--color-on-surface-variant)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{showVal(e.previousValue, L)} → {showVal(e.currentValue, L)}</span>
+                  <StatePill state={e.state} lang={lang} />
+                </div>
+              ))}
+            </div>
+          ) : <span style={{ ...val, color: 'var(--color-on-surface-variant)', fontWeight: 500 }}>{L('لا معاملات بعد — حرّر خاصية.', 'No transactions yet — edit a property.')}</span>}
+        </div>
+      )}
 
       <p style={{ margin: 0, fontSize: 10.5, lineHeight: 1.5, color: 'var(--color-on-surface-variant)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
         <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />

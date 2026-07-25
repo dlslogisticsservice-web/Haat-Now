@@ -27,6 +27,7 @@ export interface ValidationSpec {
   required?: boolean;
   min?: number;
   max?: number;
+  minLength?: number;
   maxLength?: number;
   pattern?: string;
 }

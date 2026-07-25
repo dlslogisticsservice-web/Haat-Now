@@ -35,6 +35,7 @@ import { SelectionManager } from '../../runtime/selection/SelectionManager';
 import type { RuntimeNode } from '../../runtime/selection/RuntimeNode';
 import { RuntimeNodeInspector } from './RuntimeNodeInspector';
 import { RuntimeEditStore } from '../../runtime/selection/EditStore';
+import { validateValue } from '../../runtime/selection/validation';
 import {
   saveExperienceContentOverride, resetExperienceContent, contentOverride,
   contentSnapshot, restoreContentSnapshot, hydrateExperienceContent,
@@ -154,10 +155,30 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   // onto the runtime after every render, so edits survive re-renders. No persistence.
   const editStore = useRef(new RuntimeEditStore()).current;
   useEffect(() => { editStore.clear(); }, [channel, editStore]); // new session per channel
+  // Phase 8G — the store now emits on every transaction; mirror that into a tick so the Inspector
+  // re-renders live (dirty state, validation errors, transaction log) as edits are committed.
+  const [txTick, setTxTick] = useState(0);
+  useEffect(() => editStore.subscribe(() => setTxTick(t => t + 1)), [editStore]);
+  // Phase 8G — Edit Transaction Engine. Every edit becomes a validated transaction in the store.
+  // Text/color/boolean validate synchronously; image URLs validate FORMAT then probe reachability
+  // (async), sitting 'pending' until the image loads — applying only on success, so an invalid or
+  // unreachable value never reaches (or crashes) the live runtime.
   const editRuntimeProp = (key: string, value: string | boolean) => {
     const md = runtimeNode?.studioComponent;
     if (!md || !runtimeNode) return;
-    editStore.set({ nodeId: runtimeNode.id, channel, screen: channelScreen, componentId: md.id, instanceKey: runtimeNode.instanceId ?? '', propKey: key, value });
+    const prop = md.editableProps.find(p => p.key === key);
+    const previousValue = (runtimeNode.resolvedValues?.[key]?.value ?? '') as string | boolean;
+    const input = { nodeId: runtimeNode.id, channel, screen: channelScreen, componentId: md.id, instanceKey: runtimeNode.instanceId ?? '', propKey: key, value, previousValue };
+    if (prop?.type === 'image' && typeof value === 'string' && value.trim() !== '') {
+      if (!validateValue(prop, value).valid) { editStore.commit(input); return; } // bad URL format → invalid now
+      editStore.beginPending(input);
+      const img = new Image();
+      img.onload = () => editStore.commit(input);                                  // reachable → apply
+      img.onerror = () => editStore.reject(runtimeNode.id, key, 'Image failed to load');
+      img.src = value;
+      return;
+    }
+    editStore.commit(input);
   };
   // App-shell overrides (Theme / App Bar / Bottom Nav editors) per channel — authored in
   // the App Studio, autosaved client-side, and applied live to the phone canvas.
@@ -664,7 +685,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
         {/* RIGHT — properties */}
         <div style={{ ...card, padding: 14, overflow: 'auto' }} id="studio_right">
           {channel !== 'website' && canvasView === 'runtime' ? (
-            <RuntimeNodeInspector node={runtimeNode} lang={lang} onEdit={editRuntimeProp} />
+            <RuntimeNodeInspector node={runtimeNode} lang={lang} onEdit={editRuntimeProp} store={editStore} txTick={txTick} />
           ) : channel !== 'website' ? (
             <AppStudioPanels channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision}
               selectedId={authoring.selectedId} contentVersion={contentBump}

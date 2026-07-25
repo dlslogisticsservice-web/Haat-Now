@@ -29,8 +29,8 @@ const CUSTOMER_HOME: MappedComponent[] = [
   { match: '#home_screen_portal', metadata: { id: 'customer.home.root', type: 'screen', displayName: t('شاشة الرئيسية', 'Home Screen'), editableProps: [], bindings: [], events: [], themeTokens: [], animations: [] } },
   { match: '#home_hero, #home_campaign_hero, #campaign_hero_banner', metadata: { id: 'customer.home.hero', type: 'banner', cmsSection: 'hero', displayName: t('بانر الهيرو', 'Hero Banner'),
     editableProps: [
-      { key: 'title', label: t('العنوان', 'Title'), type: 'text', selector: 'p', binding: { source: 'content', path: 'hero.title' } },
-      { key: 'subtitle', label: t('العنوان الفرعي', 'Subtitle'), type: 'text', selector: 'p:nth-of-type(2)', binding: { source: 'content', path: 'hero.subtitle' } },
+      { key: 'title', label: t('العنوان', 'Title'), type: 'text', selector: 'p', validation: { required: true, maxLength: 40 }, binding: { source: 'content', path: 'hero.title' } },
+      { key: 'subtitle', label: t('العنوان الفرعي', 'Subtitle'), type: 'text', selector: 'p:nth-of-type(2)', validation: { maxLength: 80 }, binding: { source: 'content', path: 'hero.subtitle' } },
       { key: 'image', label: t('الصورة', 'Image'), type: 'image', selector: 'img', binding: { source: 'content', path: 'hero.image_url' } },
       { key: 'cta', label: t('زر الإجراء', 'CTA label'), type: 'text', selector: 'button', binding: { source: 'content', path: 'hero.cta_label' } },
       { key: 'accent', label: t('لون التمييز', 'Accent color'), type: 'color', token: '--color-primary-fixed', binding: { source: 'theme', path: 'theme.primary', readonly: true } },
@@ -44,7 +44,7 @@ const CUSTOMER_HOME: MappedComponent[] = [
     bindings: [{ source: 'data', path: 'catalog.categories', readonly: true }], events: [{ name: 'category.select', label: t('اختيار فئة', 'Select category') }], themeTokens: [], animations: [], children: ['customer.home.category_card'] } },
   { match: '.category-card', metadata: { id: 'customer.home.category_card', type: 'card', displayName: t('بطاقة فئة', 'Category Card'),
     editableProps: [
-      { key: 'name', label: t('الاسم', 'Name'), type: 'text', selector: 'span', binding: { source: 'data', path: 'category.name' } },
+      { key: 'name', label: t('الاسم', 'Name'), type: 'text', selector: 'span', validation: { required: true, maxLength: 30 }, binding: { source: 'data', path: 'category.name' } },
       { key: 'image', label: t('الصورة', 'Image'), type: 'image', selector: 'img', binding: { source: 'data', path: 'category.cover' } },
       { key: 'active', label: t('الحالة (نشط)', 'State (active)'), type: 'boolean', binding: { source: 'data', path: 'category.active', readonly: true } },
     ], bindings: [{ source: 'data', path: 'category', readonly: true }], events: [], themeTokens: [], animations: ['scale'], parent: 'customer.home.categories' } },
@@ -76,7 +76,7 @@ const MERCHANT_DASHBOARD: MappedComponent[] = [
   { match: '#merchant_topbar', metadata: { id: 'merchant.topbar', type: 'appbar', displayName: t('الشريط العلوي للتاجر', 'Merchant Top Bar'), editableProps: [], bindings: [{ source: 'data', path: 'merchant.profile', readonly: true }], events: [], themeTokens: ['--color-primary-fixed'], animations: [] } },
   { match: '#merchant_branch_header_card', metadata: { id: 'merchant.branch_header', type: 'card', displayName: t('بطاقة الفرع', 'Branch Header Card'),
     editableProps: [
-      { key: 'title', label: t('عنوان الأداة', 'Widget title'), type: 'text', selector: 'h1', binding: { source: 'data', path: 'branch.name' } },
+      { key: 'title', label: t('عنوان الأداة', 'Widget title'), type: 'text', selector: 'h1', validation: { required: true, maxLength: 60 }, binding: { source: 'data', path: 'branch.name' } },
       { key: 'accent', label: t('لون التمييز', 'Accent color'), type: 'color', token: '--color-primary-fixed', binding: { source: 'theme', path: 'theme.primary', readonly: true } },
     ],
     bindings: [{ source: 'data', path: 'branch', readonly: true }], events: [], themeTokens: ['--color-primary-fixed'], animations: [] } },

@@ -15,20 +15,24 @@
 import { componentsFor } from '../../runtime/selection/componentMap';
 import { writeBinding } from './runtimeWriter';
 import { instanceKeyOf } from './runtimeInstance';
-import type { RuntimeEditStore, RuntimeEdit } from '../../runtime/selection/EditStore';
+import type { RuntimeEditStore, RuntimeTransaction } from '../../runtime/selection/EditStore';
 
-/** Apply every stored edit to the EXACT instance it targets (Phase 8F — no sibling spill). */
-export function applyEdits(root: Element, edits: RuntimeEdit[]): void {
-  for (const r of edits) {
-    const comp = componentsFor(r.channel, r.screen).find(m => m.metadata.id === r.componentId);
+/**
+ * Project each transaction's APPLIED value onto the EXACT instance it targets (Phase 8F — no
+ * sibling spill). appliedValue is always the last VALID value (Phase 8G): an invalid or pending
+ * transaction carries the previous valid value, so a rejected edit leaves the runtime unchanged.
+ */
+export function applyEdits(root: Element, txns: RuntimeTransaction[]): void {
+  for (const tx of txns) {
+    const comp = componentsFor(tx.channel, tx.screen).find(m => m.metadata.id === tx.componentId);
     if (!comp) continue;
-    const prop = comp.metadata.editableProps.find(p => p.key === r.propKey);
+    const prop = comp.metadata.editableProps.find(p => p.key === tx.propKey);
     if (!prop) continue;
-    if (prop.type === 'color') { writeBinding(root, prop, r.value, root); continue; } // theme var on the root
+    if (prop.type === 'color') { writeBinding(root, prop, tx.appliedValue, root); continue; } // theme var on the root
     // Re-locate the SPECIFIC instance by its stable key among all candidates of this type.
     const candidates = Array.from(root.querySelectorAll(comp.match));
-    const target = candidates.find(el => instanceKeyOf(el) === r.instanceKey);
-    if (target) writeBinding(target, prop, r.value, root);
+    const target = candidates.find(el => instanceKeyOf(el) === tx.instanceKey);
+    if (target) writeBinding(target, prop, tx.appliedValue, root);
   }
 }
 
