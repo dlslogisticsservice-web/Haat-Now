@@ -32,6 +32,23 @@ export function validateValue(prop: EditablePropSpec, value: string | boolean): 
   // Booleans are always structurally valid — a toggle can only be on or off.
   if (prop.type === 'boolean') return OK;
 
+  // Range (numeric animation value): must parse, and honour min/max bounds.
+  if (prop.type === 'range') {
+    const num = typeof value === 'number' ? value : parseFloat(String(value));
+    if (Number.isNaN(num)) return fail('Must be a number');
+    const min = prop.min ?? prop.validation?.min;
+    const max = prop.max ?? prop.validation?.max;
+    if (min != null && num < min) return fail(`Below minimum (${min})`);
+    if (max != null && num > max) return fail(`Above maximum (${max})`);
+    return OK;
+  }
+  // Option (enumerated animation value): must be one of the declared options.
+  if (prop.type === 'option') {
+    const opts = (prop.options ?? []).map(o => o.value);
+    if (opts.length && !opts.includes(String(value))) return fail('Not an allowed option');
+    return OK;
+  }
+
   const v = prop.validation ?? {};
   const s = typeof value === 'string' ? value : String(value ?? '');
   const trimmed = s.trim();

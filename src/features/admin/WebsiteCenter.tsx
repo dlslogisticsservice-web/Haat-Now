@@ -35,6 +35,7 @@ import { SelectionManager } from '../../runtime/selection/SelectionManager';
 import type { RuntimeNode } from '../../runtime/selection/RuntimeNode';
 import { RuntimeNodeInspector } from './RuntimeNodeInspector';
 import { RuntimeEditStore } from '../../runtime/selection/EditStore';
+import { DraftEngine } from '../../runtime/selection/DraftEngine';
 import { validateValue } from '../../runtime/selection/validation';
 import {
   saveExperienceContentOverride, resetExperienceContent, contentOverride,
@@ -154,11 +155,15 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   // single source of truth for local edits; a reconciler (in AppRuntimePreview) projects it
   // onto the runtime after every render, so edits survive re-renders. No persistence.
   const editStore = useRef(new RuntimeEditStore()).current;
-  useEffect(() => { editStore.clear(); }, [channel, editStore]); // new session per channel
+  // Phase 8I — the Draft Save Pipeline (Change Sets / Save Queue / Recovery) reads + writes THROUGH
+  // this same store; session-only, no persistence, no publish.
+  const draftEngine = useRef(new DraftEngine(editStore)).current;
+  useEffect(() => { editStore.clear(); draftEngine.clear(); }, [channel, editStore, draftEngine]); // new session per channel
   // Phase 8G — the store now emits on every transaction; mirror that into a tick so the Inspector
   // re-renders live (dirty state, validation errors, transaction log) as edits are committed.
   const [txTick, setTxTick] = useState(0);
   useEffect(() => editStore.subscribe(() => setTxTick(t => t + 1)), [editStore]);
+  useEffect(() => draftEngine.subscribe(() => setTxTick(t => t + 1)), [draftEngine]);
   // Phase 8G — Edit Transaction Engine. Every edit becomes a validated transaction in the store.
   // Text/color/boolean validate synchronously; image URLs validate FORMAT then probe reachability
   // (async), sitting 'pending' until the image loads — applying only on success, so an invalid or
@@ -699,7 +704,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
         {/* RIGHT — properties */}
         <div style={{ ...card, padding: 14, overflow: 'auto' }} id="studio_right">
           {channel !== 'website' && canvasView === 'runtime' ? (
-            <RuntimeNodeInspector node={runtimeNode} lang={lang} onEdit={editRuntimeProp} store={editStore} txTick={txTick} />
+            <RuntimeNodeInspector node={runtimeNode} lang={lang} onEdit={editRuntimeProp} store={editStore} drafts={draftEngine} txTick={txTick} />
           ) : channel !== 'website' ? (
             <AppStudioPanels channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision}
               selectedId={authoring.selectedId} contentVersion={contentBump}

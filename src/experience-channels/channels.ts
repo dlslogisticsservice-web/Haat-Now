@@ -88,9 +88,13 @@ const CUSTOMER: ChannelDef = {
   id: 'customer', ar: 'تطبيق العميل', en: 'Customer App', icon: 'Smartphone',
   status: 'active', surface: 'customer', inspector: 'customer', form: 'mobile',
   screens: [
-    { id: 'splash', ar: 'الشاشة الافتتاحية', en: 'Splash', experiences: [], en_desc: 'App launch splash.' },
-    { id: 'onboarding', ar: 'التعريف', en: 'Onboarding', experiences: [], en_desc: 'First-run onboarding.' },
-    { id: 'landing', ar: 'الترحيب', en: 'Landing', experiences: ['flag.customer_welcome'], en_desc: 'Signed-out landing / gateway.' },
+    // Entry Experience (Phase 8I) — model-driven, animated, live-previewable in the Studio.
+    { id: 'splash', ar: 'الشاشة الافتتاحية', en: 'Splash', experiences: [], en_desc: 'Animated app-launch splash.' },
+    { id: 'intro', ar: 'التعريف', en: 'Intro', experiences: [], en_desc: 'Product intro screen.' },
+    { id: 'welcome', ar: 'الترحيب', en: 'Welcome', experiences: ['flag.customer_welcome'], en_desc: 'Welcome screen.' },
+    { id: 'landing', ar: 'تسجيل الدخول', en: 'Auth Landing', experiences: [], en_desc: 'Signed-out authentication landing.' },
+    { id: 'onboarding', ar: 'الإعداد', en: 'Onboarding', experiences: [], en_desc: 'First-run onboarding.' },
+    { id: 'privacy', ar: 'الخصوصية والأمان', en: 'Privacy & Security', experiences: [], en_desc: 'Privacy & Security — Delete Account (Apple compliance).' },
     { id: 'home', ar: 'الرئيسية', en: 'Home', experiences: ['flag.customer_welcome', 'flag.customer_offers', 'flag.customer_feature_tour'], en_desc: 'Marketplace home — the primary surface for personalized experiences.' },
     { id: 'categories', ar: 'الفئات', en: 'Categories', experiences: [], en_desc: 'Category grid.' },
     { id: 'search', ar: 'البحث', en: 'Search', experiences: [], en_desc: 'Search & discovery.' },

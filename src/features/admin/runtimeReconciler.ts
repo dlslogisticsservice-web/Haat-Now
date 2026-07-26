@@ -13,7 +13,7 @@
 // MutationObserver (disconnect during apply) to avoid loops.
 // ─────────────────────────────────────────────────────────────────────────────
 import { componentsFor } from '../../runtime/selection/componentMap';
-import { writeBinding } from './runtimeWriter';
+import { writeBinding, isCssVarType } from './runtimeWriter';
 import { instanceKeyOf } from './runtimeInstance';
 import type { RuntimeEditStore, RuntimeTransaction } from '../../runtime/selection/EditStore';
 
@@ -28,8 +28,11 @@ export function applyEdits(root: Element, txns: RuntimeTransaction[]): void {
     if (!comp) continue;
     const prop = comp.metadata.editableProps.find(p => p.key === tx.propKey);
     if (!prop) continue;
-    if (prop.type === 'color') { writeBinding(root, prop, tx.appliedValue, root); continue; } // theme var on the root
-    // Re-locate the SPECIFIC instance by its stable key among all candidates of this type.
+    // A preview-root CSS var (a theme colour, scope !== 'self') cascades from the root — write there.
+    const rootVar = (isCssVarType(prop.type) || (prop.type === 'boolean' && !!prop.token)) && prop.scope !== 'self';
+    if (rootVar) { writeBinding(root, prop, tx.appliedValue, root); continue; }
+    // Otherwise re-locate the SPECIFIC instance by its stable key among all candidates of this type,
+    // then write there (text/image/aria, OR a scope:'self' animation var on that element).
     const candidates = Array.from(root.querySelectorAll(comp.match));
     const target = candidates.find(el => instanceKeyOf(el) === tx.instanceKey);
     if (target) writeBinding(target, prop, tx.appliedValue, root);

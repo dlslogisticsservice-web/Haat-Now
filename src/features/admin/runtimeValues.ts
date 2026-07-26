@@ -42,6 +42,16 @@ function resolveOne(p: EditablePropSpec, el: Element, md: StudioComponentMetadat
       const n = firstNumber(target?.textContent || el.textContent || '');
       return n === null ? { kind: 'empty', value: null } : { kind: 'number', value: n };
     }
+    case 'range': {
+      // Read the current value of the animation CSS custom property from the component element.
+      const raw = getComputedStyle(el as HTMLElement).getPropertyValue(p.token || '').trim();
+      const n = firstNumber(raw);
+      return n === null ? { kind: 'empty', value: null } : { kind: 'number', value: n };
+    }
+    case 'option': {
+      const raw = getComputedStyle(el as HTMLElement).getPropertyValue(p.token || '').trim();
+      return raw ? { kind: 'text', value: raw } : { kind: 'empty', value: null };
+    }
     case 'select':
     case 'enum': {
       const count = sel ? el.querySelectorAll(sel).length : el.children.length;

@@ -14,7 +14,18 @@ import type { EditablePropSpec } from '../../runtime/StudioMetadata';
 
 /** Which declared prop types accept a live edit (all others stay read-only). */
 export function isEditable(type: string): boolean {
-  return type === 'text' || type === 'richtext' || type === 'url' || type === 'image' || type === 'color' || type === 'boolean';
+  return type === 'text' || type === 'richtext' || type === 'url' || type === 'image'
+    || type === 'color' || type === 'boolean' || type === 'range' || type === 'option';
+}
+
+/** Props applied as a CSS custom property (theme colour, or a scoped animation value). */
+export function isCssVarType(type: string): boolean {
+  return type === 'color' || type === 'range' || type === 'option';
+}
+
+/** Where a CSS-var write lands: the component element itself ('self') or the preview root. */
+function varTarget(el: Element, prop: EditablePropSpec, host?: Element | null): HTMLElement {
+  return (prop.scope === 'self' ? el : (host || el.closest('#app_runtime_preview') || el)) as HTMLElement;
 }
 
 /**
@@ -24,11 +35,14 @@ export function isEditable(type: string): boolean {
 export function writeBinding(el: Element, prop: EditablePropSpec, value: string | boolean, host?: Element | null): boolean {
   const target = (prop.selector ? el.querySelector(prop.selector) : el) as HTMLElement | null;
   switch (prop.type) {
-    case 'color': {
-      // Set the CSS custom property on the runtime root so the whole preview recolors live.
+    case 'color':
+    case 'range':
+    case 'option': {
+      // Set a CSS custom property. Colours default to the theme token on the preview root; scoped
+      // animation values (scope:'self') write on the component element; ranges append their unit.
       const token = prop.token || '--color-primary-fixed';
-      const root = (host || el.closest('#app_runtime_preview') || el) as HTMLElement;
-      root.style.setProperty(token, String(value));
+      const v = prop.type === 'range' ? `${value}${prop.unit ?? ''}` : String(value);
+      varTarget(el, prop, host).style.setProperty(token, v);
       return true;
     }
     case 'image': {
@@ -39,8 +53,10 @@ export function writeBinding(el: Element, prop: EditablePropSpec, value: string 
       return true;
     }
     case 'boolean': {
-      const t = (target || el) as HTMLElement;
       const on = value === true || value === 'true';
+      // A tokened boolean drives a CSS var (1/0) — e.g. show/hide the CTA; else it flips aria state.
+      if (prop.token) { varTarget(el, prop, host).style.setProperty(prop.token, on ? '1' : '0'); return true; }
+      const t = (target || el) as HTMLElement;
       if (t.hasAttribute('aria-checked')) t.setAttribute('aria-checked', on ? 'true' : 'false');
       else t.setAttribute('aria-pressed', on ? 'true' : 'false');
       return true;

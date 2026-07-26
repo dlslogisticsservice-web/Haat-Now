@@ -24,6 +24,34 @@ export const customerRuntime: RuntimeAdapter = defineRuntime({
   form: 'mobile',
   themeTokens: ['--color-primary-fixed', '--color-on-primary-fixed', '--color-tertiary-fixed', '--card-radius', '--button-radius'],
   screens: [
+    // ── Entry Experience (Phase 8I) — model-driven, animated, pre-auth (no identity required),
+    // so they mount and preview in any mode. One renderer, five kinds. The 'landing' screen is the
+    // Authentication Landing (entry kind 'auth'). ──
+    ...([
+      ['splash', 'splash', { ar: 'الشاشة الافتتاحية', en: 'Splash' }],
+      ['intro', 'intro', { ar: 'التعريف', en: 'Intro' }],
+      ['welcome', 'welcome', { ar: 'الترحيب', en: 'Welcome' }],
+      ['landing', 'auth', { ar: 'تسجيل الدخول', en: 'Auth Landing' }],
+      ['onboarding', 'onboarding', { ar: 'الإعداد', en: 'Onboarding' }],
+    ] as const).map(([screenId, kind, label]) => ({
+      id: screenId,
+      label,
+      requires: [] as string[],
+      load: async () => {
+        const { EntryExperience } = await import('../../experience-entry/EntryExperience');
+        const S: React.FC<RuntimeScreenProps> = () => <EntryExperience kind={kind} />;
+        return S;
+      },
+    })),
+    // ── Privacy & Security → Delete Account (Phase 8I · Apple compliance UI, no backend) ──
+    {
+      id: 'privacy', label: { ar: 'الخصوصية والأمان', en: 'Privacy & Security' }, requires: [] as string[],
+      load: async () => {
+        const { DeleteAccountFlow } = await import('../../experience-entry/DeleteAccountFlow');
+        const S: React.FC<RuntimeScreenProps> = ({ ctx }) => <DeleteAccountFlow lang={ctx.locale} />;
+        return S;
+      },
+    },
     {
       id: 'home', label: { ar: 'الرئيسية', en: 'Home' }, requires: ['identity'],
       load: async () => {

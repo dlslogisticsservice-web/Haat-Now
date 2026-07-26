@@ -12,7 +12,9 @@
 
 export type PropType =
   | 'text' | 'richtext' | 'number' | 'boolean'
-  | 'color' | 'image' | 'icon' | 'select' | 'spacing' | 'enum';
+  | 'color' | 'image' | 'icon' | 'select' | 'spacing' | 'enum'
+  // Phase 8I — animation-editor value types, applied live as CSS custom properties.
+  | 'range' | 'option';
 
 /** Where an editable value is read from / written to. The Studio uses this to bind. */
 export interface BindingRef {
@@ -43,10 +45,21 @@ export interface EditablePropSpec {
   // ── Phase 8C — live value resolution hints (how to read the current value; never editing) ──
   /** Sub-element within the component to read the live value from (default: the component). */
   selector?: string;
-  /** CSS custom property to read for color/theme values. */
+  /** CSS custom property to read/write for color/theme/animation values. */
   token?: string;
   /** Declared default value, shown when a default exists. */
   defaultValue?: string;
+  // ── Phase 8I — animation editor (range/option/token props applied as CSS custom properties) ──
+  /** Where a CSS-var (color/range/option/tokened-boolean) edit is written: the selected
+   *  component element ('self', e.g. a scoped animation var) or the preview root ('root',
+   *  the default, e.g. a global theme colour). */
+  scope?: 'self' | 'root';
+  /** Range editor bounds/step. */
+  min?: number;
+  max?: number;
+  step?: number;
+  /** Unit appended to a range value when written to its CSS var (e.g. 'px', 's', 'deg', 'ms'). */
+  unit?: string;
 }
 
 export interface EventSpec {

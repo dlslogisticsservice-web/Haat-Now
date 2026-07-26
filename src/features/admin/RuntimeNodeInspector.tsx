@@ -10,10 +10,11 @@
 // Unmapped DOM regions are shown honestly as "unmapped element", never a fake business name.
 // ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useEffect } from 'react';
-import { MousePointerClick, Info, Layers, Link2, SlidersHorizontal, ChevronRight, Database, Pencil, AlertTriangle, ListChecks, Undo2, Redo2 } from 'lucide-react';
+import { MousePointerClick, Info, Layers, Link2, SlidersHorizontal, ChevronRight, Database, Pencil, AlertTriangle, ListChecks, Undo2, Redo2, Save, PackageCheck, ArchiveRestore } from 'lucide-react';
 import type { RuntimeNode, ResolvedValue } from '../../runtime/selection/RuntimeNode';
 import type { EditablePropSpec } from '../../runtime/StudioMetadata';
 import type { RuntimeEditStore, RuntimeTransaction, DirtyState } from '../../runtime/selection/EditStore';
+import type { DraftEngine } from '../../runtime/selection/DraftEngine';
 import { isEditable } from './runtimeWriter';
 
 const card: React.CSSProperties = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)', borderRadius: 12 };
@@ -87,9 +88,11 @@ export const RuntimeNodeInspector: React.FC<{
   onEdit?: (key: string, value: string | boolean) => void;
   /** Phase 8G — the transaction store; drives dirty state, validation, and the transaction log. */
   store?: RuntimeEditStore;
+  /** Phase 8I — the Draft Save Pipeline (Change Sets / Save Queue / Recovery). */
+  drafts?: DraftEngine;
   /** Bumped by the parent on every store change so the transaction UI re-renders live. */
   txTick?: number;
-}> = ({ node, lang, onEdit, store }) => {
+}> = ({ node, lang, onEdit, store, drafts }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
   const nm = (n?: { ar: string; en: string }) => (n ? (lang === 'ar' ? n.ar : n.en) : '');
@@ -130,6 +133,23 @@ export const RuntimeNodeInspector: React.FC<{
           <input id={`rt_image_${p.key}`} value={s} placeholder="https://…" onChange={e => applyEdit(p.key, e.target.value)} style={editStyle} />
           {s && <img src={s} alt="" style={{ width: 72, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--color-outline-variant)' }} />}
         </div>
+      );
+    }
+    if (p.type === 'range') {
+      const n = typeof cur === 'number' ? cur : parseFloat(String(cur || 0)) || 0;
+      const min = p.min ?? 0, max = p.max ?? 100, step = p.step ?? 1;
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input id={`rt_range_${p.key}`} type="range" min={min} max={max} step={step} value={n} onChange={e => applyEdit(p.key, e.target.value)} style={{ flex: 1, accentColor: 'var(--color-primary-fixed,#a3f95b)' }} />
+          <span style={{ fontSize: 11, fontWeight: 700, minWidth: 40, textAlign: 'end', color: 'var(--color-on-surface)' }}>{n}{p.unit ?? ''}</span>
+        </div>
+      );
+    }
+    if (p.type === 'option') {
+      return (
+        <select id={`rt_option_${p.key}`} value={String(cur ?? '')} onChange={e => applyEdit(p.key, e.target.value)} style={{ ...editStyle, cursor: 'pointer' }}>
+          {(p.options ?? []).map(o => <option key={o.value} value={o.value}>{nm(o.label)}</option>)}
+        </select>
       );
     }
     // text / richtext / url
@@ -316,9 +336,57 @@ export const RuntimeNodeInspector: React.FC<{
         </div>
       )}
 
+      {/* Save pipeline (Phase 8I) — build a Change Set from the current edits, validate it, queue it,
+          and recover saved drafts. Session-only, in-memory. NO publish (Phase 8J), NO persistence. */}
+      {onEdit && drafts && (() => {
+        const pending = drafts.pendingChangeCount();
+        const preview = drafts.previewValidation();
+        const queued = drafts.queued();
+        const saved = drafts.savedDrafts();
+        const canSave = pending > 0 && preview.valid;
+        return (
+          <div style={{ ...card, padding: 12, display: 'grid', gap: 8 }} id="runtime_save_pipeline" data-pending={pending} data-queued={queued.length} data-saved={saved.length} data-valid={preview.valid ? '1' : '0'}>
+            <p style={{ margin: 0, ...lbl, display: 'flex', alignItems: 'center', gap: 5, justifyContent: 'space-between' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Save size={12} />{L('خط الحفظ (مسودّات)', 'Save pipeline (drafts)')}</span>
+              <span id="save_pending_count" style={{ ...chip, fontSize: 9.5 }}>{pending} {L('تغيير', 'changes')}</span>
+            </p>
+            {pending > 0 && !preview.valid && (
+              <span className="rt-draft-invalid" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, fontWeight: 700, color: '#ff6b6b' }}>
+                <AlertTriangle size={10} />{L('لا يمكن الحفظ — يوجد تغييرات غير صالحة', 'Cannot save — invalid changes')}: {preview.errors.slice(0, 2).join(' · ')}
+              </span>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button id="runtime_save_draft_btn" onClick={() => drafts.saveDraft()} disabled={!canSave} title={L('بناء مسودّة + إضافتها للطابور', 'Build draft + queue')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: 'none', fontSize: 11.5, fontWeight: 800, cursor: canSave ? 'pointer' : 'not-allowed', opacity: canSave ? 1 : 0.4, background: 'var(--color-primary-fixed,#a3f95b)', color: 'var(--color-on-primary-fixed,#05310f)' }}>
+                <Save size={13} />{L('حفظ مسودّة', 'Save draft')}
+              </button>
+              <button id="runtime_flush_btn" onClick={() => drafts.flush()} disabled={!queued.length} title={L('معالجة الطابور', 'Process queue')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--color-outline-variant)', fontSize: 11.5, fontWeight: 700, cursor: queued.length ? 'pointer' : 'not-allowed', opacity: queued.length ? 1 : 0.4, background: 'var(--color-surface-container-high)', color: 'var(--color-on-surface)' }}>
+                <PackageCheck size={13} />{L('معالجة', 'Process')} ({queued.length})
+              </button>
+            </div>
+            {(queued.length > 0 || saved.length > 0) && (
+              <div style={{ display: 'grid', gap: 5, maxHeight: 150, overflow: 'auto' }} id="runtime_drafts_list">
+                {[...queued, ...saved].map((cs, i) => (
+                  <div key={`${cs.id}-${i}`} className="rt-draft-row" data-status={cs.status} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, padding: '4px 6px', borderRadius: 8, background: 'var(--color-surface-container-high)' }}>
+                    <span style={{ ...chip, fontSize: 8.5, padding: '1px 6px', background: cs.status === 'saved' ? 'color-mix(in srgb,var(--color-primary-fixed,#a3f95b) 22%,transparent)' : 'var(--color-surface-container)', color: cs.status === 'saved' ? 'var(--color-primary-fixed,#a3f95b)' : 'var(--color-on-surface-variant)' }}>{cs.status}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--color-on-surface)' }}>{cs.label}</span>
+                    <span style={{ color: 'var(--color-on-surface-variant)', flex: 1 }}>{cs.changes.length} {L('تغيير', 'changes')}</span>
+                    <button className="rt-recover-btn" data-recover={cs.id} onClick={() => drafts.recover(cs.id)} title={L('استرجاع', 'Recover')}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 7, border: '1px solid var(--color-outline-variant)', fontSize: 9.5, fontWeight: 700, cursor: 'pointer', background: 'transparent', color: 'var(--color-on-surface)' }}>
+                      <ArchiveRestore size={10} />{L('استرجاع', 'Recover')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <p style={{ margin: 0, fontSize: 10.5, lineHeight: 1.5, color: 'var(--color-on-surface-variant)', display: 'flex', gap: 6, alignItems: 'flex-start' }}>
         <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-        {L('تحرير محلّي فقط — يظهر فوراً في المعاينة، بلا حفظ ولا قاعدة بيانات. يعيد التحديث القيم الأصلية.', 'Local editing only — updates the preview instantly, no save, no database. A refresh restores the originals.')}
+        {L('تحرير محلّي فقط — يظهر فوراً في المعاينة، بلا نشر ولا قاعدة بيانات. يعيد التحديث القيم الأصلية.', 'Local editing only — updates the preview instantly, no publish, no database. A refresh restores the originals.')}
       </p>
     </div>
   );

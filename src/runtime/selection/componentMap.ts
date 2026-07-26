@@ -115,8 +115,66 @@ const DRIVER_HOME: MappedComponent[] = [
     bindings: [{ source: 'data', path: 'driver.activeJob', readonly: true }], events: [{ name: 'job.advance', label: t('تقدّم الطلب', 'Advance job') }], themeTokens: [], animations: [] } },
 ];
 
+// ── Entry Experience (Phase 8I) — the animated entry screens. Every animated layer is an
+// editable CSS-var prop (scope:'self' → written on the component element) so the Studio's
+// transaction engine edits it LIVE. One component set, shared by all five entry screens. ──
+const EASING_OPTIONS = [
+  { value: 'ease-out', label: t('انسيابي للخارج', 'ease-out') },
+  { value: 'ease-in-out', label: t('انسيابي', 'ease-in-out') },
+  { value: 'linear', label: t('خطّي', 'linear') },
+  { value: 'cubic-bezier(.22,1,.36,1)', label: t('مرن', 'spring') },
+];
+const ENTRY_COMPONENTS: MappedComponent[] = [
+  { match: '#entry_experience', metadata: { id: 'customer.entry.root', type: 'screen', displayName: t('تجربة الدخول', 'Entry Experience'),
+    editableProps: [
+      { key: 'background', label: t('الخلفية', 'Background'), type: 'color', scope: 'self', token: '--entry-bg', binding: { source: 'content', path: 'entry.background' } },
+      { key: 'gradient_from', label: t('التدرّج (من)', 'Gradient from'), type: 'color', scope: 'self', token: '--entry-grad-a', binding: { source: 'content', path: 'entry.gradientFrom' } },
+      { key: 'gradient_to', label: t('التدرّج (إلى)', 'Gradient to'), type: 'color', scope: 'self', token: '--entry-grad-b', binding: { source: 'content', path: 'entry.gradientTo' } },
+      { key: 'glow_color', label: t('لون التوهّج', 'Glow color'), type: 'color', scope: 'self', token: '--entry-glow-color', binding: { source: 'content', path: 'entry.glow.color' } },
+      { key: 'glow_intensity', label: t('شدّة التوهّج', 'Glow intensity'), type: 'range', scope: 'self', token: '--entry-glow-intensity', min: 0, max: 1, step: 0.05, binding: { source: 'content', path: 'entry.glow.intensity' } },
+      { key: 'particle_color', label: t('لون الجزيئات', 'Particle color'), type: 'color', scope: 'self', token: '--entry-particle-color', binding: { source: 'content', path: 'entry.particles.color' } },
+      { key: 'particle_count', label: t('عدد الجزيئات', 'Particle count'), type: 'range', scope: 'self', token: '--entry-particles', min: 0, max: 16, step: 1, binding: { source: 'content', path: 'entry.particles.count' } },
+      { key: 'particle_speed', label: t('سرعة الجزيئات', 'Particle speed'), type: 'range', scope: 'self', token: '--entry-particle-speed', min: 2, max: 12, step: 0.5, unit: 's', binding: { source: 'content', path: 'entry.particles.speed' } },
+      { key: 'ring_color', label: t('لون الحلقات', 'Ring color'), type: 'color', scope: 'self', token: '--entry-ring-color', binding: { source: 'content', path: 'entry.rings.color' } },
+      { key: 'ring_count', label: t('عدد الحلقات', 'Ring count'), type: 'range', scope: 'self', token: '--entry-rings', min: 0, max: 5, step: 1, binding: { source: 'content', path: 'entry.rings.count' } },
+      { key: 'ring_thickness', label: t('سماكة الحلقات', 'Ring thickness'), type: 'range', scope: 'self', token: '--entry-ring-thickness', min: 1, max: 8, step: 1, unit: 'px', binding: { source: 'content', path: 'entry.rings.thickness' } },
+      { key: 'duration', label: t('مدّة الانتقال', 'Transition duration'), type: 'range', scope: 'self', token: '--entry-duration', min: 200, max: 2000, step: 50, unit: 'ms', binding: { source: 'content', path: 'entry.timing.duration' } },
+      { key: 'easing', label: t('منحنى الانتقال', 'Transition easing'), type: 'option', scope: 'self', token: '--entry-easing', options: EASING_OPTIONS, binding: { source: 'content', path: 'entry.timing.easing' } },
+    ], bindings: [{ source: 'content', path: 'entry.model', readonly: true }], events: [], themeTokens: ['--entry-glow-color'], animations: ['float', 'spin', 'pulse', 'enter'],
+    children: ['customer.entry.logo', 'customer.entry.title', 'customer.entry.cta'] } },
+  { match: '#entry_logo', metadata: { id: 'customer.entry.logo', type: 'image', displayName: t('الشعار', 'Logo'),
+    editableProps: [
+      { key: 'image', label: t('الصورة', 'Image'), type: 'image', selector: 'img', binding: { source: 'content', path: 'entry.logo.src' } },
+      { key: 'size', label: t('الحجم', 'Size'), type: 'range', scope: 'self', token: '--entry-logo-size', min: 48, max: 160, step: 4, unit: 'px', binding: { source: 'content', path: 'entry.logo.size' } },
+    ], bindings: [], events: [], themeTokens: [], animations: [], parent: 'customer.entry.root' } },
+  { match: '#entry_title', metadata: { id: 'customer.entry.title', type: 'text', displayName: t('العنوان', 'Title'),
+    editableProps: [{ key: 'title', label: t('العنوان', 'Title'), type: 'text', validation: { required: true, maxLength: 40 }, binding: { source: 'content', path: 'entry.text.title' } }],
+    bindings: [], events: [], themeTokens: [], animations: [], parent: 'customer.entry.root' } },
+  { match: '#entry_subtitle', metadata: { id: 'customer.entry.subtitle', type: 'text', displayName: t('العنوان الفرعي', 'Subtitle'),
+    editableProps: [{ key: 'subtitle', label: t('العنوان الفرعي', 'Subtitle'), type: 'text', validation: { maxLength: 80 }, binding: { source: 'content', path: 'entry.text.subtitle' } }],
+    bindings: [], events: [], themeTokens: [], animations: [], parent: 'customer.entry.root' } },
+  { match: '#entry_cta', metadata: { id: 'customer.entry.cta', type: 'button', displayName: t('زر الإجراء', 'CTA Button'),
+    editableProps: [
+      { key: 'label', label: t('النص', 'Label'), type: 'text', validation: { maxLength: 24 }, binding: { source: 'content', path: 'entry.cta.label' } },
+      { key: 'visible', label: t('ظاهر', 'Visible'), type: 'boolean', scope: 'self', token: '--entry-cta-visible', binding: { source: 'content', path: 'entry.cta.visible' } },
+    ], bindings: [], events: [{ name: 'cta.click', label: t('نقر الزر', 'CTA click') }], themeTokens: [], animations: [], parent: 'customer.entry.root' } },
+];
+
+// Privacy & Security → Delete Account (Apple compliance UI). The delete row is selectable/editable.
+const PRIVACY_COMPONENTS: MappedComponent[] = [
+  { match: '#delete_account_row', metadata: { id: 'customer.privacy.delete', type: 'card', displayName: t('حذف الحساب', 'Delete Account'),
+    editableProps: [{ key: 'title', label: t('العنوان', 'Title'), type: 'text', selector: 'span span', validation: { required: true, maxLength: 30 }, binding: { source: 'i18n', path: 'privacy.deleteAccount' } }],
+    bindings: [{ source: 'static', path: 'apple.compliance', readonly: true }], events: [{ name: 'delete.start', label: t('بدء الحذف', 'Start deletion') }], themeTokens: [], animations: [] } },
+];
+
 /** channel:screen → declared components. Website is served by the Website Studio's block model. */
 export const COMPONENT_MAP: Record<string, MappedComponent[]> = {
+  'customer:splash': ENTRY_COMPONENTS,
+  'customer:intro': ENTRY_COMPONENTS,
+  'customer:welcome': ENTRY_COMPONENTS,
+  'customer:landing': ENTRY_COMPONENTS,
+  'customer:onboarding': ENTRY_COMPONENTS,
+  'customer:privacy': PRIVACY_COMPONENTS,
   'customer:home': CUSTOMER_HOME,
   'customer:landing': CUSTOMER_HOME,
   'merchant:dashboard': MERCHANT_DASHBOARD,
