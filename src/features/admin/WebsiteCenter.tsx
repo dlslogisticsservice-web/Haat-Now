@@ -38,6 +38,7 @@ import { RuntimeEditStore } from '../../runtime/selection/EditStore';
 import { DraftEngine } from '../../runtime/selection/DraftEngine';
 import { validateValue } from '../../runtime/selection/validation';
 import { MotionStudio, MotionPublishPanel } from './motion/MotionStudio';
+import { ComponentPlatform } from './builder/ComponentPlatform';
 import { MotionStore } from '../../experience-entry/motion/MotionStore';
 import { PublishEngine } from '../../experience-entry/motion/PublishEngine';
 import type { EntryKind } from '../../experience-entry/entryModel';
@@ -178,6 +179,8 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   // Which customer entry screens have a Motion Studio, and their EntryKind mapping.
   const ENTRY_SCREEN_KIND: Record<string, EntryKind> = { splash: 'splash', intro: 'intro', welcome: 'welcome', landing: 'auth', onboarding: 'onboarding' };
   const entryKind: EntryKind | null = channel === 'customer' ? (ENTRY_SCREEN_KIND[channelScreen] ?? null) : null;
+  // Phase 9A — the Visual Component Platform opens as a full-surface builder over the Studio.
+  const [builderOpen, setBuilderOpen] = useState(false);
   // Phase 8G — Edit Transaction Engine. Every edit becomes a validated transaction in the store.
   // Text/color/boolean validate synchronously; image URLs validate FORMAT then probe reachability
   // (async), sitting 'pending' until the image loads — applying only on success, so an invalid or
@@ -469,6 +472,16 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
 
   return (
     <div id="website_center" dir={dir} style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 90px)', minHeight: 560 }}>
+      {/* ── Phase 9A · Visual Component Platform — full-surface builder over the Studio ── */}
+      {builderOpen && (
+        <div id="visual_builder_surface" style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'var(--color-background)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--color-outline-variant)' }}>
+            <button id="cp_close" onClick={() => setBuilderOpen(false)} style={{ ...iconBtn, width: 'auto', padding: '5px 12px', gap: 5, display: 'inline-flex', alignItems: 'center' }}>← {L('رجوع', 'Back')}</button>
+            <span style={{ fontWeight: 800, color: 'var(--color-on-surface)', display: 'inline-flex', alignItems: 'center', gap: 7 }}><Layers size={16} style={{ color: 'var(--color-primary-fixed)' }} />{L('منصّة المكوّنات المرئية', 'Visual Component Platform')}</span>
+          </div>
+          <div style={{ flex: 1, overflow: 'hidden', padding: 12 }}><ComponentPlatform lang={lang} /></div>
+        </div>
+      )}
       {/* ── Studio top bar ── */}
       <div className="flex items-center gap-2 flex-wrap" style={{ ...card, borderRadius: 12, padding: '8px 12px', marginBottom: 10 }}>
         <span className="inline-flex items-center gap-2 font-extrabold" style={{ color: 'var(--color-on-surface)', fontSize: 15 }} id="studio_title"><Wand2 size={17} style={{ color: 'var(--color-primary-fixed)' }} />{channel === 'website' ? L('استوديو التجربة', 'Experience Studio') : L('استوديو التطبيق', 'Application Studio')}{channel !== 'website' && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-on-surface-variant)' }}>· {L(getChannel(channel)?.ar ?? '', getChannel(channel)?.en ?? '')}</span>}</span>
@@ -527,6 +540,13 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
       <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '248px minmax(0,1fr) 340px', gap: 10 }}>
         {/* LEFT — Structure navigator */}
         <div style={{ ...card, padding: 8, overflow: 'auto' }} id="studio_left">
+          {/* Phase 9A — open the Visual Component Platform (builds every surface visually). */}
+          <button id="studio_builder_entry" onClick={() => setBuilderOpen(true)}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-start mb-2"
+            style={{ background: 'color-mix(in srgb, var(--color-primary-fixed) 16%, transparent)', color: 'var(--color-on-surface)', border: '1px solid var(--color-primary-fixed)' }}>
+            <Layers size={15} style={{ color: 'var(--color-primary-fixed,#a3f95b)' }} />
+            <span className="text-[13px] font-extrabold flex-1">{L('منصّة المكوّنات المرئية', 'Visual Component Platform')}</span>
+          </button>
           {/* Experience Channels — always visible; selects which channel the Studio edits. */}
           <ChannelNavigator channel={channel} screenId={channelScreen} lang={lang} onChannel={selectChannel} onScreen={setChannelScreen} />
           {channel !== 'website' && (
