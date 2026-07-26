@@ -93,6 +93,4 @@ export const ENTRY_DEFAULTS: Record<EntryKind, EntryModel> = {
   },
 };
 
-export const ENTRY_KINDS: EntryKind[] = ['splash', 'intro', 'welcome', 'auth', 'onboarding'];
-
 export function entryModel(kind: EntryKind): EntryModel { return ENTRY_DEFAULTS[kind]; }

@@ -22,19 +22,11 @@ import type { SelectionManager } from '../../runtime/selection/SelectionManager'
 import type { RuntimeEditStore } from '../../runtime/selection/EditStore';
 import { RuntimeSelectionOverlay } from './RuntimeSelectionOverlay';
 import { RuntimeReconciler } from './runtimeReconciler';
+import { PREVIEW_IDENTITY } from '../../runtime/preview/previewIdentity';
 // Side-effects: register the Runtime Adapters so getRuntime(<channel>) resolves.
 import '../../runtime/adapters/customer.adapter';
 import '../../runtime/adapters/merchant.adapter';
 import '../../runtime/adapters/driver.adapter';
-
-// Sandbox preview identities per channel (registered in check-demo-isolation.cjs) — read
-// only behind the DEMO_CONTENT_ENABLED gate. Adapters are identity-agnostic; the Studio
-// supplies the channel-appropriate seeded identity.
-const DEMO_IDENTITY: Record<string, { id: string; phone: string; role: string }> = {
-  customer: { id: '11111111-0000-0000-0000-000000000001', phone: '+201000000001', role: 'customer' },
-  merchant: { id: '22222222-0000-0000-0000-000000000001', phone: '+201000000002', role: 'merchant' },
-  driver: { id: '33333333-0000-0000-0000-000000000001', phone: '+201000000003', role: 'driver' },
-};
 
 // Contained error boundary — a screen that throws shows a message INSIDE the frame,
 // never reloads or crashes the Studio.
@@ -88,7 +80,7 @@ export const AppRuntimePreview: React.FC<AppRuntimePreviewProps> = ({ channel, s
 
   // Build the runtime context. A preview identity exists only in sandbox; in production-data
   // mode there is no identity, so identity-requiring screens fall back to the note (never faked).
-  const identity = DEMO_CONTENT_ENABLED ? (DEMO_IDENTITY[channel] ?? null) : null;
+  const identity = DEMO_CONTENT_ENABLED ? (PREVIEW_IDENTITY[channel] ?? null) : null;
   const ctx: RuntimeContext = { identity, locale: lang, country: 'SA', sandbox: DEMO_CONTENT_ENABLED };
 
   // Resolve the screen THROUGH the Runtime Registry — the only path to any app's screens.

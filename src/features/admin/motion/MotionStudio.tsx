@@ -37,7 +37,7 @@ const EFFECT_LABELS: [keyof VisualEffects, string, string][] = [
   ['floating', 'طفو', 'Floating'], ['parallax', 'بارالاكس', 'Parallax'],
 ];
 
-export const MotionStudio: React.FC<{ kind: EntryKind; lang: 'ar' | 'en'; store: MotionStore; publish: PublishEngine; tick: number }> = ({ kind, lang, store, tick }) => {
+export const MotionStudio: React.FC<{ kind: EntryKind; lang: 'ar' | 'en'; store: MotionStore; publish: PublishEngine }> = ({ kind, lang, store }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const [tab, setTab] = useState<'layers' | 'timeline' | 'effects' | 'presets'>('layers');
   const [device, setDevice] = useState<'desktop' | 'tablet' | 'phone'>('phone');
@@ -47,11 +47,15 @@ export const MotionStudio: React.FC<{ kind: EntryKind; lang: 'ar' | 'en'; store:
   const [sim, setSim] = useState(false);
   const [stepId, setStepId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  // Subscribe LOCALLY to the store (Phase 8K) so a motion edit re-renders only this subtree, not
+  // the entire WebsiteCenter tree — no unnecessary renders.
+  const [rev, setRev] = useState(0);
+  useEffect(() => store.subscribe(() => setRev(r => r + 1)), [store]);
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { store.setKind(kind); }, [kind, store]);
   // Project the motion model onto the live entry renderer after every change / remount.
-  useEffect(() => { store.project(hostRef.current?.querySelector('#entry_experience') ?? null); }, [tick, kind, device, orient, store]);
+  useEffect(() => { store.project(hostRef.current?.querySelector('#entry_experience') ?? null); }, [rev, kind, device, orient, store]);
 
   const model = store.getModel();
   const dim = DEVICE_DIM[device];
@@ -101,17 +105,17 @@ export const MotionStudio: React.FC<{ kind: EntryKind; lang: 'ar' | 'en'; store:
         {tab === 'layers' && (
           <div style={{ ...card, padding: 10, display: 'grid', gap: 5 }} id="motion_layers">
             {model.layers.map((ly) => (
-              <div key={ly.id} className="motion-layer" data-kind={ly.kind} data-visible={ly.visible ? '1' : '0'} data-locked={ly.locked ? '1' : '0'}
+              <div key={ly.id} className="motion-layer" data-layer-id={ly.id} data-kind={ly.kind} data-visible={ly.visible ? '1' : '0'} data-locked={ly.locked ? '1' : '0'}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px', borderRadius: 8, background: 'var(--color-surface-container-high)' }}>
-                <button id={`layer_vis_${ly.kind}`} onClick={() => store.toggleVisible(ly.id)} title={L('إظهار/إخفاء', 'Show/hide')} style={{ ...iconBtn, width: 22, height: 22, opacity: ly.visible ? 1 : 0.5 }}>{ly.visible ? <Eye size={12} /> : <EyeOff size={12} />}</button>
-                <button id={`layer_lock_${ly.kind}`} onClick={() => store.toggleLock(ly.id)} title={L('قفل', 'Lock')} style={{ ...iconBtn, width: 22, height: 22 }}>{ly.locked ? <Lock size={12} /> : <LockOpen size={12} />}</button>
+                <button id={`layer_vis_${ly.id}`} className="layer-vis" data-kind={ly.kind} onClick={() => store.toggleVisible(ly.id)} title={L('إظهار/إخفاء', 'Show/hide')} style={{ ...iconBtn, width: 22, height: 22, opacity: ly.visible ? 1 : 0.5 }}>{ly.visible ? <Eye size={12} /> : <EyeOff size={12} />}</button>
+                <button id={`layer_lock_${ly.id}`} className="layer-lock" data-kind={ly.kind} onClick={() => store.toggleLock(ly.id)} title={L('قفل', 'Lock')} style={{ ...iconBtn, width: 22, height: 22 }}>{ly.locked ? <Lock size={12} /> : <LockOpen size={12} />}</button>
                 {renaming === ly.id
-                  ? <input autoFocus defaultValue={ly.name} id={`layer_name_${ly.kind}`} onBlur={e => { store.rename(ly.id, e.target.value); setRenaming(null); }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} style={{ flex: 1, fontSize: 11.5, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' }} />
+                  ? <input autoFocus defaultValue={ly.name} id={`layer_name_${ly.id}`} onBlur={e => { store.rename(ly.id, e.target.value); setRenaming(null); }} onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} style={{ flex: 1, fontSize: 11.5, padding: '2px 6px', borderRadius: 6, border: '1px solid var(--color-outline-variant)', background: 'var(--color-surface-container)', color: 'var(--color-on-surface)' }} />
                   : <span onDoubleClick={() => setRenaming(ly.id)} style={{ flex: 1, fontSize: 11.5, fontWeight: 600, color: 'var(--color-on-surface)' }}>{ly.name}</span>}
-                <button id={`layer_rename_${ly.kind}`} onClick={() => setRenaming(ly.id)} title={L('إعادة تسمية', 'Rename')} style={{ ...iconBtn, width: 22, height: 22, fontSize: 9 }}>Aa</button>
-                <button id={`layer_dup_${ly.kind}`} onClick={() => store.duplicate(ly.id)} title={L('تكرار', 'Duplicate')} style={{ ...iconBtn, width: 22, height: 22 }}><Copy size={11} /></button>
-                <button id={`layer_up_${ly.kind}`} onClick={() => store.reorder(ly.id, -1)} title={L('لأعلى', 'Up')} style={{ ...iconBtn, width: 22, height: 22 }}><ChevronUp size={12} /></button>
-                <button id={`layer_down_${ly.kind}`} onClick={() => store.reorder(ly.id, 1)} title={L('لأسفل', 'Down')} style={{ ...iconBtn, width: 22, height: 22 }}><ChevronDown size={12} /></button>
+                <button id={`layer_rename_${ly.id}`} className="layer-rename" data-kind={ly.kind} onClick={() => setRenaming(ly.id)} title={L('إعادة تسمية', 'Rename')} style={{ ...iconBtn, width: 22, height: 22, fontSize: 9 }}>Aa</button>
+                <button id={`layer_dup_${ly.id}`} className="layer-dup" data-kind={ly.kind} onClick={() => store.duplicate(ly.id)} title={L('تكرار', 'Duplicate')} style={{ ...iconBtn, width: 22, height: 22 }}><Copy size={11} /></button>
+                <button id={`layer_up_${ly.id}`} className="layer-up" data-kind={ly.kind} onClick={() => store.reorder(ly.id, -1)} title={L('لأعلى', 'Up')} style={{ ...iconBtn, width: 22, height: 22 }}><ChevronUp size={12} /></button>
+                <button id={`layer_down_${ly.id}`} className="layer-down" data-kind={ly.kind} onClick={() => store.reorder(ly.id, 1)} title={L('لأسفل', 'Down')} style={{ ...iconBtn, width: 22, height: 22 }}><ChevronDown size={12} /></button>
               </div>
             ))}
           </div>
@@ -220,13 +224,18 @@ export const MotionStudio: React.FC<{ kind: EntryKind; lang: 'ar' | 'en'; store:
 };
 
 // ── Publish pipeline + Versioning (right rail) ──────────────────────────────────
-export const MotionPublishPanel: React.FC<{ kind: EntryKind; lang: 'ar' | 'en'; store: MotionStore; publish: PublishEngine; tick: number }> = ({ kind, lang, store, publish }) => {
+export const MotionPublishPanel: React.FC<{ kind: EntryKind; lang: 'ar' | 'en'; store: MotionStore; publish: PublishEngine }> = ({ kind, lang, store, publish }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const [notes, setNotes] = useState('');
   const [report, setReport] = useState<{ valid: boolean; errors: string[] } | null>(null);
   const [cmp, setCmp] = useState<string[]>([]);
-  const cand = publish.currentCandidate();
-  const versions = publish.history();
+  // Subscribe locally (Phase 8K) — the publish panel re-renders on its own, decoupled from WebsiteCenter.
+  const [, setRev] = useState(0);
+  useEffect(() => publish.subscribe(() => setRev(r => r + 1)), [publish]);
+  // A candidate only counts for the screen currently being edited; versions are scoped by kind.
+  const rawCand = publish.currentCandidate();
+  const cand = rawCand && rawCand.kind === kind ? rawCand : null;
+  const versions = publish.history(kind);
 
   const PIPE = ['draft', 'validation', 'candidate', 'approved', 'published', 'rollback'] as const;
   const pipeActive = (s: string) => {
@@ -263,7 +272,7 @@ export const MotionPublishPanel: React.FC<{ kind: EntryKind; lang: 'ar' | 'en'; 
         <div style={{ display: 'flex', gap: 6 }}>
           <button id="publish_btn" disabled={cand?.status !== 'approved'} onClick={() => { publish.publish(notes); setNotes(''); setReport(null); }}
             style={{ ...seg(false), flex: 1, justifyContent: 'center', background: cand?.status === 'approved' ? 'var(--color-primary-fixed)' : 'var(--color-surface-container-high)', color: cand?.status === 'approved' ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)', cursor: cand?.status === 'approved' ? 'pointer' : 'not-allowed' }}><UploadCloud size={12} />{L('نشر', 'Publish')}</button>
-          <button id="publish_rollback_btn" disabled={versions.filter(v => v.status === 'published' || v.status === 'rolledback').length < 2} onClick={() => publish.rollback()} style={{ ...seg(false) }}><RotateCcw size={12} />{L('تراجع', 'Rollback')}</button>
+          <button id="publish_rollback_btn" disabled={versions.filter(v => v.status === 'published' || v.status === 'rolledback').length < 2} onClick={() => publish.rollback(kind)} style={{ ...seg(false) }}><RotateCcw size={12} />{L('تراجع', 'Rollback')}</button>
         </div>
       </div>
 

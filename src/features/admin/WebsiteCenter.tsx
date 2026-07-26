@@ -173,9 +173,8 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   // and the right-rail publish panel. Session-only, projected onto the live EntryExperience.
   const motionStore = useRef(new MotionStore('splash')).current;
   const publishEngine = useRef(new PublishEngine('super-admin')).current;
-  const [motionTick, setMotionTick] = useState(0);
-  useEffect(() => motionStore.subscribe(() => setMotionTick(t => t + 1)), [motionStore]);
-  useEffect(() => publishEngine.subscribe(() => setMotionTick(t => t + 1)), [publishEngine]);
+  // Phase 8K — Motion Studio + its Publish panel subscribe to these engines LOCALLY, so a motion
+  // edit re-renders only that subtree, never the whole WebsiteCenter tree.
   // Which customer entry screens have a Motion Studio, and their EntryKind mapping.
   const ENTRY_SCREEN_KIND: Record<string, EntryKind> = { splash: 'splash', intro: 'intro', welcome: 'welcome', landing: 'auth', onboarding: 'onboarding' };
   const entryKind: EntryKind | null = channel === 'customer' ? (ENTRY_SCREEN_KIND[channelScreen] ?? null) : null;
@@ -685,7 +684,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
           <div style={{ flex: 1, overflow: 'auto', padding: 16, display: 'grid', placeItems: 'start center' }} id="studio_canvas">
             {channel !== 'website'
               ? (canvasView === 'motion' && entryKind
-                ? <MotionStudio kind={entryKind} lang={lang} store={motionStore} publish={publishEngine} tick={motionTick} />
+                ? <MotionStudio kind={entryKind} lang={lang} store={motionStore} publish={publishEngine} />
                 : (canvasView === 'flow' || canvasView === 'journey')
                 ? <StudioFlow channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision} view={canvasView}
                     onSelectScreen={(s) => { setChannelScreen(s); setCanvasView('canvas'); }} />
@@ -729,7 +728,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
         {/* RIGHT — properties */}
         <div style={{ ...card, padding: 14, overflow: 'auto' }} id="studio_right">
           {channel !== 'website' && canvasView === 'motion' && entryKind ? (
-            <MotionPublishPanel kind={entryKind} lang={lang} store={motionStore} publish={publishEngine} tick={motionTick} />
+            <MotionPublishPanel kind={entryKind} lang={lang} store={motionStore} publish={publishEngine} />
           ) : channel !== 'website' && canvasView === 'runtime' ? (
             <RuntimeNodeInspector node={runtimeNode} lang={lang} onEdit={editRuntimeProp} store={editStore} drafts={draftEngine} txTick={txTick} />
           ) : channel !== 'website' ? (

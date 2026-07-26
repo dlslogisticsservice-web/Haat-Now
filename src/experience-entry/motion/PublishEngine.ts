@@ -73,9 +73,12 @@ export class PublishEngine {
     return v;
   }
 
-  /** Rollback — republish the previous published version as a new version. */
-  rollback(): PublishVersion | null {
-    const published = this.versions.filter(v => v.status === 'published' || v.status === 'rolledback');
+  /**
+   * Rollback — republish the previous published version of the SAME entry screen as a new version.
+   * Scoped by kind so rolling back one screen never restores another screen's snapshot.
+   */
+  rollback(kind: EntryKind): PublishVersion | null {
+    const published = this.versions.filter(v => (v.status === 'published' || v.status === 'rolledback') && v.kind === kind);
     if (published.length < 2) return null;
     const prev = published[published.length - 2];
     const rolled: PublishVersion = { ...clone(prev), id: `v${++this.seq}`, at: Date.now(), status: 'rolledback', notes: `Rollback → ${prev.id}` };
@@ -104,13 +107,12 @@ export class PublishEngine {
     return out;
   }
 
-  history(): PublishVersion[] { return [...this.versions].reverse(); }
-  currentCandidate(): PublishVersion | null { return this.candidate; }
-  latestPublished(): PublishVersion | null {
-    const p = this.versions.filter(v => v.status === 'published' || v.status === 'rolledback');
-    return p.length ? p[p.length - 1] : null;
+  /** Version history, newest first — scoped to one entry screen when a kind is given. */
+  history(kind?: EntryKind): PublishVersion[] {
+    const all = [...this.versions].reverse();
+    return kind ? all.filter(v => v.kind === kind) : all;
   }
-  clear(): void { if (this.versions.length || this.candidate) { this.versions = []; this.candidate = null; this.emit(); } }
+  currentCandidate(): PublishVersion | null { return this.candidate; }
 
   subscribe(l: Listener): () => void { this.listeners.add(l); return () => { this.listeners.delete(l); }; }
   private emit(): void { this.listeners.forEach(l => l()); }

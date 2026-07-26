@@ -10,7 +10,7 @@
 import type { EntryKind } from '../entryModel';
 import {
   defaultMotion, presetById, MOTION_PRESETS,
-  type MotionModel, type MotionLayer, type TimelineStep, type VisualEffects, type MotionPreset, type LayerKind,
+  type MotionModel, type MotionLayer, type TimelineStep, type VisualEffects, type MotionPreset,
 } from './motionModel';
 
 type Listener = () => void;
@@ -41,11 +41,12 @@ export class MotionStore {
   private layer(id: string): MotionLayer | undefined { return this.model.layers.find(l => l.id === id); }
   toggleVisible(id: string): void { const l = this.layer(id); if (l && !l.locked) { l.visible = !l.visible; this.emit(); } }
   toggleLock(id: string): void { const l = this.layer(id); if (l) { l.locked = !l.locked; this.emit(); } }
-  rename(id: string, name: string): void { const l = this.layer(id); if (l) { l.name = name; this.emit(); } }
+  rename(id: string, name: string): void { const l = this.layer(id); if (l && !l.locked) { l.name = name; this.emit(); } }
   duplicate(id: string): void {
     const i = this.model.layers.findIndex(l => l.id === id);
     if (i < 0) return;
     const src = this.model.layers[i];
+    // A duplicate is a new, independent, unlocked layer with a unique id (never a duplicate id).
     this.model.layers.splice(i + 1, 0, { ...src, id: `${src.id}_copy${++this.seq}`, name: `${src.name} copy`, locked: false });
     this.emit();
   }
@@ -54,6 +55,8 @@ export class MotionStore {
     const j = i + dir;
     if (i < 0 || j < 0 || j >= this.model.layers.length) return;
     const arr = this.model.layers;
+    // Lock consistency: a locked layer (or a locked neighbour) holds its position.
+    if (arr[i].locked || arr[j].locked) return;
     [arr[i], arr[j]] = [arr[j], arr[i]];
     this.emit();
   }
@@ -150,9 +153,4 @@ export class MotionStore {
 
   subscribe(l: Listener): () => void { this.listeners.add(l); return () => { this.listeners.delete(l); }; }
   private emit(): void { this.listeners.forEach(l => l()); }
-
-  /** Reserved layer kinds for the Layer panel labels. */
-  static layerKinds(): LayerKind[] {
-    return ['background', 'mesh', 'particles', 'rings', 'glow', 'noise', 'blur', 'glass', 'logo', 'text', 'button', 'foreground'];
-  }
 }

@@ -11,6 +11,7 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Play, Pause, RotateCcw, X, Loader2 } from 'lucide-react';
 import { getRuntime } from '../../../runtime/registry';
 import { DEMO_CONTENT_ENABLED } from '../../../config/runtime';
+import { PREVIEW_IDENTITY } from '../../../runtime/preview/previewIdentity';
 import type { RuntimeContext } from '../../../runtime/RuntimeAdapter';
 import '../../../runtime/adapters/customer.adapter';
 
@@ -22,15 +23,13 @@ const SEQUENCE: { id: string; label: string; ms: number }[] = [
   { id: 'home', label: 'Home', ms: 2000 },
 ];
 
-const DEMO_IDENTITY = { id: '11111111-0000-0000-0000-000000000001', phone: '+201000000001', role: 'customer' };
-
 export const BootSimulator: React.FC<{ lang: 'ar' | 'en'; onClose: () => void; width?: number; height?: number }> = ({ lang, onClose, width = 320, height = 680 }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
   const [idx, setIdx] = useState(0);
   const [playing, setPlaying] = useState(true);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const ctx: RuntimeContext = useMemo(() => ({ identity: DEMO_CONTENT_ENABLED ? DEMO_IDENTITY : null, locale: lang, country: 'SA', sandbox: DEMO_CONTENT_ENABLED }), [lang]);
+  const ctx: RuntimeContext = useMemo(() => ({ identity: DEMO_CONTENT_ENABLED ? PREVIEW_IDENTITY.customer : null, locale: lang, country: 'SA', sandbox: DEMO_CONTENT_ENABLED }), [lang]);
   const adapter = getRuntime('customer');
   const stage = SEQUENCE[idx];
   const screenDef = adapter?.getScreen(stage.id);
@@ -43,8 +42,9 @@ export const BootSimulator: React.FC<{ lang: 'ar' | 'en'; onClose: () => void; w
   );
 
   useEffect(() => {
-    if (!playing) return;
-    timer.current = setTimeout(() => setIdx(i => (i + 1 < SEQUENCE.length ? i + 1 : i)), stage.ms);
+    // Stop at the last stage — no idle timeout once the sequence has reached Home.
+    if (!playing || idx >= SEQUENCE.length - 1) return;
+    timer.current = setTimeout(() => setIdx(i => i + 1), stage.ms);
     return () => { if (timer.current) clearTimeout(timer.current); };
   }, [idx, playing, stage.ms]);
 

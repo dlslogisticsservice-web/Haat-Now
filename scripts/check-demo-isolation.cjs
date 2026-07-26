@@ -34,8 +34,8 @@ const DEMO_DATASETS = [
   { file: 'src/features/home/HomeScreen.tsx',     ident: 'FALLBACK_MERCHANTS',   what: 'demo merchants shown when the catalogue is empty' },
   { file: 'src/features/home/HomeScreen.tsx',     ident: 'STATIC_BANNERS',       what: 'demo offer banners shown when there are no live offers' },
   { file: 'src/features/wallet/WalletScreen.tsx', ident: 'SAMPLE_TRANSACTIONS',  what: 'sample wallet transactions shown when the wallet is empty' },
-  { file: 'src/features/admin/AppRuntimePreview.tsx', ident: 'DEMO_IDENTITY', what: 'sandbox preview identities (customer/merchant/driver) that drive the App Studio Live App runtime screens' },
-  { file: 'src/features/admin/motion/BootSimulator.tsx', ident: 'DEMO_IDENTITY', what: 'sandbox preview identity that drives the Motion Studio Live App Boot Simulator (real runtime sequence)' },
+  // Preview identities are deduplicated into src/runtime/preview/previewIdentity.ts (PREVIEW_IDENTITY),
+  // a neutral seam outside features/services; both admin surfaces read it behind DEMO_CONTENT_ENABLED.
 ];
 
 /** Scanned for stray unregistered datasets. */
