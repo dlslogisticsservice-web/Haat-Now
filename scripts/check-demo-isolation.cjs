@@ -35,6 +35,7 @@ const DEMO_DATASETS = [
   { file: 'src/features/home/HomeScreen.tsx',     ident: 'STATIC_BANNERS',       what: 'demo offer banners shown when there are no live offers' },
   { file: 'src/features/wallet/WalletScreen.tsx', ident: 'SAMPLE_TRANSACTIONS',  what: 'sample wallet transactions shown when the wallet is empty' },
   { file: 'src/features/admin/AppRuntimePreview.tsx', ident: 'DEMO_IDENTITY', what: 'sandbox preview identities (customer/merchant/driver) that drive the App Studio Live App runtime screens' },
+  { file: 'src/features/admin/motion/BootSimulator.tsx', ident: 'DEMO_IDENTITY', what: 'sandbox preview identity that drives the Motion Studio Live App Boot Simulator (real runtime sequence)' },
 ];
 
 /** Scanned for stray unregistered datasets. */

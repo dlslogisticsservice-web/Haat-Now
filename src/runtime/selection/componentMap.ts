@@ -176,7 +176,6 @@ export const COMPONENT_MAP: Record<string, MappedComponent[]> = {
   'customer:onboarding': ENTRY_COMPONENTS,
   'customer:privacy': PRIVACY_COMPONENTS,
   'customer:home': CUSTOMER_HOME,
-  'customer:landing': CUSTOMER_HOME,
   'merchant:dashboard': MERCHANT_DASHBOARD,
   'merchant:orders': MERCHANT_DASHBOARD,
   'merchant:products': MERCHANT_DASHBOARD,

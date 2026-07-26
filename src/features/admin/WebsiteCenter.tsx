@@ -37,6 +37,10 @@ import { RuntimeNodeInspector } from './RuntimeNodeInspector';
 import { RuntimeEditStore } from '../../runtime/selection/EditStore';
 import { DraftEngine } from '../../runtime/selection/DraftEngine';
 import { validateValue } from '../../runtime/selection/validation';
+import { MotionStudio, MotionPublishPanel } from './motion/MotionStudio';
+import { MotionStore } from '../../experience-entry/motion/MotionStore';
+import { PublishEngine } from '../../experience-entry/motion/PublishEngine';
+import type { EntryKind } from '../../experience-entry/entryModel';
 import {
   saveExperienceContentOverride, resetExperienceContent, contentOverride,
   contentSnapshot, restoreContentSnapshot, hydrateExperienceContent,
@@ -143,7 +147,7 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   // Canvas view axis for non-website channels: the interactive phone (canvas), the Screen
   // Flow graph, or the User Journey map. Always 'canvas' by default so opening a channel
   // shows the live preview immediately. State preview + zoom shape the phone only.
-  const [canvasView, setCanvasView] = useState<'canvas' | FlowView | 'runtime'>('canvas');
+  const [canvasView, setCanvasView] = useState<'canvas' | FlowView | 'runtime' | 'motion'>('canvas');
   const [previewState, setPreviewState] = useState<PreviewState>('default');
   const [zoom, setZoom] = useState(1);
   // Runtime Selection Layer (Phase 8A): one SelectionManager drives the overlay + inspector.
@@ -164,6 +168,17 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   const [txTick, setTxTick] = useState(0);
   useEffect(() => editStore.subscribe(() => setTxTick(t => t + 1)), [editStore]);
   useEffect(() => draftEngine.subscribe(() => setTxTick(t => t + 1)), [draftEngine]);
+  // Phase 8J — Motion Studio: one MotionStore (layers/timeline/effects/presets) + one PublishEngine
+  // (draft→validate→candidate→approve→publish→rollback + versioning), shared by the center studio
+  // and the right-rail publish panel. Session-only, projected onto the live EntryExperience.
+  const motionStore = useRef(new MotionStore('splash')).current;
+  const publishEngine = useRef(new PublishEngine('super-admin')).current;
+  const [motionTick, setMotionTick] = useState(0);
+  useEffect(() => motionStore.subscribe(() => setMotionTick(t => t + 1)), [motionStore]);
+  useEffect(() => publishEngine.subscribe(() => setMotionTick(t => t + 1)), [publishEngine]);
+  // Which customer entry screens have a Motion Studio, and their EntryKind mapping.
+  const ENTRY_SCREEN_KIND: Record<string, EntryKind> = { splash: 'splash', intro: 'intro', welcome: 'welcome', landing: 'auth', onboarding: 'onboarding' };
+  const entryKind: EntryKind | null = channel === 'customer' ? (ENTRY_SCREEN_KIND[channelScreen] ?? null) : null;
   // Phase 8G — Edit Transaction Engine. Every edit becomes a validated transaction in the store.
   // Text/color/boolean validate synchronously; image URLs validate FORMAT then probe reachability
   // (async), sitting 'pending' until the image loads — applying only on success, so an invalid or
@@ -623,6 +638,14 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
                       </button>
                     );
                   })}
+                  {/* Motion Studio (Phase 8J) — only for entry screens (Splash/Intro/Welcome/Auth/Onboarding) */}
+                  {entryKind && (
+                    <button id="studio_view_motion" onClick={() => setCanvasView('motion')} title={L('استوديو الحركة', 'Motion Studio')}
+                      className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-bold"
+                      style={{ padding: '4px 10px', borderRadius: 999, border: 'none', background: canvasView === 'motion' ? 'var(--color-primary-fixed)' : 'transparent', color: canvasView === 'motion' ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}>
+                      <Wand2 size={13} />{L('الحركة', 'Motion')}
+                    </button>
+                  )}
                 </div>
                 {/* State preview — review the phone in every UI condition (no backend) */}
                 {canvasView === 'canvas' && (
@@ -661,7 +684,9 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
           )}
           <div style={{ flex: 1, overflow: 'auto', padding: 16, display: 'grid', placeItems: 'start center' }} id="studio_canvas">
             {channel !== 'website'
-              ? (canvasView === 'flow' || canvasView === 'journey'
+              ? (canvasView === 'motion' && entryKind
+                ? <MotionStudio kind={entryKind} lang={lang} store={motionStore} publish={publishEngine} tick={motionTick} />
+                : (canvasView === 'flow' || canvasView === 'journey')
                 ? <StudioFlow channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision} view={canvasView}
                     onSelectScreen={(s) => { setChannelScreen(s); setCanvasView('canvas'); }} />
                 : canvasView === 'runtime'
@@ -703,7 +728,9 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
 
         {/* RIGHT — properties */}
         <div style={{ ...card, padding: 14, overflow: 'auto' }} id="studio_right">
-          {channel !== 'website' && canvasView === 'runtime' ? (
+          {channel !== 'website' && canvasView === 'motion' && entryKind ? (
+            <MotionPublishPanel kind={entryKind} lang={lang} store={motionStore} publish={publishEngine} tick={motionTick} />
+          ) : channel !== 'website' && canvasView === 'runtime' ? (
             <RuntimeNodeInspector node={runtimeNode} lang={lang} onEdit={editRuntimeProp} store={editStore} drafts={draftEngine} txTick={txTick} />
           ) : channel !== 'website' ? (
             <AppStudioPanels channel={channel} screenId={channelScreen} lang={lang} decision={channelDecision}
