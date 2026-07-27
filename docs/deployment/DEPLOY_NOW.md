@@ -43,7 +43,7 @@ vercel --prod
 |---|---|---|
 | `VITE_AUTH_MODE` | `supabase` | **critical** — keeps sandbox/demo OTP off |
 | `VITE_SUPABASE_URL` | `https://umwbzradvbsirsybfxfb.supabase.co` | |
-| `VITE_SUPABASE_ANON_KEY` | `sb_publishable_R8uXSgCyxFK-TpZsFMnIrg_Mkm-MGOD` | publishable (public) |
+| `VITE_SUPABASE_ANON_KEY` | *(publishable key — copy from Supabase → Project Settings → API)* | publishable (public) |
 | `VITE_GOOGLE_MAPS_API_KEY` | (your key) | optional — maps else fallback |
 | `VITE_STRIPE_PUBLIC_KEY` / `VITE_PAYMOB_PUBLIC_KEY` / `VITE_MADA_PUBLIC_KEY` | (publishable) | for card checkout (COD works without) |
 

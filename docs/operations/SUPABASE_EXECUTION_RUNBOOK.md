@@ -40,7 +40,7 @@ SUPER_UID    = ______________________________   (+201000000005)
 **Validate:** in browser/terminal:
 ```
 curl -s -X POST "https://umwbzradvbsirsybfxfb.supabase.co/auth/v1/otp" \
-  -H "apikey: sb_publishable_R8uXSgCyxFK-TpZsFMnIrg_Mkm-MGOD" \
+  -H "apikey: $VITE_SUPABASE_ANON_KEY" \
   -H "Content-Type: application/json" -d '{"phone":"+201000000001"}'
 ```
 → must return **`{}` / 200** (NOT `phone_provider_disabled`).

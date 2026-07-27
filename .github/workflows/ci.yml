@@ -36,6 +36,13 @@ jobs:
   live-build:
     name: Live backend build (HAAT_LIVE_BACKEND=1)
     runs-on: ubuntu-latest
+    # LR-1 fix — this is a COMPILE check of the live code path, not a real live deploy, so it
+    # runs without Supabase secrets. scripts/live.cjs hard-gates on VITE_SUPABASE_* for real
+    # production builds; HAAT_ENV_ADVISORY=1 downgrades that gate to a warning FOR CI ONLY
+    # (exactly as scripts/check-env.cjs + scripts/live.cjs document). A production deploy MUST
+    # NOT set this flag. Without it, check:env exits 1 and this job fails on every push.
+    env:
+      HAAT_ENV_ADVISORY: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

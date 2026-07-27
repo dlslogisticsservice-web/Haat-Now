@@ -37,7 +37,7 @@
 | **`MOYASAR_WEBHOOK_SECRET`** *secret* | Supabase → Edge Functions → Secrets | Webhook signature validates; `webhook_events` row written once (idempotent) | OPS |
 | **`SUPABASE_SERVICE_ROLE_KEY`** *secret* | Supabase → Edge Functions → Secrets (auto-available to functions) | `payment-refund` / `payment-webhook` execute server-side writes | OPS |
 | **`VITE_SUPABASE_URL`** = `https://umwbzradvbsirsybfxfb.supabase.co` | Vercel → Project → Env (Production) | `npm run check:env` passes; app connects | OPS |
-| **`VITE_SUPABASE_ANON_KEY`** = `sb_publishable_R8uX…` (publishable, public) | Vercel → Project → Env (Production) | `check:env` passes | OPS |
+| **`VITE_SUPABASE_ANON_KEY`** = *(publishable key from Supabase → Project Settings → API)* | Vercel → Project → Env (Production) | `check:env` passes | OPS |
 | **`VITE_GOOGLE_MAPS_API_KEY`** | Vercel → Env (Production) | Tracking map tiles render (Phase 6 MAPS-1) | OPS |
 | **`VITE_SENTRY_DSN`** (recommended) | Vercel → Env (Production) | Crash appears in Sentry after a forced test error | OPS |
 | **`VITE_ANALYTICS_URL`** (optional) | Vercel → Env (Production) | Collector receives a pageview event | OPS |

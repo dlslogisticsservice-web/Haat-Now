@@ -9,7 +9,7 @@ Every environment variable for production. Set **frontend `VITE_` vars in Vercel
 |---|---|---|---|
 | `VITE_AUTH_MODE` | `supabase` | ✅ **critical** | Disables sandbox/demo OTP in prod |
 | `VITE_SUPABASE_URL` | `https://umwbzradvbsirsybfxfb.supabase.co` | ✅ | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | `sb_publishable_R8uXSgCyxFK-TpZsFMnIrg_Mkm-MGOD` | ✅ | Publishable anon key (public) |
+| `VITE_SUPABASE_ANON_KEY` | *(publishable key — copy from Supabase → Project Settings → API)* | ✅ | Publishable anon key (public) |
 | `VITE_GOOGLE_MAPS_API_KEY` | _your Maps JS key_ | ⚠️ recommended | Interactive map; absent → static fallback |
 | `VITE_STRIPE_PUBLIC_KEY` | _pk_live_…_ | ⚠️ if cards | Stripe publishable |
 | `VITE_PAYMOB_PUBLIC_KEY` | _…_ | ⚠️ if cards | Paymob public |

@@ -4,8 +4,14 @@
  */
 const https = require('https');
 
-const URL  = 'https://umwbzradvbsirsybfxfb.supabase.co';
-const KEY  = 'sb_publishable_R8uXSgCyxFK-TpZsFMnIrg_Mkm-MGOD';
+// LR-1 — project URL + publishable key come from the environment, never committed.
+//   VITE_SUPABASE_URL=https://<ref>.supabase.co VITE_SUPABASE_ANON_KEY=<key> node __db_audit.cjs
+const URL = process.env.VITE_SUPABASE_URL || '';
+const KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
+if (!URL || !KEY) {
+  console.error('Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in the environment before running this audit.');
+  process.exit(1);
+}
 
 function get(path) {
   return new Promise((resolve, reject) => {
