@@ -13,13 +13,19 @@ import type { BuilderNode, MasterComponent, Breakpoint } from './types';
 import { evaluate, interpolate, hasBinding, type Scope } from './logic/expression';
 import { defaultDataSources, dataScope } from './logic/dataSources';
 import type { Variable, Binding, ActionSpec, Condition, Validator, Workflow, WorkflowTraceStep, DataSource } from './logic/logicTypes';
+import { defaultFields, mockRecords, did, type Entity, type Field, type Relation, type Collection, type Permission, type QuerySpec, type DataRecord, type AuditEntry } from './data/dataModel';
+import { runQuery, type QueryResult } from './data/queryEngine';
 
 let seq = 0;
 const uid = (p = 'n') => `${p}_${++seq}`;
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
-// Design-time state (undoable): the tree, reusable masters, variables, data sources, workflows.
-interface State { root: BuilderNode; masters: MasterComponent[]; variables: Variable[]; dataSources: DataSource[]; workflows: Workflow[]; }
+// Design-time state (undoable): tree, masters, variables, data sources, workflows, AND the data
+// model + records (Phase 9C — entities/relations/collections/records live in the ONE store).
+interface State {
+  root: BuilderNode; masters: MasterComponent[]; variables: Variable[]; dataSources: DataSource[]; workflows: Workflow[];
+  entities: Entity[]; relations: Relation[]; collections: Collection[]; records: Record<string, DataRecord[]>;
+}
 type Listener = () => void;
 
 /** Build a fresh node for a spec, seeded with the spec's default props. */
@@ -35,7 +41,11 @@ function reid(node: BuilderNode): BuilderNode {
 }
 
 export class BuilderStore {
-  private state: State = { root: { id: 'root', specId: '__root__', props: {}, children: [] }, masters: [], variables: [], dataSources: defaultDataSources(), workflows: [] };
+  private state: State = { root: { id: 'root', specId: '__root__', props: {}, children: [] }, masters: [], variables: [], dataSources: defaultDataSources(), workflows: [], entities: [], relations: [], collections: [], records: {} };
+  // Data-platform runtime (not undoable): audit log + realtime sync queue.
+  private auditLog: AuditEntry[] = [];
+  private syncQueue: { op: string; entity: string; recordId: string }[] = [];
+  private online = true;
   private selectedId: string | null = null;
   private breakpoint: Breakpoint = 'desktop';
   private undoStack: string[] = [];
@@ -259,7 +269,10 @@ export class BuilderStore {
   /** The evaluation scope shared by bindings, conditions, computed variables and expressions. */
   scope(): Scope {
     const vars: Record<string, unknown> = {};
-    const base = { state: this.appState, data: dataScope(this.state.dataSources), theme: { primary: 'primary', surface: 'surface' }, ctx: this.ctx };
+    // Phase 9C — expose entity records as `db.<entity>` so bindings/queries reference live data.
+    const db: Record<string, unknown> = {};
+    for (const e of this.state.entities) db[e.name.toLowerCase()] = this.records(e.id);
+    const base = { state: this.appState, data: dataScope(this.state.dataSources), db, theme: { primary: 'primary', surface: 'surface' }, ctx: this.ctx };
     for (const v of this.state.variables) {
       if (v.scope === 'computed' && v.computed) { const r = evaluate(v.computed, { var: vars, ...base }); vars[v.name] = r.ok ? r.value : undefined; }
       else vars[v.name] = v.value;
@@ -375,6 +388,96 @@ export class BuilderStore {
       if (Object.keys(n.bindings).length) out.push({ nodeId: n.id, spec: n.specId, refs });
     });
     return out;
+  }
+
+  // ═══ Phase 9C · Visual Data Platform ════════════════════════════════════════
+  private audit(op: string, entity: string, recordId: string, detail = ''): void {
+    this.auditLog = [...this.auditLog, { at: Date.now(), op, entity, recordId, actor: this.ctx.role, detail }].slice(-200);
+    this.syncQueue.push({ op, entity, recordId });
+    if (this.online) this.syncQueue = []; // flushed immediately when "online"
+  }
+  auditEntries(): AuditEntry[] { return [...this.auditLog].reverse(); }
+  syncPending(): number { return this.syncQueue.length; }
+  isOnline(): boolean { return this.online; }
+  setOnline(v: boolean): void { this.online = v; if (v) this.syncQueue = []; this.emit(); } // reconnect flushes the queue
+
+  // ── Entities ──
+  entities(): Entity[] { return this.state.entities; }
+  getEntity(id: string): Entity | undefined { return this.state.entities.find(e => e.id === id); }
+  addEntity(name: string): Entity {
+    this.snap();
+    const e: Entity = { id: did('e'), name: name || `Entity${this.state.entities.length + 1}`, icon: 'Database', color: '#a3f95b', tags: [], system: false, version: 1, fields: defaultFields(), mapping: { provider: 'local', target: (name || 'entity').toLowerCase(), reuses: '—' }, permissions: (['create', 'read', 'update', 'delete'] as const).map(op => ({ id: did('p'), op, role: 'any' })) };
+    this.state.entities.push(e);
+    this.state.records[e.id] = mockRecords(e, this.ctx.tenant, 6);
+    this.emit();
+    return e;
+  }
+  updateEntity(id: string, patch: Partial<Entity>): void { const e = this.getEntity(id); if (e) { this.snap(); Object.assign(e, patch); e.version += 1; this.emit(); } }
+  removeEntity(id: string): void { this.snap(); this.state.entities = this.state.entities.filter(e => e.id !== id); delete this.state.records[id]; this.state.relations = this.state.relations.filter(r => r.from !== id && r.to !== id); this.emit(); }
+
+  // ── Fields ──
+  addField(entityId: string, type: Field['type'], name: string): void { const e = this.getEntity(entityId); if (!e) return; this.snap(); e.fields.push({ id: did('f'), name: name || `field${e.fields.length}`, type, settings: { filterable: true, sortable: true } }); this.emit(); }
+  updateField(entityId: string, fieldId: string, patch: Partial<Field> & { settings?: Partial<Field['settings']> }): void {
+    const f = this.getEntity(entityId)?.fields.find(x => x.id === fieldId); if (!f) return; this.snap();
+    if (patch.settings) f.settings = { ...f.settings, ...patch.settings };
+    if (patch.name != null) f.name = patch.name; if (patch.type) f.type = patch.type;
+    this.emit();
+  }
+  removeField(entityId: string, fieldId: string): void { const e = this.getEntity(entityId); if (!e) return; this.snap(); e.fields = e.fields.filter(f => f.id !== fieldId); this.emit(); }
+
+  // ── Relations ──
+  relations(): Relation[] { return this.state.relations; }
+  addRelation(r: Omit<Relation, 'id'>): void { this.snap(); this.state.relations.push({ ...r, id: did('rel') }); this.emit(); }
+  removeRelation(id: string): void { this.snap(); this.state.relations = this.state.relations.filter(r => r.id !== id); this.emit(); }
+
+  // ── Collections ──
+  collections(): Collection[] { return this.state.collections; }
+  addCollection(c: Omit<Collection, 'id'>): void { this.snap(); this.state.collections.push({ ...c, id: did('c') }); this.emit(); }
+  removeCollection(id: string): void { this.snap(); this.state.collections = this.state.collections.filter(c => c.id !== id); this.emit(); }
+
+  // ── Permissions ──
+  addPermission(entityId: string, perm: Omit<Permission, 'id'>): void { const e = this.getEntity(entityId); if (!e) return; this.snap(); e.permissions.push({ ...perm, id: did('p') }); this.emit(); }
+  removePermission(entityId: string, permId: string): void { const e = this.getEntity(entityId); if (!e) return; this.snap(); e.permissions = e.permissions.filter(p => p.id !== permId); this.emit(); }
+  /** Can the current role perform an op on an entity? (role 'any' / matching role, + optional expr.) */
+  can(entityId: string, op: Permission['op']): boolean {
+    const e = this.getEntity(entityId); if (!e) return false;
+    const perms = e.permissions.filter(p => p.op === op);
+    if (!perms.length) return false;
+    return perms.some(p => (p.role === 'any' || p.role === this.ctx.role) && (!p.expr || !!this.evalExpr(p.expr).value));
+  }
+
+  // ── CRUD (tenant-isolated) ──
+  /** Records for an entity, isolated to the current tenant; excludes soft-deleted by default. */
+  records(entityId: string, opts: { includeDeleted?: boolean; includeArchived?: boolean } = {}): DataRecord[] {
+    return (this.state.records[entityId] || []).filter(r => r.tenantId === this.ctx.tenant && (opts.includeDeleted || !r._deleted) && (opts.includeArchived || !r._archived));
+  }
+  allRecordsRaw(entityId: string): DataRecord[] { return this.state.records[entityId] || []; }
+  createRecord(entityId: string, data: Record<string, unknown>): DataRecord | null {
+    if (!this.can(entityId, 'create')) { this.audit('create-denied', entityId, '', `role ${this.ctx.role}`); this.emit(); return null; }
+    this.snap();
+    const rec: DataRecord = { id: did('r'), tenantId: this.ctx.tenant, _createdAt: this.stamp(), _updatedAt: this.stamp(), ...data };
+    (this.state.records[entityId] = this.state.records[entityId] || []).push(rec);
+    this.audit('create', entityId, rec.id); this.emit(); return rec;
+  }
+  updateRecord(entityId: string, id: string, patch: Record<string, unknown>): void { const r = this.allRecordsRaw(entityId).find(x => x.id === id); if (!r) return; this.snap(); Object.assign(r, patch, { _updatedAt: this.stamp() }); this.audit('update', entityId, id); this.emit(); }
+  deleteRecord(entityId: string, id: string): void { this.snap(); this.state.records[entityId] = this.allRecordsRaw(entityId).filter(r => r.id !== id); this.audit('delete', entityId, id); this.emit(); }
+  softDelete(entityId: string, id: string): void { this.updateFlag(entityId, id, '_deleted', true, 'soft-delete'); }
+  restore(entityId: string, id: string): void { this.updateFlag(entityId, id, '_deleted', false, 'restore'); }
+  archive(entityId: string, id: string): void { this.updateFlag(entityId, id, '_archived', true, 'archive'); }
+  unarchive(entityId: string, id: string): void { this.updateFlag(entityId, id, '_archived', false, 'unarchive'); }
+  private updateFlag(entityId: string, id: string, flag: '_deleted' | '_archived', val: boolean, op: string): void { const r = this.allRecordsRaw(entityId).find(x => x.id === id); if (!r) return; this.snap(); r[flag] = val; r._updatedAt = this.stamp(); this.audit(op, entityId, id); this.emit(); }
+  bulkUpdate(entityId: string, ids: string[], patch: Record<string, unknown>): void { this.snap(); for (const r of this.allRecordsRaw(entityId)) if (ids.includes(r.id)) Object.assign(r, patch, { _updatedAt: this.stamp() }); this.audit('bulk-update', entityId, ids.join(','), `${ids.length} rows`); this.emit(); }
+  bulkDelete(entityId: string, ids: string[]): void { this.snap(); this.state.records[entityId] = this.allRecordsRaw(entityId).filter(r => !ids.includes(r.id)); this.audit('bulk-delete', entityId, ids.join(','), `${ids.length} rows`); this.emit(); }
+  duplicateRecord(entityId: string, id: string): void { const r = this.allRecordsRaw(entityId).find(x => x.id === id); if (!r) return; this.snap(); const copy = { ...clone(r), id: did('r'), _createdAt: this.stamp(), _updatedAt: this.stamp() }; this.allRecordsRaw(entityId).push(copy); this.audit('duplicate', entityId, copy.id); this.emit(); }
+  importRecords(entityId: string, json: string): number { try { const arr = JSON.parse(json); if (!Array.isArray(arr)) return 0; this.snap(); const recs = arr.map((d: Record<string, unknown>) => ({ id: did('r'), tenantId: this.ctx.tenant, _createdAt: this.stamp(), _updatedAt: this.stamp(), ...d })); (this.state.records[entityId] = this.state.records[entityId] || []).push(...recs); this.audit('import', entityId, '', `${recs.length} rows`); this.emit(); return recs.length; } catch { return 0; } }
+  exportRecords(entityId: string): string { return JSON.stringify(this.records(entityId), null, 2); }
+  seedEntity(entityId: string, n = 6): void { const e = this.getEntity(entityId); if (!e) return; this.snap(); this.state.records[entityId] = [...(this.state.records[entityId] || []), ...mockRecords(e, this.ctx.tenant, n)]; this.audit('seed', entityId, '', `${n} rows`); this.emit(); }
+  private stamp(): number { return Date.now(); }
+
+  // ── Query (uses the ONE query engine + tenant isolation) ──
+  query(spec: QuerySpec, opts: { includeDeleted?: boolean } = {}): QueryResult {
+    const recs = this.records(spec.entityId, { includeDeleted: opts.includeDeleted, includeArchived: true });
+    return runQuery(recs, spec, opts);
   }
 
   subscribe(l: Listener): () => void { this.listeners.add(l); return () => { this.listeners.delete(l); }; }

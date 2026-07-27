@@ -79,9 +79,12 @@ const NodeView: React.FC<{ node: BuilderNode; store: BuilderStore; selectedId: s
   );
 };
 
-export const ComponentPlatform: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => {
+export const ComponentPlatform: React.FC<{ lang: 'ar' | 'en'; store?: BuilderStore }> = ({ lang, store: ext }) => {
   const L = (a: string, e: string) => (lang === 'ar' ? a : e);
-  const store = useRef(new BuilderStore()).current;
+  // Shared BuilderStore (Phase 9C) — the same store backs the Data Platform, so entities are
+  // available to bindings as db.*. Falls back to a private store when used standalone.
+  const fallback = useRef(new BuilderStore()).current;
+  const store = ext ?? fallback;
   const [, force] = useReducer(c => c + 1, 0);
   useEffect(() => store.subscribe(() => force()), [store]);
 

@@ -5,7 +5,7 @@ import {
   Palette, FileText, PanelBottom, Navigation2, RotateCw, Settings2,
   Wand2, MousePointerClick, Sliders, Lock, LockOpen, Sparkles, Languages, Search as SearchIcon,
   ShieldCheck, AlertTriangle, HeartPulse,
-  Layers, MapPin, ZoomIn, ZoomOut, Layout, Type as TypeIcon, MonitorSmartphone,
+  Layers, MapPin, ZoomIn, ZoomOut, Layout, Type as TypeIcon, MonitorSmartphone, Database,
 } from 'lucide-react';
 import { SectionHeader, EmptyStateBox } from '../../components/admin/EnterpriseUI';
 import { toast } from '../../components/ui/feedback';
@@ -39,6 +39,8 @@ import { DraftEngine } from '../../runtime/selection/DraftEngine';
 import { validateValue } from '../../runtime/selection/validation';
 import { MotionStudio, MotionPublishPanel } from './motion/MotionStudio';
 import { ComponentPlatform } from './builder/ComponentPlatform';
+import { DataPlatform } from './builder/DataPlatform';
+import { BuilderStore } from '../../component-platform/BuilderStore';
 import { MotionStore } from '../../experience-entry/motion/MotionStore';
 import { PublishEngine } from '../../experience-entry/motion/PublishEngine';
 import type { EntryKind } from '../../experience-entry/entryModel';
@@ -179,8 +181,11 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
   // Which customer entry screens have a Motion Studio, and their EntryKind mapping.
   const ENTRY_SCREEN_KIND: Record<string, EntryKind> = { splash: 'splash', intro: 'intro', welcome: 'welcome', landing: 'auth', onboarding: 'onboarding' };
   const entryKind: EntryKind | null = channel === 'customer' ? (ENTRY_SCREEN_KIND[channelScreen] ?? null) : null;
-  // Phase 9A — the Visual Component Platform opens as a full-surface builder over the Studio.
+  // Phase 9A/9C — the Visual Component Platform + Visual Data Platform open as full-surface
+  // builders over the Studio, sharing ONE BuilderStore (so entities bind via db.* in the builder).
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [dataOpen, setDataOpen] = useState(false);
+  const builderStore = useRef(new BuilderStore()).current;
   // Phase 8G — Edit Transaction Engine. Every edit becomes a validated transaction in the store.
   // Text/color/boolean validate synchronously; image URLs validate FORMAT then probe reachability
   // (async), sitting 'pending' until the image loads — applying only on success, so an invalid or
@@ -479,7 +484,17 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
             <button id="cp_close" onClick={() => setBuilderOpen(false)} style={{ ...iconBtn, width: 'auto', padding: '5px 12px', gap: 5, display: 'inline-flex', alignItems: 'center' }}>← {L('رجوع', 'Back')}</button>
             <span style={{ fontWeight: 800, color: 'var(--color-on-surface)', display: 'inline-flex', alignItems: 'center', gap: 7 }}><Layers size={16} style={{ color: 'var(--color-primary-fixed)' }} />{L('منصّة المكوّنات المرئية', 'Visual Component Platform')}</span>
           </div>
-          <div style={{ flex: 1, overflow: 'hidden', padding: 12 }}><ComponentPlatform lang={lang} /></div>
+          <div style={{ flex: 1, overflow: 'hidden', padding: 12 }}><ComponentPlatform lang={lang} store={builderStore} /></div>
+        </div>
+      )}
+      {/* ── Phase 9C · Visual Data Platform — full-surface, shares the builder store ── */}
+      {dataOpen && (
+        <div id="visual_data_surface" style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'var(--color-background)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid var(--color-outline-variant)' }}>
+            <button id="dp_close" onClick={() => setDataOpen(false)} style={{ ...iconBtn, width: 'auto', padding: '5px 12px', gap: 5, display: 'inline-flex', alignItems: 'center' }}>← {L('رجوع', 'Back')}</button>
+            <span style={{ fontWeight: 800, color: 'var(--color-on-surface)', display: 'inline-flex', alignItems: 'center', gap: 7 }}><Layers size={16} style={{ color: 'var(--color-primary-fixed)' }} />{L('منصّة البيانات المرئية', 'Visual Data Platform')}</span>
+          </div>
+          <div style={{ flex: 1, overflow: 'hidden', padding: 12 }}><DataPlatform lang={lang} store={builderStore} /></div>
         </div>
       )}
       {/* ── Studio top bar ── */}
@@ -542,10 +557,16 @@ export const WebsiteCenter: React.FC<{ lang: 'ar' | 'en'; initialChannel?: Chann
         <div style={{ ...card, padding: 8, overflow: 'auto' }} id="studio_left">
           {/* Phase 9A — open the Visual Component Platform (builds every surface visually). */}
           <button id="studio_builder_entry" onClick={() => setBuilderOpen(true)}
-            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-start mb-2"
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-start mb-1"
             style={{ background: 'color-mix(in srgb, var(--color-primary-fixed) 16%, transparent)', color: 'var(--color-on-surface)', border: '1px solid var(--color-primary-fixed)' }}>
             <Layers size={15} style={{ color: 'var(--color-primary-fixed,#a3f95b)' }} />
             <span className="text-[13px] font-extrabold flex-1">{L('منصّة المكوّنات المرئية', 'Visual Component Platform')}</span>
+          </button>
+          <button id="studio_data_entry" onClick={() => setDataOpen(true)}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer text-start mb-2"
+            style={{ background: 'color-mix(in srgb, var(--color-primary-fixed) 16%, transparent)', color: 'var(--color-on-surface)', border: '1px solid var(--color-primary-fixed)' }}>
+            <Database size={15} style={{ color: 'var(--color-primary-fixed,#a3f95b)' }} />
+            <span className="text-[13px] font-extrabold flex-1">{L('منصّة البيانات المرئية', 'Visual Data Platform')}</span>
           </button>
           {/* Experience Channels — always visible; selects which channel the Studio edits. */}
           <ChannelNavigator channel={channel} screenId={channelScreen} lang={lang} onChannel={selectChannel} onScreen={setChannelScreen} />
