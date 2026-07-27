@@ -27,7 +27,6 @@ const b = (v: unknown) => v === true || v === 'true';                          /
 const surface: React.CSSProperties = { background: tok('color.surface'), border: `1px solid ${tok('color.outline')}`, borderRadius: tok('radius.md'), color: tok('color.onSurface') };
 const specs: ComponentSpec[] = [];
 function C_(spec: ComponentSpec) { specs.push(spec); }
-let n = 0;
 const mk = (
   category: ComponentCategory, id: string, name: string, description: string, icon: string,
   props: PropSpec[], defaultProps: Record<string, unknown>, render: ComponentSpec['render'],
@@ -240,5 +239,3 @@ mk('Feedback', 'alert', 'Alert', 'An inline alert banner.', 'Info', [t('text', '
 
 // Register everything.
 specs.forEach(registerComponent);
-export const COMPONENT_COUNT = specs.length;
-void n;

@@ -26,11 +26,13 @@ let seq = 0;
 const uid = (p = 'n') => `${p}_${++seq}`;
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
-// Design-time state (undoable): tree, masters, variables, data sources, workflows, AND the data
-// model + records (Phase 9C — entities/relations/collections/records live in the ONE store).
+// Design-time state (undoable): tree, masters, variables, data sources, workflows, and the data
+// SCHEMA (entities/relations/collections/schema versions). Phase 9E — record ROWS are kept OUT of
+// this snapshot (in recordStore) so undo/redo + every design-time op stays O(schema), not O(rows):
+// snapshotting the design model never serializes 100k data rows.
 interface State {
   root: BuilderNode; masters: MasterComponent[]; variables: Variable[]; dataSources: DataSource[]; workflows: Workflow[];
-  entities: Entity[]; relations: Relation[]; collections: Collection[]; records: Record<string, DataRecord[]>;
+  entities: Entity[]; relations: Relation[]; collections: Collection[];
   schemaVersions: Record<string, SchemaVersion[]>;
 }
 type Listener = () => void;
@@ -48,7 +50,9 @@ function reid(node: BuilderNode): BuilderNode {
 }
 
 export class BuilderStore {
-  private state: State = { root: { id: 'root', specId: '__root__', props: {}, children: [] }, masters: [], variables: [], dataSources: defaultDataSources(), workflows: [], entities: [], relations: [], collections: [], records: {}, schemaVersions: {} };
+  private state: State = { root: { id: 'root', specId: '__root__', props: {}, children: [] }, masters: [], variables: [], dataSources: defaultDataSources(), workflows: [], entities: [], relations: [], collections: [], schemaVersions: {} };
+  // Data rows — a separate store OUTSIDE the undo snapshot (Phase 9E memory/perf hardening).
+  private recordStore: Record<string, DataRecord[]> = {};
   // Data-platform runtime (not undoable): audit log + realtime sync queue.
   private auditLog: AuditEntry[] = [];
   private syncQueue: { op: string; entity: string; recordId: string }[] = [];
@@ -276,9 +280,15 @@ export class BuilderStore {
   /** The evaluation scope shared by bindings, conditions, computed variables and expressions. */
   scope(): Scope {
     const vars: Record<string, unknown> = {};
-    // Phase 9C — expose entity records as `db.<entity>` so bindings/queries reference live data.
+    // Phase 9C — expose entity records as `db.<entity>`. Phase 9E — LAZY: each entity's rows are
+    // filtered only when an expression actually reads db.<entity>, so bindings that use var.*/state.*
+    // (the vast majority) never pay the O(rows) cost — evaluation stays O(1) regardless of data size.
     const db: Record<string, unknown> = {};
-    for (const e of this.state.entities) db[e.name.toLowerCase()] = this.records(e.id);
+    const cache: Record<string, unknown> = {};
+    for (const e of this.state.entities) {
+      const key = e.name.toLowerCase();
+      Object.defineProperty(db, key, { enumerable: true, configurable: true, get: () => (key in cache ? cache[key] : (cache[key] = this.records(e.id))) });
+    }
     const base = { state: this.appState, data: dataScope(this.state.dataSources), db, theme: { primary: 'primary', surface: 'surface' }, ctx: this.ctx };
     for (const v of this.state.variables) {
       if (v.scope === 'computed' && v.computed) { const r = evaluate(v.computed, { var: vars, ...base }); vars[v.name] = r.ok ? r.value : undefined; }
@@ -415,12 +425,12 @@ export class BuilderStore {
     this.snap();
     const e: Entity = { id: did('e'), name: name || `Entity${this.state.entities.length + 1}`, icon: 'Database', color: '#a3f95b', tags: [], system: false, version: 1, fields: defaultFields(), mapping: { provider: 'local', target: (name || 'entity').toLowerCase(), reuses: '—' }, permissions: (['create', 'read', 'update', 'delete'] as const).map(op => ({ id: did('p'), op, role: 'any' })) };
     this.state.entities.push(e);
-    this.state.records[e.id] = mockRecords(e, this.ctx.tenant, 6);
+    this.recordStore[e.id] = mockRecords(e, this.ctx.tenant, 6);
     this.emit();
     return e;
   }
   updateEntity(id: string, patch: Partial<Entity>): void { const e = this.getEntity(id); if (e) { this.snap(); Object.assign(e, patch); e.version += 1; this.emit(); } }
-  removeEntity(id: string): void { this.snap(); this.state.entities = this.state.entities.filter(e => e.id !== id); delete this.state.records[id]; this.state.relations = this.state.relations.filter(r => r.from !== id && r.to !== id); this.emit(); }
+  removeEntity(id: string): void { this.snap(); this.state.entities = this.state.entities.filter(e => e.id !== id); delete this.recordStore[id]; this.state.relations = this.state.relations.filter(r => r.from !== id && r.to !== id); this.emit(); }
 
   // ── Fields ──
   addField(entityId: string, type: Field['type'], name: string): void { const e = this.getEntity(entityId); if (!e) return; this.snap(); e.fields.push({ id: did('f'), name: name || `field${e.fields.length}`, type, settings: { filterable: true, sortable: true } }); this.emit(); }
@@ -456,29 +466,29 @@ export class BuilderStore {
   // ── CRUD (tenant-isolated) ──
   /** Records for an entity, isolated to the current tenant; excludes soft-deleted by default. */
   records(entityId: string, opts: { includeDeleted?: boolean; includeArchived?: boolean } = {}): DataRecord[] {
-    return (this.state.records[entityId] || []).filter(r => r.tenantId === this.ctx.tenant && (opts.includeDeleted || !r._deleted) && (opts.includeArchived || !r._archived));
+    return (this.recordStore[entityId] || []).filter(r => r.tenantId === this.ctx.tenant && (opts.includeDeleted || !r._deleted) && (opts.includeArchived || !r._archived));
   }
-  allRecordsRaw(entityId: string): DataRecord[] { return this.state.records[entityId] || []; }
+  allRecordsRaw(entityId: string): DataRecord[] { return this.recordStore[entityId] || []; }
   createRecord(entityId: string, data: Record<string, unknown>): DataRecord | null {
     if (!this.can(entityId, 'create')) { this.audit('create-denied', entityId, '', `role ${this.ctx.role}`); this.emit(); return null; }
     this.snap();
     const rec: DataRecord = { id: did('r'), tenantId: this.ctx.tenant, _createdAt: this.stamp(), _updatedAt: this.stamp(), ...data };
-    (this.state.records[entityId] = this.state.records[entityId] || []).push(rec);
+    (this.recordStore[entityId] = this.recordStore[entityId] || []).push(rec);
     this.audit('create', entityId, rec.id); this.emit(); return rec;
   }
   updateRecord(entityId: string, id: string, patch: Record<string, unknown>): void { const r = this.allRecordsRaw(entityId).find(x => x.id === id); if (!r) return; this.snap(); Object.assign(r, patch, { _updatedAt: this.stamp() }); this.audit('update', entityId, id); this.emit(); }
-  deleteRecord(entityId: string, id: string): void { this.snap(); this.state.records[entityId] = this.allRecordsRaw(entityId).filter(r => r.id !== id); this.audit('delete', entityId, id); this.emit(); }
+  deleteRecord(entityId: string, id: string): void { this.snap(); this.recordStore[entityId] = this.allRecordsRaw(entityId).filter(r => r.id !== id); this.audit('delete', entityId, id); this.emit(); }
   softDelete(entityId: string, id: string): void { this.updateFlag(entityId, id, '_deleted', true, 'soft-delete'); }
   restore(entityId: string, id: string): void { this.updateFlag(entityId, id, '_deleted', false, 'restore'); }
   archive(entityId: string, id: string): void { this.updateFlag(entityId, id, '_archived', true, 'archive'); }
   unarchive(entityId: string, id: string): void { this.updateFlag(entityId, id, '_archived', false, 'unarchive'); }
   private updateFlag(entityId: string, id: string, flag: '_deleted' | '_archived', val: boolean, op: string): void { const r = this.allRecordsRaw(entityId).find(x => x.id === id); if (!r) return; this.snap(); r[flag] = val; r._updatedAt = this.stamp(); this.audit(op, entityId, id); this.emit(); }
   bulkUpdate(entityId: string, ids: string[], patch: Record<string, unknown>): void { this.snap(); for (const r of this.allRecordsRaw(entityId)) if (ids.includes(r.id)) Object.assign(r, patch, { _updatedAt: this.stamp() }); this.audit('bulk-update', entityId, ids.join(','), `${ids.length} rows`); this.emit(); }
-  bulkDelete(entityId: string, ids: string[]): void { this.snap(); this.state.records[entityId] = this.allRecordsRaw(entityId).filter(r => !ids.includes(r.id)); this.audit('bulk-delete', entityId, ids.join(','), `${ids.length} rows`); this.emit(); }
+  bulkDelete(entityId: string, ids: string[]): void { this.snap(); this.recordStore[entityId] = this.allRecordsRaw(entityId).filter(r => !ids.includes(r.id)); this.audit('bulk-delete', entityId, ids.join(','), `${ids.length} rows`); this.emit(); }
   duplicateRecord(entityId: string, id: string): void { const r = this.allRecordsRaw(entityId).find(x => x.id === id); if (!r) return; this.snap(); const copy = { ...clone(r), id: did('r'), _createdAt: this.stamp(), _updatedAt: this.stamp() }; this.allRecordsRaw(entityId).push(copy); this.audit('duplicate', entityId, copy.id); this.emit(); }
-  importRecords(entityId: string, json: string): number { try { const arr = JSON.parse(json); if (!Array.isArray(arr)) return 0; this.snap(); const recs = arr.map((d: Record<string, unknown>) => ({ id: did('r'), tenantId: this.ctx.tenant, _createdAt: this.stamp(), _updatedAt: this.stamp(), ...d })); (this.state.records[entityId] = this.state.records[entityId] || []).push(...recs); this.audit('import', entityId, '', `${recs.length} rows`); this.emit(); return recs.length; } catch { return 0; } }
+  importRecords(entityId: string, json: string): number { try { const arr = JSON.parse(json); if (!Array.isArray(arr)) return 0; this.snap(); const recs = arr.map((d: Record<string, unknown>) => ({ id: did('r'), tenantId: this.ctx.tenant, _createdAt: this.stamp(), _updatedAt: this.stamp(), ...d })); (this.recordStore[entityId] = this.recordStore[entityId] || []).push(...recs); this.audit('import', entityId, '', `${recs.length} rows`); this.emit(); return recs.length; } catch { return 0; } }
   exportRecords(entityId: string): string { return JSON.stringify(this.records(entityId), null, 2); }
-  seedEntity(entityId: string, n = 6): void { const e = this.getEntity(entityId); if (!e) return; this.snap(); this.state.records[entityId] = [...(this.state.records[entityId] || []), ...mockRecords(e, this.ctx.tenant, n)]; this.audit('seed', entityId, '', `${n} rows`); this.emit(); }
+  seedEntity(entityId: string, n = 6): void { const e = this.getEntity(entityId); if (!e) return; this.snap(); this.recordStore[entityId] = [...(this.recordStore[entityId] || []), ...mockRecords(e, this.ctx.tenant, n)]; this.audit('seed', entityId, '', `${n} rows`); this.emit(); }
   private stamp(): number { return Date.now(); }
 
   // ── Query (uses the ONE query engine + tenant isolation) ──
@@ -532,7 +542,7 @@ export class BuilderStore {
   autoLayout(): void { this.snap(); this.state.entities.forEach((e, i) => { e.diagram = { x: 40 + (i % 5) * 220, y: 40 + Math.floor(i / 5) * 160 }; }); this.emit(); }
 
   // ── Seed generator (scales to 10k+) ──
-  generateSeed(entityId: string, n: number, seed = 42): number { const e = this.getEntity(entityId); if (!e) return 0; this.snap(); const recs = generateSeed(e, this.ctx.tenant, n, seed); this.state.records[entityId] = [...(this.state.records[entityId] || []), ...recs]; this.audit('seed-generate', entityId, '', `${n} rows`); this.emit(); return recs.length; }
+  generateSeed(entityId: string, n: number, seed = 42): number { const e = this.getEntity(entityId); if (!e) return 0; this.snap(); const recs = generateSeed(e, this.ctx.tenant, n, seed); this.recordStore[entityId] = [...(this.recordStore[entityId] || []), ...recs]; this.audit('seed-generate', entityId, '', `${n} rows`); this.emit(); return recs.length; }
 
   // ── SQL generation (never executes) ──
   entitiesSQL(): string { return schemaSQL(this.state.entities, this.state.relations); }
@@ -551,7 +561,7 @@ export class BuilderStore {
     if (errors.length) return { imported: 0, skipped, errors, rolledBack: true };
     this.snap();
     const recs: DataRecord[] = mapped.map(r => ({ id: did('r'), tenantId: this.ctx.tenant, _createdAt: Date.now(), _updatedAt: Date.now(), ...r }));
-    this.state.records[entityId] = [...(this.state.records[entityId] || []), ...recs];
+    this.recordStore[entityId] = [...(this.recordStore[entityId] || []), ...recs];
     this.audit('import', entityId, '', `${recs.length} rows (${skipped} skipped)`); this.emit();
     return { imported: recs.length, skipped, errors: [], rolledBack: false };
   }
@@ -574,7 +584,7 @@ export class BuilderStore {
     const added = entities.filter(e => !existing.has(e.name));
     this.state.entities.push(...added);
     this.state.relations.push(...relations.filter(r => added.some(a => a.id === r.from) || added.some(a => a.id === r.to)));
-    for (const e of added) this.state.records[e.id] = generateSeed(e, this.ctx.tenant, seedPer, 7);
+    for (const e of added) this.recordStore[e.id] = generateSeed(e, this.ctx.tenant, seedPer, 7);
     this.audit('install-schema', '', '', `${added.length} HAAT entities`); this.emit();
     return added.length;
   }

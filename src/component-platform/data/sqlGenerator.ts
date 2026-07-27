@@ -59,18 +59,6 @@ export function schemaSQL(entities: Entity[], relations: Relation[]): string {
   return `-- HAAT NOW schema (generated · review before running)\n\n${tables}${fks ? `\n\n-- foreign keys\n${fks}` : ''}`;
 }
 
-/** ALTER diff between a previous field set and the current one. */
-export function alterTableSQL(e: Entity, prevFields: Field[]): string {
-  const t = tbl(e.name);
-  const prev = new Map(prevFields.map(f => [f.name, f]));
-  const cur = new Map(e.fields.map(f => [f.name, f]));
-  const out: string[] = [];
-  for (const f of e.fields) if (!prev.has(f.name)) out.push(`alter table ${t} add column ${f.name} ${SQL_TYPE[f.type] || 'text'};`);
-  for (const f of prevFields) if (!cur.has(f.name)) out.push(`alter table ${t} drop column ${f.name};`);
-  for (const f of e.fields) { const p = prev.get(f.name); if (p && p.type !== f.type) out.push(`alter table ${t} alter column ${f.name} type ${SQL_TYPE[f.type] || 'text'};`); }
-  return out.length ? out.join('\n') : `-- no schema changes for ${t}`;
-}
-
 /** Migration preview (up) + rollback (down) for the whole model. */
 export function migrationSQL(entities: Entity[], relations: Relation[]): { up: string; down: string } {
   return { up: schemaSQL(entities, relations), down: entities.map(e => `drop table if exists ${tbl(e.name)} cascade;`).join('\n') };

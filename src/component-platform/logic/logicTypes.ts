@@ -54,7 +54,6 @@ export interface Workflow { id: string; name: string; nodes: WorkflowNode[]; }
 export interface WorkflowTraceStep { nodeId: string; type: WorkflowNodeType; label: string; result: string; }
 
 export type DataSourceKind = 'local' | 'supabase' | 'firebase' | 'rest' | 'graphql' | 'json' | 'static' | 'runtime' | 'media' | 'storage' | 'auth' | 'tenant' | 'flags';
-export const DATA_SOURCE_KINDS: DataSourceKind[] = ['local', 'json', 'static', 'runtime', 'supabase', 'firebase', 'rest', 'graphql', 'media', 'storage', 'auth', 'tenant', 'flags'];
 export interface DataSource {
   id: string;
   name: string;

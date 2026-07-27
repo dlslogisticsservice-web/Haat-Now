@@ -15,7 +15,6 @@ export function registerComponent(spec: ComponentSpec): void { REGISTRY.set(spec
 
 export function getComponent(id: string): ComponentSpec | undefined { return REGISTRY.get(id); }
 export function listComponents(): ComponentSpec[] { return [...REGISTRY.values()]; }
-export function componentCount(): number { return REGISTRY.size; }
 
 /** category → its components, in registration order, only non-empty categories. */
 export function componentsByCategory(): { category: ComponentCategory; items: ComponentSpec[] }[] {

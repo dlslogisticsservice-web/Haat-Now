@@ -39,8 +39,6 @@ const FN: Record<string, (...a: unknown[]) => unknown> = {
   num: (x) => Number(x) || 0,
   str: (x) => String(x ?? ''),
 };
-export const FUNCTIONS = Object.keys(FN);
-
 // ── tokenizer ──
 type Tok = { t: 'num' | 'str' | 'id' | 'op' | 'punc'; v: string };
 function lex(src: string): Tok[] {
