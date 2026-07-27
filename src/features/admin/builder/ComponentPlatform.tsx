@@ -14,8 +14,9 @@ import React, { useEffect, useReducer, useRef, useState } from 'react';
 import {
   Search, Star, Pin, Undo2, Redo2, Monitor, Laptop, Tablet, Smartphone, RotateCw, Sun, Moon,
   ChevronUp, ChevronDown, Copy, Trash2, Group, Ungroup, Component as ComponentIcon, Unlink, RefreshCw,
-  Eye, EyeOff, Lock, LockOpen, Languages, Layers,
+  Eye, EyeOff, Lock, LockOpen, Languages, Layers, Play, Bug,
 } from 'lucide-react';
+import { LogicTab, LogicDock } from './LogicPanels';
 import { BuilderStore } from '../../../component-platform/BuilderStore';
 // Side-effect: register the full component library so the registry is populated.
 import '../../../component-platform/components';
@@ -34,16 +35,18 @@ const DEVICE_DIM: Record<string, { w: number; h: number }> = { desktop: { w: 900
 let DRAG: { type: 'new'; specId: string } | { type: 'move'; id: string } | null = null;
 
 // ── Canvas node renderer ──
-const NodeView: React.FC<{ node: BuilderNode; store: BuilderStore; selectedId: string | null; bp: Breakpoint }> = ({ node, store, selectedId, bp }) => {
+const NodeView: React.FC<{ node: BuilderNode; store: BuilderStore; selectedId: string | null; bp: Breakpoint; runMode: boolean }> = ({ node, store, selectedId, bp, runMode }) => {
   const spec = getComponent(node.masterId ? (store.getMaster(node.masterId)?.root.specId ?? node.specId) : node.specId);
   if (!spec) return null;
   const isInstance = !!node.masterId;
-  const base = isInstance ? store.resolveInstanceProps(node) : { ...spec.defaultProps, ...node.props };
-  const props = { ...base, ...(node.responsive?.[bp] || {}) };
+  // Phase 9B — effective props apply data bindings + expressions over the live logic scope.
+  const props = store.effectiveProps(node, spec);
+  const cond = store.evalConditions(node);
+  if (runMode && !cond.visible) return null; // conditional visibility at runtime
   const childNodes = isInstance ? store.resolveInstanceChildren(node) : node.children;
-  const rendered = spec.container ? childNodes.map(ch => <NodeView key={ch.id} node={ch} store={store} selectedId={selectedId} bp={bp} />) : null;
+  const rendered = spec.container ? childNodes.map(ch => <NodeView key={ch.id} node={ch} store={store} selectedId={selectedId} bp={bp} runMode={runMode} />) : null;
   const selected = selectedId === node.id;
-  const hidden = node.meta?.hidden;
+  const hidden = node.meta?.hidden || (!cond.visible);
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation();
@@ -68,8 +71,8 @@ const NodeView: React.FC<{ node: BuilderNode; store: BuilderStore; selectedId: s
       draggable onDragStart={e => { e.stopPropagation(); DRAG = { type: 'move', id: node.id }; }}
       onDragOver={e => { if (DRAG) { e.preventDefault(); e.stopPropagation(); } }}
       onDrop={onDrop}
-      onClick={e => { e.stopPropagation(); store.select(node.id); }}
-      style={{ position: 'relative', outline: selected ? '2px solid var(--color-primary-fixed,#a3f95b)' : '1px dashed transparent', outlineOffset: 1, borderRadius: 4, opacity: hidden ? 0.4 : 1, cursor: 'pointer' }}>
+      onClick={e => { e.stopPropagation(); if (runMode) store.runActions(node.id, 'click'); else store.select(node.id); }}
+      style={{ position: 'relative', outline: selected ? '2px solid var(--color-primary-fixed,#a3f95b)' : '1px dashed transparent', outlineOffset: 1, borderRadius: 4, opacity: hidden ? 0.4 : (cond.enabled ? 1 : 0.55), cursor: 'pointer' }}>
       {selected && <span style={{ position: 'absolute', top: -16, insetInlineStart: 0, zIndex: 5, fontSize: 8.5, fontWeight: 800, padding: '1px 5px', borderRadius: 4, background: 'var(--color-primary-fixed,#a3f95b)', color: 'var(--color-on-primary-fixed,#05310f)' }}>{spec.name}{isInstance ? ' ⟐' : ''}</span>}
       {spec.render({ props, children: rendered, editing: true })}
     </div>
@@ -92,7 +95,9 @@ export const ComponentPlatform: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => 
   const [dir, setDir] = useState<'ltr' | 'rtl'>('ltr');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [safe, setSafe] = useState(false);
-  const [inspTab, setInspTab] = useState<'props' | 'responsive' | 'a11y' | 'meta'>('props');
+  const [inspTab, setInspTab] = useState<'props' | 'logic' | 'responsive' | 'a11y' | 'meta'>('props');
+  const [runMode, setRunMode] = useState(false);
+  const [dockOpen, setDockOpen] = useState(false);
 
   const bp = store.getBreakpoint();
   const selected = store.getSelected();
@@ -189,6 +194,9 @@ export const ComponentPlatform: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => 
           <span style={{ width: 1, height: 18, background: 'var(--color-outline-variant)' }} />
           <button id="cp_undo" onClick={() => store.undo()} disabled={!store.canUndo()} style={{ ...iconBtn, opacity: store.canUndo() ? 1 : 0.4 }}><Undo2 size={13} /></button>
           <button id="cp_redo" onClick={() => store.redo()} disabled={!store.canRedo()} style={{ ...iconBtn, opacity: store.canRedo() ? 1 : 0.4 }}><Redo2 size={13} /></button>
+          <span style={{ width: 1, height: 18, background: 'var(--color-outline-variant)' }} />
+          <button id="cp_run" onClick={() => setRunMode(r => !r)} style={{ ...seg(runMode), background: runMode ? 'var(--color-primary-fixed)' : 'var(--color-surface-container-high)', color: runMode ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}><Play size={12} />{runMode ? L('تشغيل', 'Run: ON') : L('تحرير', 'Run')}</button>
+          <button id="cp_logic_toggle" onClick={() => setDockOpen(d => !d)} style={seg(dockOpen)}><Bug size={12} />{L('المنطق', 'Logic')}</button>
           <span id="cp_node_count" style={{ ...lbl, marginInlineStart: 'auto' }}>{store.count()} {L('عنصر', 'nodes')}</span>
         </div>
         <div style={{ ...card, flex: 1, overflow: 'auto', display: 'grid', placeItems: 'start center', padding: 20, background: 'var(--color-background)' }}>
@@ -200,10 +208,11 @@ export const ComponentPlatform: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => 
               style={{ minHeight: h - (safe ? 44 : 0), display: 'flex', flexDirection: 'column', gap: 2, padding: 8 }}>
               {store.getRoot().children.length === 0
                 ? <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--color-on-surface-variant)', fontSize: 12.5, display: 'grid', gap: 6, placeItems: 'center', padding: 40 }}><Layers size={22} /><span>{L('اسحب مكوّناً هنا أو انقره من المكتبة', 'Drag a component here, or click one in the library')}</span></div>
-                : store.getRoot().children.map(ch => <NodeView key={ch.id} node={ch} store={store} selectedId={store.getSelectedId()} bp={bp} />)}
+                : store.getRoot().children.map(ch => <NodeView key={ch.id} node={ch} store={store} selectedId={store.getSelectedId()} bp={bp} runMode={runMode} />)}
             </div>
           </div>
         </div>
+        {dockOpen && <LogicDock store={store} lang={lang} />}
       </div>
 
       {/* ── RIGHT · Inspector ── */}
@@ -251,10 +260,12 @@ export const ComponentPlatform: React.FC<{ lang: 'ar' | 'en' }> = ({ lang }) => 
 
             {/* Inspector tabs */}
             <div style={{ display: 'flex', gap: 4 }}>
-              {([['props', L('الخصائص', 'Props')], ['responsive', L('تجاوب', 'Responsive')], ['a11y', L('وصول', 'A11y')], ['meta', L('بيانات', 'Meta')]] as const).map(([id, label]) => (
+              {([['props', L('الخصائص', 'Props')], ['logic', L('المنطق', 'Logic')], ['responsive', L('تجاوب', 'Responsive')], ['a11y', L('وصول', 'A11y')], ['meta', L('بيانات', 'Meta')]] as const).map(([id, label]) => (
                 <button key={id} id={`cp_insp_${id}`} onClick={() => setInspTab(id)} style={{ ...seg(inspTab === id), fontSize: 10, padding: '4px 8px' }}>{label}</button>
               ))}
             </div>
+
+            {inspTab === 'logic' && <LogicTab store={store} node={selected} lang={lang} />}
 
             {inspTab === 'props' && selSpec && groups.map(gr => (
               <div key={gr} style={{ ...card, padding: 8, display: 'grid', gap: 6 }}>

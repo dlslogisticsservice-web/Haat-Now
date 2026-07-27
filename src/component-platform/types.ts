@@ -76,6 +76,15 @@ export interface BuilderNode {
   a11y?: { label?: string; role?: string };
   /** Editor metadata. */
   meta?: { name?: string; hidden?: boolean; locked?: boolean };
+  // ── Phase 9B · Application Logic ──
+  /** Data bindings: propKey → Binding (resolved against the logic scope at render). */
+  bindings?: Record<string, import('./logic/logicTypes').Binding>;
+  /** Actions this node owns, keyed per event. */
+  actions?: import('./logic/logicTypes').ActionSpec[];
+  /** Conditional logic (visibility / enabled) via expressions. */
+  conditions?: import('./logic/logicTypes').Condition[];
+  /** Form-field validators (form components). */
+  validators?: import('./logic/logicTypes').Validator[];
 }
 
 /** A saved reusable (master) component: a name + a subtree the instances mirror. */

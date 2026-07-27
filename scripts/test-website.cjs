@@ -16,6 +16,7 @@ const SUITE_DIRS = [
   ['src', 'experience-channels', '__tests__'],
   ['src', 'services', 'ops', '__tests__'],
   ['src', 'experience-content', '__tests__'],
+  ['src', 'component-platform', '__tests__'],
 ];
 
 const files = SUITE_DIRS.flatMap((parts) => {
