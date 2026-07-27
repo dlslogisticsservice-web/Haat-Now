@@ -57,6 +57,8 @@ export class BuilderStore {
   private recordStore: Record<string, DataRecord[]> = {};
   // Phase G2.1 — AI generation log (not undoable; the generated artifacts are undoable via state).
   private aiLog: { at: number; action: string; detail: string }[] = [];
+  // Phase G2.2 — learned project preferences (session meta; drives consistent AI suggestions).
+  private prefs: Record<string, string> = {};
   // Data-platform runtime (not undoable): audit log + realtime sync queue.
   private auditLog: AuditEntry[] = [];
   private syncQueue: { op: string; entity: string; recordId: string }[] = [];
@@ -605,6 +607,9 @@ export class BuilderStore {
   /** Record an AI generation for the AI History panel (the artifacts themselves are undoable). */
   logAI(action: string, detail: string): void { this.aiLog = [...this.aiLog, { at: Date.now(), action, detail }].slice(-60); this.emit(); }
   aiHistory(): { at: number; action: string; detail: string }[] { return [...this.aiLog].reverse(); }
+  // Phase G2.2 — learned preferences (the AI's learning layer; deterministic, session-scoped).
+  getPreferences(): Record<string, string> { return this.prefs; }
+  setPreferences(p: Record<string, string>): void { this.prefs = { ...this.prefs, ...p }; this.emit(); }
 
   subscribe(l: Listener): () => void { this.listeners.add(l); return () => { this.listeners.delete(l); }; }
   private emit(): void { this.listeners.forEach(l => l()); }
