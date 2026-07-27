@@ -17,6 +17,8 @@ import {
   Eye, EyeOff, Lock, LockOpen, Languages, Layers, Play, Bug,
 } from 'lucide-react';
 import { LogicTab, LogicDock } from './LogicPanels';
+import { AIAssistant } from './AIAssistant';
+import { Sparkles } from 'lucide-react';
 import { BuilderStore } from '../../../component-platform/BuilderStore';
 // Side-effect: register the full component library so the registry is populated.
 import '../../../component-platform/components';
@@ -101,6 +103,7 @@ export const ComponentPlatform: React.FC<{ lang: 'ar' | 'en'; store?: BuilderSto
   const [inspTab, setInspTab] = useState<'props' | 'logic' | 'responsive' | 'a11y' | 'meta'>('props');
   const [runMode, setRunMode] = useState(false);
   const [dockOpen, setDockOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const bp = store.getBreakpoint();
   const selected = store.getSelected();
@@ -200,11 +203,12 @@ export const ComponentPlatform: React.FC<{ lang: 'ar' | 'en'; store?: BuilderSto
           <span style={{ width: 1, height: 18, background: 'var(--color-outline-variant)' }} />
           <button id="cp_run" onClick={() => setRunMode(r => !r)} style={{ ...seg(runMode), background: runMode ? 'var(--color-primary-fixed)' : 'var(--color-surface-container-high)', color: runMode ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}><Play size={12} />{runMode ? L('تشغيل', 'Run: ON') : L('تحرير', 'Run')}</button>
           <button id="cp_logic_toggle" onClick={() => setDockOpen(d => !d)} style={seg(dockOpen)}><Bug size={12} />{L('المنطق', 'Logic')}</button>
+          <button id="cp_ai_toggle" onClick={() => setAiOpen(a => !a)} style={{ ...seg(aiOpen), background: aiOpen ? 'var(--color-primary-fixed)' : 'var(--color-surface-container-high)', color: aiOpen ? 'var(--color-on-primary-fixed)' : 'var(--color-on-surface-variant)' }}><Sparkles size={12} />{L('ذكاء', 'AI')}</button>
           <span id="cp_node_count" style={{ ...lbl, marginInlineStart: 'auto' }}>{store.count()} {L('عنصر', 'nodes')}</span>
         </div>
         <div style={{ ...card, flex: 1, overflow: 'auto', display: 'grid', placeItems: 'start center', padding: 20, background: 'var(--color-background)' }}>
           <div id="cp_device" data-device={device} data-orient={orient} data-dir={dir} data-theme={theme} data-safe={safe ? '1' : '0'} data-breakpoint={bp} dir={dir}
-            style={{ width: w, maxWidth: '100%', minHeight: h, borderRadius: 16, border: '1px solid var(--color-outline-variant)', background: theme === 'light' ? '#f4f6f5' : 'var(--color-background)', padding: safe ? 22 : 0, position: 'relative', overflow: 'hidden' }}>
+            style={{ ...(store.getTheme() as React.CSSProperties), width: w, maxWidth: '100%', minHeight: h, borderRadius: 16, border: '1px solid var(--color-outline-variant)', background: theme === 'light' ? '#f4f6f5' : 'var(--color-background)', padding: safe ? 22 : 0, position: 'relative', overflow: 'hidden' }}>
             <div id="cp_canvas" onClick={() => store.select(null)}
               onDragOver={e => { if (DRAG) e.preventDefault(); }}
               onDrop={e => { e.preventDefault(); if (!DRAG) return; if (DRAG.type === 'new') store.insert(DRAG.specId, 'root'); else store.move(DRAG.id, 'root'); DRAG = null; }}
@@ -215,6 +219,7 @@ export const ComponentPlatform: React.FC<{ lang: 'ar' | 'en'; store?: BuilderSto
             </div>
           </div>
         </div>
+        {aiOpen && <AIAssistant store={store} lang={lang} />}
         {dockOpen && <LogicDock store={store} lang={lang} />}
       </div>
 

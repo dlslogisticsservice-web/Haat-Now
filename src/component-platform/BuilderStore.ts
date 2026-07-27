@@ -34,6 +34,8 @@ interface State {
   root: BuilderNode; masters: MasterComponent[]; variables: Variable[]; dataSources: DataSource[]; workflows: Workflow[];
   entities: Entity[]; relations: Relation[]; collections: Collection[];
   schemaVersions: Record<string, SchemaVersion[]>;
+  /** Phase G2.1 — the active design theme (token → value), applied by the canvas. Undoable. */
+  theme: Record<string, string>;
 }
 type Listener = () => void;
 
@@ -50,9 +52,11 @@ function reid(node: BuilderNode): BuilderNode {
 }
 
 export class BuilderStore {
-  private state: State = { root: { id: 'root', specId: '__root__', props: {}, children: [] }, masters: [], variables: [], dataSources: defaultDataSources(), workflows: [], entities: [], relations: [], collections: [], schemaVersions: {} };
+  private state: State = { root: { id: 'root', specId: '__root__', props: {}, children: [] }, masters: [], variables: [], dataSources: defaultDataSources(), workflows: [], entities: [], relations: [], collections: [], schemaVersions: {}, theme: {} };
   // Data rows — a separate store OUTSIDE the undo snapshot (Phase 9E memory/perf hardening).
   private recordStore: Record<string, DataRecord[]> = {};
+  // Phase G2.1 — AI generation log (not undoable; the generated artifacts are undoable via state).
+  private aiLog: { at: number; action: string; detail: string }[] = [];
   // Data-platform runtime (not undoable): audit log + realtime sync queue.
   private auditLog: AuditEntry[] = [];
   private syncQueue: { op: string; entity: string; recordId: string }[] = [];
@@ -592,6 +596,15 @@ export class BuilderStore {
   // ── Analyzer + health ──
   private recordCounts(): Record<string, number> { const m: Record<string, number> = {}; for (const e of this.state.entities) m[e.id] = this.records(e.id, { includeArchived: true }).length; return m; }
   health(): HealthReport { return healthReport({ entities: this.state.entities, relations: this.state.relations, recordCounts: this.recordCounts(), collections: this.state.collections.length, validationErrors: this.validationErrorCount() }); }
+
+  // ═══ Phase G2.1 · AI layer support (theme + generation log) ═════════════════
+  getTheme(): Record<string, string> { return this.state.theme; }
+  /** Apply a theme (token → value). Undoable; the canvas projects it as CSS custom properties. */
+  setTheme(vars: Record<string, string>): void { this.snap(); this.state.theme = { ...this.state.theme, ...vars }; this.emit(); }
+  clearTheme(): void { if (Object.keys(this.state.theme).length) { this.snap(); this.state.theme = {}; this.emit(); } }
+  /** Record an AI generation for the AI History panel (the artifacts themselves are undoable). */
+  logAI(action: string, detail: string): void { this.aiLog = [...this.aiLog, { at: Date.now(), action, detail }].slice(-60); this.emit(); }
+  aiHistory(): { at: number; action: string; detail: string }[] { return [...this.aiLog].reverse(); }
 
   subscribe(l: Listener): () => void { this.listeners.add(l); return () => { this.listeners.delete(l); }; }
   private emit(): void { this.listeners.forEach(l => l()); }
