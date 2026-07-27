@@ -43,6 +43,8 @@ export interface Field {
   name: string;
   type: FieldType;
   settings: FieldSettings;
+  /** Phase 9D — visual validation rules for this field. */
+  validations?: import('./fieldValidation').FieldValidation[];
 }
 
 export type RelationType = 'oneToOne' | 'oneToMany' | 'manyToMany' | 'self' | 'recursive';
@@ -71,6 +73,17 @@ export interface Entity {
   /** Declarative mapping to an existing provider — never a duplicated client. */
   mapping: { provider: ProviderKind; target: string; reuses?: string };
   permissions: Permission[];
+  /** Phase 9D — position on the ER diagram canvas. */
+  diagram?: { x: number; y: number };
+}
+
+/** Phase 9D — a captured schema snapshot for entity versioning. */
+export interface SchemaVersion {
+  version: number;
+  at: number;
+  author: string;
+  reason: string;
+  snapshot: Pick<Entity, 'name' | 'fields' | 'permissions' | 'mapping'>;
 }
 
 export type CollectionKind = 'collection' | 'subcollection' | 'view' | 'virtual' | 'computed' | 'dynamic';

@@ -13,8 +13,14 @@ import type { BuilderNode, MasterComponent, Breakpoint } from './types';
 import { evaluate, interpolate, hasBinding, type Scope } from './logic/expression';
 import { defaultDataSources, dataScope } from './logic/dataSources';
 import type { Variable, Binding, ActionSpec, Condition, Validator, Workflow, WorkflowTraceStep, DataSource } from './logic/logicTypes';
-import { defaultFields, mockRecords, did, type Entity, type Field, type Relation, type Collection, type Permission, type QuerySpec, type DataRecord, type AuditEntry } from './data/dataModel';
+import { defaultFields, mockRecords, did, type Entity, type Field, type Relation, type Collection, type Permission, type QuerySpec, type DataRecord, type AuditEntry, type SchemaVersion } from './data/dataModel';
 import { runQuery, type QueryResult } from './data/queryEngine';
+import { validateRecord as validateRec, type FieldValidation, type ValidationError } from './data/fieldValidation';
+import { generateSeed } from './data/seedGenerator';
+import { schemaSQL, migrationSQL, insertsSQL } from './data/sqlGenerator';
+import { mapColumns, detectDuplicates, toCSV, toJSON } from './data/importExport';
+import { buildHaatModels } from './data/haatSchema';
+import { health as healthReport, type HealthReport } from './data/analyzer';
 
 let seq = 0;
 const uid = (p = 'n') => `${p}_${++seq}`;
@@ -25,6 +31,7 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 interface State {
   root: BuilderNode; masters: MasterComponent[]; variables: Variable[]; dataSources: DataSource[]; workflows: Workflow[];
   entities: Entity[]; relations: Relation[]; collections: Collection[]; records: Record<string, DataRecord[]>;
+  schemaVersions: Record<string, SchemaVersion[]>;
 }
 type Listener = () => void;
 
@@ -41,7 +48,7 @@ function reid(node: BuilderNode): BuilderNode {
 }
 
 export class BuilderStore {
-  private state: State = { root: { id: 'root', specId: '__root__', props: {}, children: [] }, masters: [], variables: [], dataSources: defaultDataSources(), workflows: [], entities: [], relations: [], collections: [], records: {} };
+  private state: State = { root: { id: 'root', specId: '__root__', props: {}, children: [] }, masters: [], variables: [], dataSources: defaultDataSources(), workflows: [], entities: [], relations: [], collections: [], records: {}, schemaVersions: {} };
   // Data-platform runtime (not undoable): audit log + realtime sync queue.
   private auditLog: AuditEntry[] = [];
   private syncQueue: { op: string; entity: string; recordId: string }[] = [];
@@ -479,6 +486,102 @@ export class BuilderStore {
     const recs = this.records(spec.entityId, { includeDeleted: opts.includeDeleted, includeArchived: true });
     return runQuery(recs, spec, opts);
   }
+
+  // ═══ Phase 9D · Enterprise Data Platform ════════════════════════════════════
+  // ── Field validations ──
+  setFieldValidations(entityId: string, fieldId: string, validations: FieldValidation[]): void { const f = this.getEntity(entityId)?.fields.find(x => x.id === fieldId); if (!f) return; this.snap(); f.validations = validations; this.emit(); }
+  /** Validate one record against its entity's field validations (reuses the expression engine). */
+  validateRecord(entityId: string, record: DataRecord): ValidationError[] { const e = this.getEntity(entityId); if (!e) return []; return validateRec(e, record, { all: this.records(entityId, { includeArchived: true }), lang: this.ctx.lang as 'ar' | 'en', scope: this.scope() }); }
+  /** Total validation errors across all records of all entities (for the health dashboard).
+   *  Builds the scope + per-entity record list ONCE (O(total records), not O(n²)). */
+  validationErrorCount(): number {
+    let n = 0; const scope = this.scope(); const lang = this.ctx.lang as 'ar' | 'en';
+    for (const e of this.state.entities) {
+      const all = this.records(e.id, { includeArchived: true });
+      for (const r of all) n += validateRec(e, r, { all, lang, scope }).length;
+    }
+    return n;
+  }
+
+  // ── Schema versioning ──
+  schemaVersions(entityId: string): SchemaVersion[] { return [...(this.state.schemaVersions[entityId] || [])].reverse(); }
+  saveSchemaVersion(entityId: string, reason: string): void {
+    const e = this.getEntity(entityId); if (!e) return; this.snap();
+    const list = this.state.schemaVersions[entityId] = this.state.schemaVersions[entityId] || [];
+    list.push({ version: list.length + 1, at: Date.now(), author: this.ctx.role, reason: reason || 'snapshot', snapshot: clone({ name: e.name, fields: e.fields, permissions: e.permissions, mapping: e.mapping }) });
+    this.audit('schema-version', entityId, '', `v${list.length} ${reason}`); this.emit();
+  }
+  restoreSchemaVersion(entityId: string, version: number): void {
+    const v = (this.state.schemaVersions[entityId] || []).find(x => x.version === version); const e = this.getEntity(entityId); if (!v || !e) return;
+    this.snap(); e.fields = clone(v.snapshot.fields); e.permissions = clone(v.snapshot.permissions); e.mapping = clone(v.snapshot.mapping); e.name = v.snapshot.name; e.version += 1;
+    this.audit('schema-restore', entityId, '', `→ v${version}`); this.emit();
+  }
+  /** Diff two captured schema versions by field name (added / removed / type-changed). */
+  compareSchema(entityId: string, a: number, b: number): { field: string; change: string }[] {
+    const list = this.state.schemaVersions[entityId] || [];
+    const va = list.find(x => x.version === a), vb = list.find(x => x.version === b); if (!va || !vb) return [];
+    const fa = new Map(va.snapshot.fields.map(f => [f.name, f])), fb = new Map(vb.snapshot.fields.map(f => [f.name, f]));
+    const out: { field: string; change: string }[] = [];
+    for (const [name, f] of fb) { if (!fa.has(name)) out.push({ field: name, change: `added (${f.type})` }); else if (fa.get(name)!.type !== f.type) out.push({ field: name, change: `${fa.get(name)!.type} → ${f.type}` }); }
+    for (const [name] of fa) if (!fb.has(name)) out.push({ field: name, change: 'removed' });
+    return out;
+  }
+
+  // ── ER diagram positions ──
+  setEntityDiagram(entityId: string, x: number, y: number): void { const e = this.getEntity(entityId); if (!e) return; e.diagram = { x, y }; this.emit(); }
+  autoLayout(): void { this.snap(); this.state.entities.forEach((e, i) => { e.diagram = { x: 40 + (i % 5) * 220, y: 40 + Math.floor(i / 5) * 160 }; }); this.emit(); }
+
+  // ── Seed generator (scales to 10k+) ──
+  generateSeed(entityId: string, n: number, seed = 42): number { const e = this.getEntity(entityId); if (!e) return 0; this.snap(); const recs = generateSeed(e, this.ctx.tenant, n, seed); this.state.records[entityId] = [...(this.state.records[entityId] || []), ...recs]; this.audit('seed-generate', entityId, '', `${n} rows`); this.emit(); return recs.length; }
+
+  // ── SQL generation (never executes) ──
+  entitiesSQL(): string { return schemaSQL(this.state.entities, this.state.relations); }
+  migrationSQL(): { up: string; down: string } { return migrationSQL(this.state.entities, this.state.relations); }
+  entityInsertsSQL(entityId: string): string { const e = this.getEntity(entityId); return e ? insertsSQL(e, this.records(entityId)) : ''; }
+
+  // ── Import (with mapping, dedupe, validate, rollback) ──
+  importRows(entityId: string, rows: Record<string, unknown>[], opts: { mapping?: Record<string, string>; dedupeKey?: string; conflict?: 'skip' | 'overwrite' } = {}): { imported: number; skipped: number; errors: string[]; rolledBack: boolean } {
+    const e = this.getEntity(entityId); if (!e) return { imported: 0, skipped: 0, errors: ['entity not found'], rolledBack: false };
+    let mapped = opts.mapping ? mapColumns(rows, opts.mapping) : rows;
+    let skipped = 0;
+    if (opts.dedupeKey) { const { dupes } = detectDuplicates(mapped, this.records(entityId, { includeArchived: true }), opts.dedupeKey); if (opts.conflict !== 'overwrite') { const set = new Set(dupes); mapped = mapped.filter((_, i) => !set.has(i)); skipped = dupes.length; } }
+    // Validate BEFORE committing — any invalid row rolls the whole import back.
+    const errors: string[] = [];
+    mapped.forEach((r, i) => { const errs = validateRec(e, { id: 'x', tenantId: this.ctx.tenant, _createdAt: 0, _updatedAt: 0, ...r }); if (errs.length) errors.push(`row ${i + 1}: ${errs[0].message}`); });
+    if (errors.length) return { imported: 0, skipped, errors, rolledBack: true };
+    this.snap();
+    const recs: DataRecord[] = mapped.map(r => ({ id: did('r'), tenantId: this.ctx.tenant, _createdAt: Date.now(), _updatedAt: Date.now(), ...r }));
+    this.state.records[entityId] = [...(this.state.records[entityId] || []), ...recs];
+    this.audit('import', entityId, '', `${recs.length} rows (${skipped} skipped)`); this.emit();
+    return { imported: recs.length, skipped, errors: [], rolledBack: false };
+  }
+
+  // ── Export (csv / json / sql) ──
+  exportEntity(entityId: string, format: 'csv' | 'json' | 'sql', rows?: DataRecord[]): string {
+    const e = this.getEntity(entityId); if (!e) return '';
+    const data = rows ?? this.records(entityId);
+    if (format === 'sql') return insertsSQL(e, data);
+    if (format === 'csv') return toCSV(data, e.fields.map(f => f.name));
+    return toJSON(data);
+  }
+
+  // ── HAAT NOW canonical schema (one-click install) ──
+  installHaatModels(seedPer = 8): number {
+    this.snap();
+    const { entities, relations } = buildHaatModels();
+    // Skip entities that already exist by name (idempotent-ish).
+    const existing = new Set(this.state.entities.map(e => e.name));
+    const added = entities.filter(e => !existing.has(e.name));
+    this.state.entities.push(...added);
+    this.state.relations.push(...relations.filter(r => added.some(a => a.id === r.from) || added.some(a => a.id === r.to)));
+    for (const e of added) this.state.records[e.id] = generateSeed(e, this.ctx.tenant, seedPer, 7);
+    this.audit('install-schema', '', '', `${added.length} HAAT entities`); this.emit();
+    return added.length;
+  }
+
+  // ── Analyzer + health ──
+  private recordCounts(): Record<string, number> { const m: Record<string, number> = {}; for (const e of this.state.entities) m[e.id] = this.records(e.id, { includeArchived: true }).length; return m; }
+  health(): HealthReport { return healthReport({ entities: this.state.entities, relations: this.state.relations, recordCounts: this.recordCounts(), collections: this.state.collections.length, validationErrors: this.validationErrorCount() }); }
 
   subscribe(l: Listener): () => void { this.listeners.add(l); return () => { this.listeners.delete(l); }; }
   private emit(): void { this.listeners.forEach(l => l()); }

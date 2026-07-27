@@ -13,6 +13,13 @@ import {
 } from 'lucide-react';
 import type { BuilderStore } from '../../../component-platform/BuilderStore';
 import { FIELD_TYPES, FILTER_OPS, emptyQuery, type Entity, type FieldType, type FilterOp, type QuerySpec, type ProviderKind, type PermOp, type RelationType } from '../../../component-platform/data/dataModel';
+import { DataProPanel, type DataMode } from './DataProPanels';
+
+const MODES: { id: 'explorer' | DataMode; label: string }[] = [
+  { id: 'explorer', label: 'Explorer' }, { id: 'validation', label: 'Validation' }, { id: 'diagram', label: 'ER Diagram' },
+  { id: 'import', label: 'Import' }, { id: 'export', label: 'Export' }, { id: 'seed', label: 'Seed' }, { id: 'sql', label: 'SQL' },
+  { id: 'versions', label: 'Versions' }, { id: 'audit', label: 'Audit' }, { id: 'health', label: 'Health' },
+];
 
 const card: React.CSSProperties = { background: 'var(--color-surface-container)', border: '1px solid var(--color-outline-variant)', borderRadius: 10 };
 const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: 'var(--color-on-surface-variant)' };
@@ -33,6 +40,7 @@ export const DataPlatform: React.FC<{ lang: 'ar' | 'en'; store: BuilderStore }> 
   const [fField, setFField] = useState(''); const [fOp, setFOp] = useState<FilterOp>('contains'); const [fVal, setFVal] = useState('');
   const [nfType, setNfType] = useState<FieldType>('text'); const [nfName, setNfName] = useState('');
   const [imp, setImp] = useState('');
+  const [mode, setMode] = useState<'explorer' | DataMode>('explorer');
 
   const entity = selId ? store.getEntity(selId) : null;
   useEffect(() => { if (entity && (!query || query.entityId !== entity.id)) setQuery(emptyQuery(entity.id)); }, [entity, query]);
@@ -41,7 +49,13 @@ export const DataPlatform: React.FC<{ lang: 'ar' | 'en'; store: BuilderStore }> 
   const displayRows = spec.where.conditions.length ? result.rows : store.records(entity?.id ?? '', { includeArchived: showArchived });
 
   return (
-    <div id="data_platform" style={{ display: 'flex', gap: 10, width: '100%', height: '100%', minHeight: 620 }}>
+    <div id="data_platform" style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', height: '100%', minHeight: 620 }}>
+      {/* Mode bar — Explorer + enterprise panels + HAAT install */}
+      <div style={{ ...card, padding: 6, display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }} id="dp_mode_bar">
+        {MODES.map(m => <button key={m.id} id={`dp_mode_${m.id}`} onClick={() => setMode(m.id)} style={seg(mode === m.id)}>{m.label}</button>)}
+        <button id="dp_install_haat" onClick={() => store.installHaatModels(8)} style={{ ...btn, marginInlineStart: 'auto' }}>{L('تثبيت نماذج HAAT NOW', 'Install HAAT NOW Models')}</button>
+      </div>
+      <div style={{ display: 'flex', gap: 10, flex: 1, minHeight: 0 }}>
       {/* LEFT — entities + collections + tenant */}
       <div style={{ ...card, width: 210, flexShrink: 0, padding: 8, display: 'flex', flexDirection: 'column', gap: 8, overflow: 'auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -70,6 +84,7 @@ export const DataPlatform: React.FC<{ lang: 'ar' | 'en'; store: BuilderStore }> 
         </div>
       </div>
 
+      {mode === 'explorer' ? (<>
       {/* CENTER — Data Explorer */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {!entity ? <div style={{ ...card, flex: 1, display: 'grid', placeItems: 'center', color: 'var(--color-on-surface-variant)' }}>{L('اختر أو أنشئ كياناً', 'Select or create an entity')}</div> : <>
@@ -140,6 +155,10 @@ export const DataPlatform: React.FC<{ lang: 'ar' | 'en'; store: BuilderStore }> 
       {/* RIGHT — Entity Designer / Inspector */}
       <div style={{ ...card, width: 280, flexShrink: 0, padding: 10, overflow: 'auto', display: 'grid', gap: 8, alignContent: 'start' }} id="dp_inspector">
         {!entity ? <div style={{ textAlign: 'center', color: 'var(--color-on-surface-variant)', fontSize: 12, padding: 20 }}>{L('صمّم كياناً', 'Design an entity')}</div> : <EntityDesigner store={store} entity={entity} lang={lang} nfType={nfType} setNfType={setNfType} nfName={nfName} setNfName={setNfName} />}
+      </div>
+      </>) : (
+        <DataProPanel mode={mode} store={store} entityId={selId} lang={lang} />
+      )}
       </div>
     </div>
   );
