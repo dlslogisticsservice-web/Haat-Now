@@ -20,13 +20,13 @@ create table product_images (id uuid primary key default uuid_generate_v4(), pro
 
 -- 4. Orders & Drivers
 create table drivers (id uuid primary key default uuid_generate_v4(), phone_number varchar(20) unique not null, full_name varchar(100), zone_id uuid references zones(id), is_online boolean default false);
-create table orders (id uuid primary key default uuid_generate_v4(), customer_id uuid references customers(id), branch_id uuid references merchant_branches(id), driver_id uuid references drivers(id), status varchar(50) default 'pending', total_amount decimal(10,2));
+create table orders (id uuid primary key default uuid_generate_v4(), customer_id uuid references customers(id), branch_id uuid references merchant_branches(id), driver_id uuid references drivers(id), status varchar(50) default 'pending', total_amount decimal(10,2), created_at timestamptz default timezone('utc'::text, now()));
 create table order_items (id uuid primary key default uuid_generate_v4(), order_id uuid references orders(id), variant_id uuid references product_variants(id), quantity integer not null, price decimal(10,2));
 create table driver_locations (id uuid primary key default uuid_generate_v4(), driver_id uuid references drivers(id), coords point not null);
 
 -- 5. Wallet & Fin
 create table wallets (id uuid primary key default uuid_generate_v4(), owner_type varchar(20) not null, owner_id uuid not null, balance decimal(12,2) default 0);
-create table wallet_transactions (id uuid primary key default uuid_generate_v4(), wallet_id uuid references wallets(id), amount decimal(12,2) not null, type varchar(20) not null);
+create table wallet_transactions (id uuid primary key default uuid_generate_v4(), wallet_id uuid references wallets(id), amount decimal(12,2) not null, type varchar(20) not null, created_at timestamptz default timezone('utc'::text, now()));
 
 -- 6. Memberships, Subscriptions, Coupons, Favs, Reviews, Audit, Settings
 create table memberships (id uuid primary key default uuid_generate_v4(), name varchar(100) not null);
