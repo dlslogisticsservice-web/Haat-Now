@@ -103,7 +103,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 // Functional settings detail (replaces the old "coming soon" placeholder).
-function SettingsDetail({ page, onBack, session, onLogout }: { page: SettingsPage; onBack: () => void; session?: { id: string; phone_number: string; role: string }; onLogout?: () => void }) {
+function SettingsDetail({ page, onBack, session, onLogout }: { page: SettingsPage; onBack: () => void; session?: { id: string; email?: string | null; phone_number?: string | null; role: string }; onLogout?: () => void }) {
   const { Icon, title, subtitle } = SETTINGS_INFO[page];
   const { lang, setLang, country, setCountry } = useAppConfig();
   const { t } = useTranslation();
@@ -123,7 +123,7 @@ function SettingsDetail({ page, onBack, session, onLogout }: { page: SettingsPag
       if (raw == null) continue;
       try { local[k] = JSON.parse(raw); } catch { local[k] = raw; }
     }
-    const payload = { exported_at: new Date().toISOString(), account: session ? { id: session.id, phone: session.phone_number, role: session.role } : null, local };
+    const payload = { exported_at: new Date().toISOString(), account: session ? { id: session.id, email: session.email ?? null, phone: session.phone_number ?? null, role: session.role } : null, local };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a'); a.href = url; a.download = 'haat-my-data.json'; a.click();
@@ -428,7 +428,7 @@ const READ_ROW: React.CSSProperties = {
 };
 
 interface ProfileScreenProps {
-  session: { id: string; phone_number: string; role: string };
+  session: { id: string; email?: string | null; phone_number?: string | null; role: string };
   onLogout: () => void;
 }
 
@@ -729,7 +729,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                             textShadow: '0 0 24px rgba(163,249,91,0.60)',
                             userSelect: 'none',
                           }}>
-                            {(savedName || session.phone_number || 'م').charAt(0)}
+                            {(savedName || session.email || session.phone_number || 'م').charAt(0)}
                           </span>
                         )}
                       </div>
@@ -751,7 +751,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                         {savedName || T('بدون اسم','No name')}
                       </h2>
                       <p dir="ltr" style={{ color: 'var(--color-on-surface-variant)', fontSize: '12px', marginBottom: '8px', letterSpacing: '0.01em' }}>
-                        {session.phone_number}
+                        {session.email || session.phone_number}
                       </p>
                       <div className="premium-badge inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full" style={{ background: 'rgba(163,249,91,0.12)', border: '1px solid rgba(163,249,91,0.3)' }}>
                         <Crown size={11} color="var(--color-primary-fixed)" strokeWidth={2} style={{ filter: 'drop-shadow(0 0 4px rgba(163,249,91,0.6))' }} />
@@ -852,7 +852,7 @@ export const ProfileScreen = ({ session, onLogout }: ProfileScreenProps) => {
                       <label style={LBL}>{T('رقم الجوال','Phone number')}</label>
                       <div style={READ_ROW}>
                         <span style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--color-on-surface-variant)', fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.06em' }}>READ ONLY</span>
-                        <p dir="ltr" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>{session.phone_number}</p>
+                        <p dir="ltr" style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>{session.email || session.phone_number}</p>
                       </div>
                     </div>
                     {savedCreatedAt && (

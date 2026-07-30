@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { authService } from '../../services/auth.service';
 import {
-  RefreshCw, ChevronLeft, CheckCircle2, AlertCircle,
-  ChevronDown, Smartphone,
+  RefreshCw, ChevronLeft, CheckCircle2, AlertCircle, Mail,
+  Smartphone,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { HaatLogo } from '../../components/brand/HaatLogo';
@@ -10,38 +10,54 @@ import { HaatLogo } from '../../components/brand/HaatLogo';
 const GOOGLE_LOGO = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBDbupKZkEB-5NrKOCMTxGgYZHrReUAdgg-BvQGyYALDpBHdLIlTIw_BDQl0pm1tgugDEDWPmLCr6oLrK2gFJj3gLCtWwTXehYGzwV6__C73Bc24EKFFUhUPpLkOu8TVwLu7rRwflBQ1gh6LbqkeZAM-m_eIiY2AqxwG1GRuZAkpOHYYgC7JprOYcLsKIahr54pbgN8shms5WwaJ7YPVH3LeYys8MggBrciMyeWdSnZI9ThpbkYRboqcCdfoS21q96ynnYlxxmRiHhs';
 
 interface LoginScreenProps {
-  onLoginSuccess: (user: { id: string; phone_number: string; role: string }) => void;
+  onLoginSuccess: (user: { id: string; email?: string | null; phone_number?: string | null; role: string }) => void;
 }
 
+// Email OTP login (Egypt-first closed beta). Channel is delegated to authService, so
+// re-enabling phone/CEQUENS or adding OAuth later is a provider change — not a UI rewrite.
 export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
   const { t } = useTranslation();
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpDigits,   setOtpDigits]   = useState(['', '', '', '', '', '']);
-  const [step,        setStep]        = useState<'phone' | 'otp'>('phone');
-  const [loading,     setLoading]     = useState(false);
-  const [message,     setMessage]     = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [email,     setEmail]     = useState('');
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
+  const [step,      setStep]      = useState<'email' | 'otp'>('email');
+  const [loading,   setLoading]   = useState(false);
+  const [message,   setMessage]   = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const otpRefs = useRef<(HTMLInputElement | null)[]>([null, null, null, null, null, null]);
 
   // Derived — business logic callers use this string
   const otpToken = otpDigits.join('');
 
-  // ── Business logic unchanged ──────────────────────────────
+  // ── Request an email OTP ──────────────────────────────────
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phoneNumber) return;
+    if (!email) return;
     setLoading(true);
     setMessage(null);
-    const { error } = await authService.sendOtp(phoneNumber);
+    const { error } = await authService.sendOtp(email);
     setLoading(false);
     if (error) {
-      // Prefer the explicit reason (cooldown / lockout / provider) over the generic key —
-      // an OTP failure must tell the user what happened, never fail silently or vaguely.
+      // Prefer the explicit reason (cooldown / lockout / invalid / provider) over the
+      // generic key — an OTP failure must tell the user what happened, never silently.
       setMessage({ text: error.message || t('auth.sendError'), type: 'error' });
     } else {
-      setMessage({ text: t('auth.otpSent'), type: 'success' });
+      setMessage({ text: t('auth.otpSentEmail'), type: 'success' });
       setStep('otp');
     }
+  };
+
+  // ── Resend an email OTP (respects the client-side cooldown guard) ──
+  const handleResendOtp = async () => {
+    if (loading) return;
+    setLoading(true);
+    setMessage(null);
+    const { error } = await authService.sendOtp(email);
+    setLoading(false);
+    setMessage(
+      error
+        ? { text: error.message || t('auth.sendError'), type: 'error' }
+        : { text: t('auth.otpSentEmail'), type: 'success' },
+    );
   };
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
@@ -49,7 +65,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
     if (!otpToken) return;
     setLoading(true);
     setMessage(null);
-    const { data, error } = await authService.verifyOtp(phoneNumber, otpToken);
+    const { data, error } = await authService.verifyOtp(email, otpToken);
     setLoading(false);
     if (error) {
       // Policy denials (replay / attempt limit / lockout) carry a specific message; a
@@ -58,6 +74,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
     } else if (data.user) {
       onLoginSuccess({
         id: data.user.id,
+        email: data.user.email,
         phone_number: data.user.phone_number,
         role: data.user.role,
       });
@@ -96,7 +113,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
 
   const resetOtp = () => {
     setOtpDigits(['', '', '', '', '', '']);
-    setStep('phone');
+    setStep('email');
     setMessage(null);
   };
 
@@ -165,15 +182,15 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                 textShadow: '0 0 24px rgba(163,249,91,0.35)',
               }}
             >
-              {step === 'phone' ? t('auth.signIn') : t('auth.confirmCode')}
+              {step === 'email' ? t('auth.signIn') : t('auth.confirmCode')}
             </h2>
             <p
               className="mt-2"
               style={{ fontSize: '13px', color: 'var(--color-on-surface-variant)', lineHeight: 1.55 }}
             >
-              {step === 'phone'
-                ? t('auth.enterPhone')
-                : `${t('auth.codeSentTo')} ${phoneNumber}`}
+              {step === 'email'
+                ? t('auth.enterEmail')
+                : <>{t('auth.codeSentTo')} <span dir="ltr">{email}</span></>}
             </p>
           </div>
 
@@ -181,6 +198,8 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
           {message && (
             <div
               id="login_feedback"
+              role="alert"
+              aria-live="assertive"
               className="px-4 py-3 rounded-xl flex items-center gap-2.5"
               style={{
                 background: message.type === 'error' ? 'rgba(255,180,171,0.08)' : 'rgba(163,249,91,0.08)',
@@ -197,52 +216,44 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
             </div>
           )}
 
-          {/* ── PHONE STEP ─────────────────────────────────── */}
-          {step === 'phone' ? (
-            <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} id="phone_form">
+          {/* ── EMAIL STEP ─────────────────────────────────── */}
+          {step === 'email' ? (
+            <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} id="email_form">
 
-              {/* Phone cluster */}
+              {/* Email cluster */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label
+                  htmlFor="email_input"
                   style={{
                     fontSize: '10px', fontWeight: 700, letterSpacing: '0.09em',
                     textTransform: 'uppercase', color: 'var(--color-on-surface-variant)',
                     paddingRight: '4px',
                   }}
                 >
-                  {t('auth.phoneLabel')}
+                  {t('auth.emailLabel')}
                 </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-
-                  {/* Country selector */}
-                  <div className="relative" style={{ flexShrink: 0 }}>
-                    <select
-                      id="country_select"
-                      className="appearance-none h-14 px-4 transition-colors cursor-pointer input-silver"
-                      style={{ width: '128px', borderRadius: '16px', paddingRight: '36px' }}
-                    >
-                      <option value="EG">🇪🇬 +20</option>
-                      <option value="SA">🇸🇦 +966</option>
-                      <option value="AE">🇦🇪 +971</option>
-                      <option value="KW">🇰🇼 +965</option>
-                    </select>
-                    <ChevronDown
-                      size={15}
-                      className="absolute top-1/2 -translate-y-1/2 pointer-events-none"
-                      style={{ left: '12px', color: 'var(--color-on-surface-variant)' }}
-                    />
-                  </div>
-
-                  {/* Phone number input */}
+                <div className="relative">
+                  <Mail
+                    size={18}
+                    className="absolute top-1/2 -translate-y-1/2 pointer-events-none"
+                    style={{ insetInlineStart: '16px', color: 'var(--color-on-surface-variant)' }}
+                    aria-hidden="true"
+                  />
                   <input
-                    type="tel"
-                    placeholder="000 000 000"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    type="email"
+                    dir="ltr"
+                    placeholder={t('auth.emailPlaceholder')}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
-                    id="phone_input"
-                    className="flex-grow h-14 px-4 transition-all input-silver"
-                    style={{ borderRadius: '16px', direction: 'ltr' }}
+                    autoComplete="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    id="email_input"
+                    aria-label={t('auth.emailLabel')}
+                    className="w-full h-14 transition-all input-silver"
+                    style={{ borderRadius: '16px', paddingInlineStart: '46px', paddingInlineEnd: '16px' }}
                   />
                 </div>
               </div>
@@ -261,7 +272,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                 }}
               >
                 {loading
-                  ? <RefreshCw size={20} className="animate-spin" strokeWidth={2} />
+                  ? <RefreshCw size={20} className="animate-spin" strokeWidth={2} aria-label={t('auth.sending')} />
                   : (
                     <>
                       <span>{t('auth.sendCode')}</span>
@@ -280,11 +291,13 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                 <div className="h-px flex-grow" style={{ background: 'rgba(255,255,255,0.09)' }} />
               </div>
 
-              {/* Social logins */}
+              {/* Social logins (roadmap — OAuth providers) */}
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  className="h-12 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 social-btn"
+                  disabled
+                  aria-label="Apple (soon)"
+                  className="h-12 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 social-btn disabled:opacity-50"
                   style={{ color: 'var(--color-on-surface)', fontSize: '14px', fontWeight: 500 }}
                 >
                   <Smartphone size={18} strokeWidth={1.75} color="var(--color-on-surface-variant)" />
@@ -292,10 +305,12 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                 </button>
                 <button
                   type="button"
-                  className="h-12 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 social-btn"
+                  disabled
+                  aria-label="Google (soon)"
+                  className="h-12 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 social-btn disabled:opacity-50"
                   style={{ color: 'var(--color-on-surface)', fontSize: '14px', fontWeight: 500 }}
                 >
-                  <img src={GOOGLE_LOGO} alt="G" className="w-5 h-5 grayscale" style={{ flexShrink: 0 }} />
+                  <img src={GOOGLE_LOGO} alt="" aria-hidden="true" className="w-5 h-5 grayscale" style={{ flexShrink: 0 }} />
                   <span>Google</span>
                 </button>
               </div>
@@ -309,6 +324,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
               {/* 6 individual digit boxes */}
               <div>
                 <label
+                  id="otp_group_label"
                   style={{
                     fontSize: '10px', fontWeight: 700, letterSpacing: '0.09em',
                     textTransform: 'uppercase', display: 'block', marginBottom: '14px',
@@ -317,13 +333,14 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                 >
                   {t('auth.otpTitle')}
                 </label>
-                <div className="flex gap-2.5 justify-center" dir="ltr" id="otp_boxes">
+                <div className="flex gap-2.5 justify-center" dir="ltr" id="otp_boxes" role="group" aria-labelledby="otp_group_label">
                   {otpDigits.map((digit, idx) => (
                     <input
                       key={idx}
                       ref={el => { otpRefs.current[idx] = el; }}
                       type="text"
                       inputMode="numeric"
+                      autoComplete={idx === 0 ? 'one-time-code' : 'off'}
                       maxLength={1}
                       value={digit}
                       onChange={e => handleOtpDigit(idx, e.target.value)}
@@ -331,6 +348,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                       onPaste={idx === 0 ? handleOtpPaste : undefined}
                       className="input-silver otp-digit text-center font-bold"
                       id={`otp_digit_${idx}`}
+                      aria-label={`${t('auth.otpTitle')} ${idx + 1}`}
                       style={{
                         width: '46px',
                         height: '58px',
@@ -366,13 +384,20 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                   onClick={resetOtp}
                   className="hover:underline cursor-pointer"
                   style={{ color: 'var(--color-secondary)', background: 'none', border: 'none', padding: 0 }}
-                  id="back_to_phone"
+                  id="back_to_email"
                 >
-                  {t('auth.changeNumber')}
+                  {t('auth.changeEmail')}
                 </button>
-                <span style={{ color: 'var(--color-on-surface-variant)' }}>
-                  {t('auth.noCode')}
-                </span>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={loading}
+                  className="hover:underline cursor-pointer disabled:opacity-60"
+                  style={{ color: 'var(--color-on-surface-variant)', background: 'none', border: 'none', padding: 0 }}
+                  id="resend_otp_btn"
+                >
+                  {t('auth.resend')}
+                </button>
               </div>
 
               {/* Primary CTA */}
@@ -389,7 +414,7 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                 }}
               >
                 {loading
-                  ? <RefreshCw size={20} className="animate-spin" strokeWidth={2} />
+                  ? <RefreshCw size={20} className="animate-spin" strokeWidth={2} aria-label={t('auth.verifying')} />
                   : (
                     <>
                       <span>{t('auth.verify')}</span>

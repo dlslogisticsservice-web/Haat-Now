@@ -8,9 +8,11 @@
 // lock-in and no PII beyond what the caller passes. NOT a mock — when the env
 // var is set, events are actually sent.
 // ─────────────────────────────────────────────────────────────────────────────
-const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-const ANALYTICS_URL = import.meta.env.VITE_ANALYTICS_URL as string | undefined;
-const PROD = import.meta.env.PROD;
+// Guarded reads: import.meta.env is undefined under the node/tsx test runner.
+const ENV = (typeof import.meta !== 'undefined' && import.meta.env) || undefined;
+const SENTRY_DSN = ENV?.VITE_SENTRY_DSN as string | undefined;
+const ANALYTICS_URL = ENV?.VITE_ANALYTICS_URL as string | undefined;
+const PROD = ENV?.PROD;
 
 function post(url: string, body: unknown) {
   try {

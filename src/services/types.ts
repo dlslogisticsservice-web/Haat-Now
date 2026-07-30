@@ -4,7 +4,10 @@
 //    longer depends on a feature folder; features/auth/types re-exports for compat) ──
 export interface User {
   id: string;
-  phone_number: string;
+  /** Primary login identity (email OTP). */
+  email?: string | null;
+  /** Optional — a phone number may be attached later (e.g. verified via CEQUENS). */
+  phone_number?: string | null;
   role: 'customer' | 'merchant' | 'driver' | 'admin';
 }
 

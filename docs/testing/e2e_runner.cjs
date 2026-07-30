@@ -19,14 +19,14 @@ async function newCtx(browser) {
   page.on('console', m => { if (m.type() === 'error') { const t = m.text(); if (!/Failed to load resource|favicon|net::ERR|status of 4|status of 5|google|maps|supabase\.co/i.test(t)) errors.push('console: ' + t.slice(0, 160)); } });
   return { ctx, page, errors };
 }
-async function login(page, phone, account = 'customer') {
+async function login(page, email, account = 'customer') {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   // Step 1 — account-type gateway (Login → Choose Account → auth). RBAC still decides the real role.
   await page.waitForSelector('#account_gateway', { timeout: 20000 });
   await page.click(`#acct_${account}`);
-  // Step 2 — existing phone/OTP auth.
-  await page.waitForSelector('#phone_input', { timeout: 20000 });
-  await page.type('#phone_input', phone, { delay: 6 });
+  // Step 2 — email OTP auth (STEP 3B). Demo emails verify with the fixed sandbox code.
+  await page.waitForSelector('#email_input', { timeout: 20000 });
+  await page.type('#email_input', email, { delay: 6 });
   await page.click('#send_otp_btn');
   await page.waitForSelector('#otp_boxes input', { timeout: 10000 });
   const b = await page.$$('#otp_boxes input');
@@ -42,7 +42,7 @@ const exists = (page, sel) => page.$(sel).then(e => !!e);
   {
     const { ctx, page, errors } = await newCtx(browser);
     try {
-      await login(page, '+201000000001');
+      await login(page, 'customer.eg@haatnow.test');
       await page.waitForSelector('#customer_main', { timeout: 20000 }); await sleep(2500);
       rec('C1', 'Login', true);
       rec('C2', 'Browse stores', await exists(page, '#restaurants_list') && await exists(page, '#stitch_bottom_nav'));
@@ -136,14 +136,14 @@ const exists = (page, sel) => page.$(sel).then(e => !!e);
   }
 
   // ───────── MERCHANT ─────────
-  await roleTest(browser, '+201000000002', 'M', 'Merchant', '#merchant_portal_full, #merchant_main_content');
+  await roleTest(browser, 'merchant.eg@haatnow.test', 'M', 'Merchant', '#merchant_portal_full, #merchant_main_content');
   // ───────── DRIVER ─────────
-  await roleTest(browser, '+201000000003', 'D', 'Driver', '#driver_app_container');
+  await roleTest(browser, 'driver.eg@haatnow.test', 'D', 'Driver', '#driver_app_container');
   // ───────── ADMIN ─────────
   {
     const { ctx, page, errors } = await newCtx(browser);
     try {
-      await login(page, '+201000000005');
+      await login(page, 'super@haatnow.test');
       await page.waitForSelector('#admin_dashboard_full, #admin_main_content', { timeout: 20000 }); await sleep(2500);
       rec('A1', 'Super admin login → dashboard', true);
       const probe = await page.evaluate(() => ({ design: /مركز التصميم|Design/.test(document.body.innerText), campaign: /الحملات|Campaign/.test(document.body.innerText) }));

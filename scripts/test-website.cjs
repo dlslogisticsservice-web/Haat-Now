@@ -15,6 +15,7 @@ const SUITE_DIRS = [
   ['src', 'experience-engine', '__tests__'],
   ['src', 'experience-channels', '__tests__'],
   ['src', 'services', 'ops', '__tests__'],
+  ['src', 'services', 'auth', '__tests__'],
   ['src', 'experience-content', '__tests__'],
   ['src', 'component-platform', '__tests__'],
 ];

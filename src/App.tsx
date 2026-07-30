@@ -85,7 +85,7 @@ export default function App() {
   const [countryPickerOpen, setCountryPickerOpen] = useState(false);
 
   // ── Auth state ──────────────────────────────────────────────────
-  const [session, setSession] = useState<{ id: string; phone_number: string; role: string } | null>(null);
+  const [session, setSession] = useState<{ id: string; email?: string | null; phone_number?: string | null; role: string } | null>(null);
   const [sessionValidating, setSessionValidating] = useState(true);
   // Pre-auth account-type gateway (Login → Choose Account → existing auth). RBAC still authoritative.
   const [acctType, setAcctType] = useState<AccountType | null>(null);
@@ -225,7 +225,7 @@ export default function App() {
   // ── Handlers ────────────────────────────────────────────────────
   // verifyOtp already established the real Supabase session; just reflect it in state.
   // The onAuthStateChange listener keeps it authoritative — no fake session is stored.
-  const handleLoginSuccess = (user: { id: string; phone_number: string; role: string }) => {
+  const handleLoginSuccess = (user: { id: string; email?: string | null; phone_number?: string | null; role: string }) => {
     setSession(user);
     syncRbacIdentity(user);
     // A fresh, deliberate login is already an acknowledgement — the session chooser is only

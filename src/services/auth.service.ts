@@ -1,40 +1,31 @@
 import { supabase } from '../lib/supabase';
 import { User } from './types';
-import { toE164 } from '../utils/phone';
 import { monitoring } from './monitoring.service';
 import {
   emptyOtpState, checkSend, recordSend, checkVerify, recordVerifyFailure, recordVerifySuccess,
   type OtpGuardState, type OtpDecision,
 } from './otp-policy';
+import { getAuthProvider, ACTIVE_AUTH_CHANNEL } from './auth/registry';
+import { DEMO_OTP, demoById } from './auth/demoAccounts';
+import type { AuthChannel } from './auth/types';
+import { IS_SANDBOX } from '../config/runtime';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Dual-mode authentication — keyed off VITE_AUTH_MODE ONLY (must match lib/supabase.ts
-// and every other service; do NOT re-add an `&& import.meta.env.DEV` gate — that made
-// the demo unable to log in on the deployed production build, where DEV is false).
-//   VITE_AUTH_MODE=sandbox   → local demo OTP (123456) + fixed demo accounts (the demo;
-//                              forced in vite.config so production ships as the demo).
-//   VITE_AUTH_MODE=supabase  → real Supabase phone OTP (opt in with HAAT_LIVE_BACKEND=1).
+// Unified authentication service.
+//
+// Channel-specific work (send/verify an OTP, normalize/validate an identity, resolve
+// a sandbox account) is delegated to an OtpAuthProvider (email today; phone/CEQUENS +
+// OAuth later — see services/auth/registry.ts). Everything channel-agnostic lives HERE:
+// the client-side rate-limit guard, RBAC role resolution, customer-profile creation,
+// session lifecycle, admin scope, and logout.
+//
+// Dual-mode via the single source of truth (config/runtime IS_SANDBOX, derived from
+// VITE_AUTH_MODE at build time):
+//   sandbox  → local demo code (123456) + fixed demo accounts (the self-contained demo;
+//              forced in vite.config so production ships as the demo).
+//   supabase → real Supabase OTP (opt in with HAAT_LIVE_BACKEND=1).
 // ─────────────────────────────────────────────────────────────────────────────
-const IS_SANDBOX = import.meta.env.VITE_AUTH_MODE === 'sandbox';
-
-export const SANDBOX_OTP = '123456';
 const SANDBOX_SESSION_KEY = 'haat_sandbox_session';
-
-interface DemoAccount { id: string; role: User['role']; country: 'EG' | 'SA'; name: string; scope?: 'super' | 'country' }
-
-// Demo accounts (E.164 keyed). UUID ids are valid so uuid-typed queries never 22P02.
-export const DEMO_ACCOUNTS: Record<string, DemoAccount> = {
-  '+201000000001': { id: '11111111-0000-0000-0000-000000000001', role: 'customer', country: 'EG', name: 'عميل مصر' },
-  '+966500000001': { id: '11111111-0000-0000-0000-000000000002', role: 'customer', country: 'SA', name: 'عميل السعودية' },
-  '+201000000002': { id: '22222222-0000-0000-0000-000000000001', role: 'merchant', country: 'EG', name: 'تاجر مصر' },
-  '+966500000002': { id: '22222222-0000-0000-0000-000000000002', role: 'merchant', country: 'SA', name: 'تاجر السعودية' },
-  '+201000000003': { id: '33333333-0000-0000-0000-000000000001', role: 'driver',   country: 'EG', name: 'كابتن مصر' },
-  '+966500000003': { id: '33333333-0000-0000-0000-000000000002', role: 'driver',   country: 'SA', name: 'كابتن السعودية' },
-  '+201000000004': { id: '44444444-0000-0000-0000-000000000001', role: 'admin',     country: 'EG', name: 'مدير مصر',     scope: 'country' },
-  '+966500000004': { id: '44444444-0000-0000-0000-000000000002', role: 'admin',     country: 'SA', name: 'مدير السعودية', scope: 'country' },
-  '+201000000005': { id: '55555555-0000-0000-0000-000000000005', role: 'admin',     country: 'EG', name: 'المدير العام',  scope: 'super' },
-  '+201000000006': { id: '44444444-0000-0000-0000-000000000003', role: 'admin',     country: 'SA', name: 'مدير السعودية', scope: 'country' },
-};
 
 const VALID_ROLES = ['admin', 'merchant', 'driver', 'customer'] as const;
 const isValidRole = (n: unknown): n is User['role'] =>
@@ -89,15 +80,12 @@ function readSandboxSession(): User | null {
 }
 
 // ── OTP abuse guard (client-side defense-in-depth) ────────────────────────────
-// Per-phone state, in memory only — it holds counters/timestamps, NEVER an OTP. The
-// OTP lifecycle itself stays server-side (Supabase Auth). This layer only fast-fails
-// abuse with a specific reason; the server remains authoritative.
+// Per-IDENTITY state (email or phone), in memory only — it holds counters/timestamps,
+// NEVER an OTP. The OTP lifecycle itself stays server-side (Supabase Auth). This layer
+// only fast-fails abuse with a specific reason; the server remains authoritative.
 const otpGuards = new Map<string, OtpGuardState>();
-const readGuard = (phone: string): OtpGuardState => otpGuards.get(phone) ?? emptyOtpState();
-const writeGuard = (phone: string, s: OtpGuardState): void => { otpGuards.set(phone, s); };
-
-/** Log/telemetry-safe phone — never record a full number. */
-const maskPhone = (p: string): string => (p.length > 5 ? `${p.slice(0, 3)}***${p.slice(-2)}` : '***');
+const readGuard = (identity: string): OtpGuardState => otpGuards.get(identity) ?? emptyOtpState();
+const writeGuard = (identity: string, s: OtpGuardState): void => { otpGuards.set(identity, s); };
 
 /** Map a policy denial to an explicit, localised auth error (never a silent success). */
 function otpPolicyError(d: OtpDecision): { message: string; code: string; retryAfterSec?: number } {
@@ -114,48 +102,56 @@ function otpPolicyError(d: OtpDecision): { message: string; code: string; retryA
 
 export const authService = {
   // ── Request OTP ────────────────────────────────────────────────────────────
-  async sendOtp(phoneNumber: string): Promise<{ error: any }> {
-    const phone = toE164(phoneNumber);
+  async sendOtp(identity: string, channel: AuthChannel = ACTIVE_AUTH_CHANNEL): Promise<{ error: any }> {
+    const provider = getAuthProvider(channel);
+    const id = provider.normalize(identity);
     const now = Date.now();
+
+    if (!provider.isValid(id)) {
+      return { error: { message: 'أدخل بريدًا إلكترونيًا صحيحًا.', code: 'invalid_identity' } };
+    }
     // Guard first — refuse before wasting a round-trip. Explicit reason, never a fake OK.
-    const gate = checkSend(readGuard(phone), now);
+    const gate = checkSend(readGuard(id), now);
     if (!gate.allowed) return { error: otpPolicyError(gate) };
 
     if (IS_SANDBOX) {
-      if (!DEMO_ACCOUNTS[phone]) {
-        return { error: { message: 'رقم غير مسجّل في وضع التجربة. استخدم أحد أرقام الحسابات التجريبية.' } };
+      if (!provider.sandboxAccount(id)) {
+        return { error: { message: 'هذا الحساب غير مسجّل في وضع التجربة. استخدم أحد حسابات التجربة.', code: 'unknown_demo' } };
       }
-      writeGuard(phone, recordSend(readGuard(phone), now));
+      writeGuard(id, recordSend(readGuard(id), now));
       return { error: null };
     }
 
-    // Production: Supabase generates + sends the OTP via its configured SMS provider.
-    const { error } = await supabase.auth.signInWithOtp({ phone });
+    // Production: Supabase generates + sends the OTP via its configured provider.
+    const { error } = await provider.requestOtp(id);
     if (error) {
-      // SMS delivery / provider failure — surfaced to Guardian, never swallowed.
-      monitoring.log('error', `[auth] send_failed: ${error.message || 'unknown'}`, { phone: maskPhone(phone) });
+      // Delivery / provider failure — surfaced to Guardian, never swallowed.
+      const msg = (error as { message?: string }).message || 'unknown';
+      monitoring.log('error', `[auth] send_failed(${provider.channel}): ${msg}`, { identity: provider.mask(id) });
       return { error };
     }
-    writeGuard(phone, recordSend(readGuard(phone), now));
+    writeGuard(id, recordSend(readGuard(id), now));
     return { error: null };
   },
 
   // ── Verify OTP → establish session ──────────────────────────────────────────
-  async verifyOtp(phoneNumber: string, token: string): Promise<{ data: { user: User | null }; error: any }> {
-    const phone = toE164(phoneNumber);
+  async verifyOtp(identity: string, token: string, channel: AuthChannel = ACTIVE_AUTH_CHANNEL): Promise<{ data: { user: User | null }; error: any }> {
+    const provider = getAuthProvider(channel);
+    const id = provider.normalize(identity);
     const now = Date.now();
-    const gate = checkVerify(readGuard(phone), now);
+
+    const gate = checkVerify(readGuard(id), now);
     if (!gate.allowed) return { data: { user: null }, error: otpPolicyError(gate) };
 
     if (IS_SANDBOX) {
-      const acct = DEMO_ACCOUNTS[phone];
-      if (!acct) return { data: { user: null }, error: { message: 'رقم غير مسجّل في وضع التجربة.' } };
-      if (token !== SANDBOX_OTP) {
-        writeGuard(phone, recordVerifyFailure(readGuard(phone), now));
-        return { data: { user: null }, error: { message: `رمز غير صحيح. استخدم ${SANDBOX_OTP}.` } };
+      const acct = provider.sandboxAccount(id);
+      if (!acct) return { data: { user: null }, error: { message: 'هذا الحساب غير مسجّل في وضع التجربة.', code: 'unknown_demo' } };
+      if (token !== DEMO_OTP) {
+        writeGuard(id, recordVerifyFailure(readGuard(id), now));
+        return { data: { user: null }, error: { message: `رمز غير صحيح. استخدم ${DEMO_OTP}.`, code: 'otp_invalid' } };
       }
-      writeGuard(phone, recordVerifySuccess(readGuard(phone), now));
-      const user: User = { id: acct.id, phone_number: phone, role: acct.role };
+      writeGuard(id, recordVerifySuccess(readGuard(id), now));
+      const user: User = { id: acct.id, email: acct.email, phone_number: acct.phone, role: acct.role };
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(SANDBOX_SESSION_KEY, JSON.stringify(user));
         // Align the active country with the demo account's country.
@@ -165,24 +161,30 @@ export const authService = {
       return { data: { user }, error: null };
     }
 
-    const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+    const { data, error } = await provider.confirmOtp(id, token);
     if (error) {
-      writeGuard(phone, recordVerifyFailure(readGuard(phone), now));
-      // OTP verification failure — surfaced to Guardian.
-      monitoring.log('error', `[auth] verify_failed: ${error.message || 'invalid code'}`, { phone: maskPhone(phone) });
+      writeGuard(id, recordVerifyFailure(readGuard(id), now));
+      const msg = (error as { message?: string }).message || 'invalid code';
+      monitoring.log('error', `[auth] verify_failed(${provider.channel}): ${msg}`, { identity: provider.mask(id) });
       return { data: { user: null }, error };
     }
-    writeGuard(phone, recordVerifySuccess(readGuard(phone), now));
+    writeGuard(id, recordVerifySuccess(readGuard(id), now));
     const sbUser = data.user;
     if (!sbUser) return { data: { user: null }, error: new Error('No authenticated user returned') };
+
     const role = await resolveHighestRole(sbUser.id);
+    const ident = provider.resolveIdentity(id, sbUser);
+    // First-time customer → create the profile row. phone_number is optional
+    // (nullable since 20260731000001) and may be attached later.
     if (role === 'customer') {
       const { data: profile } = await supabase.from('customers').select('id').eq('id', sbUser.id).maybeSingle();
       if (!profile) {
-        await supabase.from('customers').insert({ id: sbUser.id, phone_number: sbUser.phone || phone, full_name: 'عميل جديد', email: null });
+        await supabase.from('customers').insert({
+          id: sbUser.id, email: ident.email, phone_number: ident.phone_number, full_name: 'عميل جديد',
+        });
       }
     }
-    return { data: { user: { id: sbUser.id, phone_number: sbUser.phone || phone, role } }, error: null };
+    return { data: { user: { id: sbUser.id, email: ident.email, phone_number: ident.phone_number, role } }, error: null };
   },
 
   // ── Raw auth user id (lightweight — no role resolution) ─────────────────────
@@ -197,7 +199,7 @@ export const authService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
     const role = await resolveHighestRole(user.id);
-    return { id: user.id, phone_number: user.phone || '', role };
+    return { id: user.id, email: user.email ?? null, phone_number: user.phone ?? null, role };
   },
 
   // ── Admin scope (authoritative super/country gate) ──────────────────────────
@@ -206,7 +208,7 @@ export const authService = {
   // Design Center, Campaign Center, global settings and cross-country data.
   async getAdminScope(userId: string): Promise<'super' | 'country' | null> {
     if (IS_SANDBOX) {
-      const acct = Object.values(DEMO_ACCOUNTS).find(a => a.id === userId);
+      const acct = demoById(userId);
       if (!acct || acct.role !== 'admin') return null;
       return acct.scope === 'super' ? 'super' : 'country';
     }
