@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 export const reviewsRepository = {
   /** The order's branch + its merchant (to build the "merchant" review target). */
   getOrderBranch(branchId: string) {
-    return supabase.from('merchant_branches').select('merchant_id, name, merchants(business_name)').eq('id', branchId).maybeSingle();
+    return supabase.from('merchant_branches').select('merchant_id, name, merchants:merchants_public(business_name)').eq('id', branchId).maybeSingle();
   },
 
   /** The assigned driver's display name. */

@@ -11,8 +11,10 @@ import { supabase } from '../lib/supabase';
 // catalog.repository — read access to the public marketplace catalog (branches, offers).
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Merchant fields come from the public-safe projection (merchants_public) — the base
+// `merchants` table no longer exposes KYC/contact/owner columns to non-owners (F-3).
 const BRANCH_SELECT =
-  'id,name,merchant_id,zone_id,is_active,merchants(business_name,logo_url),zones(name)';
+  'id,name,merchant_id,zone_id,is_active,merchants:merchants_public(business_name,logo_url),zones(name)';
 
 export const catalogRepository = {
   /** All merchant branches with their merchant + zone (marketplace listing). */

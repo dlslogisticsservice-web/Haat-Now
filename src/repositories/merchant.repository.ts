@@ -12,8 +12,10 @@ export const merchantRepository = {
     return supabase.from('merchant_branches').select('*').eq('merchant_id', merchantId);
   },
 
+  // Public-safe merchant profile (F-3): the base `merchants` table no longer exposes
+  // KYC/contact/owner columns to non-owners — read storefront fields from merchants_public.
   getMerchant(merchantId: string) {
-    return supabase.from('merchants').select('id, business_name, logo_url').eq('id', merchantId).maybeSingle();
+    return supabase.from('merchants_public').select('id, business_name, logo_url').eq('id', merchantId).maybeSingle();
   },
 
   listCategories() {

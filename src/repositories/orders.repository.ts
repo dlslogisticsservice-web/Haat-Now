@@ -82,14 +82,14 @@ export const ordersRepository = {
     return supabase.from('orders').select(`
         *,
         order_items(*, product_variants(*, products(*))),
-        merchant_branches(*, merchants(*)),
+        merchant_branches(*, merchants:merchants_public(id, business_name, logo_url, business_type)),
         drivers(*),
         order_status_history(*)
       `).eq('id', orderId).single();
   },
 
   getCustomerOrders(customerId: string) {
-    return supabase.from('orders').select('*, merchant_branches(name, merchants(business_name))').eq('customer_id', customerId).order('created_at', { ascending: false });
+    return supabase.from('orders').select('*, merchant_branches(name, merchants:merchants_public(business_name))').eq('customer_id', customerId).order('created_at', { ascending: false });
   },
 
   getOrderStateForUpdate(orderId: string) {
