@@ -5,9 +5,12 @@ import {
   emptyOtpState, checkSend, recordSend, checkVerify, recordVerifyFailure, recordVerifySuccess,
   type OtpGuardState, type OtpDecision,
 } from './otp-policy';
-import { getAuthProvider, ACTIVE_AUTH_CHANNEL } from './auth/registry';
+import { getAuthProvider } from './auth/registry';
 import { DEMO_OTP, demoById } from './auth/demoAccounts';
 import type { AuthChannel } from './auth/types';
+import { authConfig, isFeatureEnabled, channelFeature } from './auth/config';
+import { authAudit } from './auth/authAudit';
+import { authMetrics } from './auth/authMetrics';
 import { IS_SANDBOX } from '../config/runtime';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,52 +105,84 @@ function otpPolicyError(d: OtpDecision): { message: string; code: string; retryA
 
 export const authService = {
   // ── Request OTP ────────────────────────────────────────────────────────────
-  async sendOtp(identity: string, channel: AuthChannel = ACTIVE_AUTH_CHANNEL): Promise<{ error: any }> {
+  async sendOtp(identity: string, channel: AuthChannel = authConfig.activeChannel): Promise<{ error: any }> {
     const provider = getAuthProvider(channel);
     const id = provider.normalize(identity);
+    const masked = provider.mask(id);
     const now = Date.now();
 
+    // Feature gate — a disabled channel is refused (defense in depth; the UI also hides it).
+    if (!isFeatureEnabled(channelFeature(channel))) {
+      return { error: { message: 'طريقة الدخول هذه غير مفعّلة حاليًا.', code: 'channel_disabled' } };
+    }
+    // Channel-agnostic validity check — the message is generic; the provider owns the rule.
     if (!provider.isValid(id)) {
-      return { error: { message: 'أدخل بريدًا إلكترونيًا صحيحًا.', code: 'invalid_identity' } };
+      return { error: { message: 'المُعرّف المُدخل غير صالح.', code: 'invalid_identity' } };
     }
     // Guard first — refuse before wasting a round-trip. Explicit reason, never a fake OK.
-    const gate = checkSend(readGuard(id), now);
-    if (!gate.allowed) return { error: otpPolicyError(gate) };
+    const prior = readGuard(id);
+    const gate = checkSend(prior, now);
+    if (!gate.allowed) {
+      authAudit.record('rate_limit_triggered', { channel, identity: masked, reason: gate.reason });
+      return { error: otpPolicyError(gate) };
+    }
+    const isResend = prior.lastSendAt !== null && !prior.consumed;
 
     if (IS_SANDBOX) {
       if (!provider.sandboxAccount(id)) {
         return { error: { message: 'هذا الحساب غير مسجّل في وضع التجربة. استخدم أحد حسابات التجربة.', code: 'unknown_demo' } };
       }
-      writeGuard(id, recordSend(readGuard(id), now));
+      authAudit.record('otp_requested', { channel, identity: masked });
+      if (isResend) authAudit.record('resend_requested', { channel, identity: masked });
+      writeGuard(id, recordSend(prior, now));
+      authAudit.record('otp_delivered', { channel, identity: masked });
       return { error: null };
     }
 
     // Production: Supabase generates + sends the OTP via its configured provider.
+    authAudit.record('otp_requested', { channel, identity: masked });
+    if (isResend) authAudit.record('resend_requested', { channel, identity: masked });
     const { error } = await provider.requestOtp(id);
     if (error) {
       // Delivery / provider failure — surfaced to Guardian, never swallowed.
       const msg = (error as { message?: string }).message || 'unknown';
-      monitoring.log('error', `[auth] send_failed(${provider.channel}): ${msg}`, { identity: provider.mask(id) });
+      authMetrics.inc('otp_delivery_failed');
+      monitoring.log('error', `[auth] otp_delivery_failed(${channel}): ${msg}`, { identity: masked });
       return { error };
     }
-    writeGuard(id, recordSend(readGuard(id), now));
+    writeGuard(id, recordSend(prior, now));
+    authAudit.record('otp_delivered', { channel, identity: masked });
     return { error: null };
   },
 
   // ── Verify OTP → establish session ──────────────────────────────────────────
-  async verifyOtp(identity: string, token: string, channel: AuthChannel = ACTIVE_AUTH_CHANNEL): Promise<{ data: { user: User | null }; error: any }> {
+  async verifyOtp(identity: string, token: string, channel: AuthChannel = authConfig.activeChannel): Promise<{ data: { user: User | null }; error: any }> {
     const provider = getAuthProvider(channel);
     const id = provider.normalize(identity);
+    const masked = provider.mask(id);
     const now = Date.now();
+    const startedAt = now;
 
     const gate = checkVerify(readGuard(id), now);
-    if (!gate.allowed) return { data: { user: null }, error: otpPolicyError(gate) };
+    if (!gate.allowed) {
+      authAudit.record('rate_limit_triggered', { channel, identity: masked, reason: gate.reason });
+      return { data: { user: null }, error: otpPolicyError(gate) };
+    }
+
+    // Records a rejected code + audits failure and (if the Nth failure) a lockout.
+    const onVerifyFailure = (reason: string): void => {
+      const before = readGuard(id);
+      const next = recordVerifyFailure(before, now);
+      writeGuard(id, next);
+      authAudit.record('login_failure', { channel, identity: masked, reason });
+      if (!before.lockedUntil && next.lockedUntil) authAudit.record('account_locked', { channel, identity: masked });
+    };
 
     if (IS_SANDBOX) {
       const acct = provider.sandboxAccount(id);
       if (!acct) return { data: { user: null }, error: { message: 'هذا الحساب غير مسجّل في وضع التجربة.', code: 'unknown_demo' } };
       if (token !== DEMO_OTP) {
-        writeGuard(id, recordVerifyFailure(readGuard(id), now));
+        onVerifyFailure('otp_invalid');
         return { data: { user: null }, error: { message: `رمز غير صحيح. استخدم ${DEMO_OTP}.`, code: 'otp_invalid' } };
       }
       writeGuard(id, recordVerifySuccess(readGuard(id), now));
@@ -158,17 +193,18 @@ export const authService = {
         localStorage.setItem('haat_country', acct.country);
         localStorage.setItem('haat_country_manual', '1');
       }
+      authAudit.record('otp_verified', { channel, identity: masked, ms: Date.now() - startedAt });
+      authAudit.record('login_success', { channel, identity: masked });
       return { data: { user }, error: null };
     }
 
     const { data, error } = await provider.confirmOtp(id, token);
     if (error) {
-      writeGuard(id, recordVerifyFailure(readGuard(id), now));
-      const msg = (error as { message?: string }).message || 'invalid code';
-      monitoring.log('error', `[auth] verify_failed(${provider.channel}): ${msg}`, { identity: provider.mask(id) });
+      onVerifyFailure((error as { message?: string }).message || 'invalid code');
       return { data: { user: null }, error };
     }
     writeGuard(id, recordVerifySuccess(readGuard(id), now));
+    authAudit.record('otp_verified', { channel, identity: masked, ms: Date.now() - startedAt });
     const sbUser = data.user;
     if (!sbUser) return { data: { user: null }, error: new Error('No authenticated user returned') };
 
@@ -182,8 +218,10 @@ export const authService = {
         await supabase.from('customers').insert({
           id: sbUser.id, email: ident.email, phone_number: ident.phone_number, full_name: 'عميل جديد',
         });
+        authAudit.record('account_created', { channel, identity: masked });
       }
     }
+    authAudit.record('login_success', { channel, identity: masked });
     return { data: { user: { id: sbUser.id, email: ident.email, phone_number: ident.phone_number, role } }, error: null };
   },
 
@@ -245,11 +283,17 @@ export const authService = {
 
   // ── Logout ──────────────────────────────────────────────────────────────────
   async signOut(): Promise<{ error: any }> {
+    authAudit.record('logout');
     if (IS_SANDBOX) {
       if (typeof localStorage !== 'undefined') localStorage.removeItem(SANDBOX_SESSION_KEY);
       return { error: null };
     }
     const { error } = await supabase.auth.signOut();
     return { error };
+  },
+
+  // ── Auth metrics snapshot (dashboards / health probes) ──────────────────────
+  getMetrics() {
+    return authMetrics.snapshot();
   },
 };

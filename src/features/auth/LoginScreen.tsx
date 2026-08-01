@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { HaatLogo } from '../../components/brand/HaatLogo';
+import { isFeatureEnabled } from '../../services/auth/config';
 
 const GOOGLE_LOGO = 'https://lh3.googleusercontent.com/aida-public/AB6AXuBDbupKZkEB-5NrKOCMTxGgYZHrReUAdgg-BvQGyYALDpBHdLIlTIw_BDQl0pm1tgugDEDWPmLCr6oLrK2gFJj3gLCtWwTXehYGzwV6__C73Bc24EKFFUhUPpLkOu8TVwLu7rRwflBQ1gh6LbqkeZAM-m_eIiY2AqxwG1GRuZAkpOHYYgC7JprOYcLsKIahr54pbgN8shms5WwaJ7YPVH3LeYys8MggBrciMyeWdSnZI9ThpbkYRboqcCdfoS21q96ynnYlxxmRiHhs';
 
@@ -27,6 +28,11 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
 
   // Derived — business logic callers use this string
   const otpToken = otpDigits.join('');
+
+  // Entry points gated by auth feature flags (env/runtime — no code change to toggle).
+  const showApple  = isFeatureEnabled('apple_oauth');
+  const showGoogle = isFeatureEnabled('google_oauth');
+  const showSocial = showApple || showGoogle;
 
   // ── Request an email OTP ──────────────────────────────────
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -282,38 +288,47 @@ export const LoginScreen = ({ onLoginSuccess }: LoginScreenProps) => {
                 }
               </button>
 
-              {/* Divider */}
-              <div className="flex items-center gap-4 py-1">
-                <div className="h-px flex-grow" style={{ background: 'rgba(255,255,255,0.09)' }} />
-                <span style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', letterSpacing: '0.06em' }}>
-                  {t('auth.orContinueWith')}
-                </span>
-                <div className="h-px flex-grow" style={{ background: 'rgba(255,255,255,0.09)' }} />
-              </div>
+              {/* Social logins — roadmap OAuth providers, gated by auth feature flags.
+                  Rendered as placeholders (OAuth not yet implemented); an operator can
+                  hide them via VITE_AUTH_FLAGS without any code change. */}
+              {showSocial && (
+                <>
+                  <div className="flex items-center gap-4 py-1">
+                    <div className="h-px flex-grow" style={{ background: 'rgba(255,255,255,0.09)' }} />
+                    <span style={{ fontSize: '11px', color: 'var(--color-on-surface-variant)', letterSpacing: '0.06em' }}>
+                      {t('auth.orContinueWith')}
+                    </span>
+                    <div className="h-px flex-grow" style={{ background: 'rgba(255,255,255,0.09)' }} />
+                  </div>
 
-              {/* Social logins (roadmap — OAuth providers) */}
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  disabled
-                  aria-label="Apple (soon)"
-                  className="h-12 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 social-btn disabled:opacity-50"
-                  style={{ color: 'var(--color-on-surface)', fontSize: '14px', fontWeight: 500 }}
-                >
-                  <Smartphone size={18} strokeWidth={1.75} color="var(--color-on-surface-variant)" />
-                  <span>Apple</span>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  aria-label="Google (soon)"
-                  className="h-12 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 social-btn disabled:opacity-50"
-                  style={{ color: 'var(--color-on-surface)', fontSize: '14px', fontWeight: 500 }}
-                >
-                  <img src={GOOGLE_LOGO} alt="" aria-hidden="true" className="w-5 h-5 grayscale" style={{ flexShrink: 0 }} />
-                  <span>Google</span>
-                </button>
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {showApple && (
+                      <button
+                        type="button"
+                        disabled
+                        aria-label="Apple (soon)"
+                        className="h-12 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 social-btn disabled:opacity-50"
+                        style={{ color: 'var(--color-on-surface)', fontSize: '14px', fontWeight: 500 }}
+                      >
+                        <Smartphone size={18} strokeWidth={1.75} color="var(--color-on-surface-variant)" />
+                        <span>Apple</span>
+                      </button>
+                    )}
+                    {showGoogle && (
+                      <button
+                        type="button"
+                        disabled
+                        aria-label="Google (soon)"
+                        className="h-12 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-95 social-btn disabled:opacity-50"
+                        style={{ color: 'var(--color-on-surface)', fontSize: '14px', fontWeight: 500 }}
+                      >
+                        <img src={GOOGLE_LOGO} alt="" aria-hidden="true" className="w-5 h-5 grayscale" style={{ flexShrink: 0 }} />
+                        <span>Google</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
             </form>
 
           ) : (
