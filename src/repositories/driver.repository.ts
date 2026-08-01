@@ -35,8 +35,10 @@ export const driverRepository = {
     return supabase.from('drivers').select('id, full_name').in('id', ids);
   },
 
-  setOnline(driverId: string, isOnline: boolean) {
-    return supabase.from('drivers').update({ is_online: isOnline }).eq('id', driverId);
+  // Presence is an operational column locked by drivers_guard (Hardening Pass #3) — the
+  // toggle goes through an ownership-validated RPC, not a direct client UPDATE.
+  setOnline(_driverId: string, isOnline: boolean) {
+    return supabase.rpc('driver_set_presence', { p_is_online: isOnline });
   },
 
   getZoneDeliveries(zoneId: string) {
