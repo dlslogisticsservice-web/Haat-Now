@@ -13,9 +13,9 @@ export const reviewsRepository = {
     return supabase.from('merchant_branches').select('merchant_id, name, merchants:merchants_public(business_name)').eq('id', branchId).maybeSingle();
   },
 
-  /** The assigned driver's display name. */
+  /** The assigned driver's display name (public-safe projection — no KYC/PII, N-1). */
   getDriver(driverId: string) {
-    return supabase.from('drivers').select('full_name').eq('id', driverId).maybeSingle();
+    return supabase.from('drivers_public').select('full_name').eq('id', driverId).maybeSingle();
   },
 
   /** The order's line items → distinct products (for per-product review targets). */

@@ -83,7 +83,7 @@ export const ordersRepository = {
         *,
         order_items(*, product_variants(*, products(*))),
         merchant_branches(*, merchants:merchants_public(id, business_name, logo_url, business_type)),
-        drivers(*),
+        drivers:drivers_public(id, full_name, vehicle_id, vehicle_plate, rating, status, is_online, current_lat, current_lng),
         order_status_history(*)
       `).eq('id', orderId).single();
   },
