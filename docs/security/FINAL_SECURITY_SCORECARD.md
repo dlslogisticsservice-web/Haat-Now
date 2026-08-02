@@ -1,82 +1,49 @@
 # FINAL Security Scorecard
 
-Fresh external red-team re-validation of production `haat-now-prod`. **STATUS:** BLOCKED =
-protection held (attack failed) · **SUCCEEDED** = exploit worked. Confidence reflects the
-strength of the reproducible read-back evidence. Read-only; zero residue.
+Independent external red-team of production `haat-now-prod`. Live impersonated attacks with
+read-back evidence; zero residue. **Status:** BLOCKED = attack failed (protection held) ·
+**SUCCEEDED** = exploit worked. Confidence reflects strength of reproducible evidence.
 
-## Exploit scorecard
-
-| Exploit | Status | Risk | Confidence | Evidence |
-|---|---|---|---|---|
-| **F-1 `complete_delivery` caller-authz bypass (customer force-completes own order + driver payout)** | **SUCCEEDED** | **High** | High | order.status→`delivered`; driver_earnings=1; driver wallet `25.00` |
-| **F-2 `finalize_driver_delivery` driver self-mutates active_orders/status** | **SUCCEEDED** | **Medium** | High | active_orders 2→0; status busy→available |
-| **F-3 `merchants` KYC/PII exposure to any authenticated user** | **SUCCEEDED** | **Medium** | High | read victim `tax_number='TAX-SECRET-9'`; policy `USING(true)` |
-| F-4 anon executes `expire_dispatch_offers`/`recalc_driver_performance` | SUCCEEDED | Low | High | both executed under `role anon` |
-| F-5 always-true INSERT (`order_status_history`,`campaign_events`,`search_analytics`) | WEAK | Low | High | advisor `rls_policy_always_true` ×3 |
-| F-6 6 public buckets allow object listing | WEAK | Low | High | advisor `public_bucket_allows_listing` ×6 |
-| F-7 13 functions mutable `search_path` | WEAK | Low | High | advisor `function_search_path_mutable` ×13 |
-| F-8 `pg_trgm` in `public` schema | WEAK | Low | High | advisor `extension_in_public` |
-| B1 orders money/identity/status immutable | BLOCKED | — | High | read-back `unpaid`/`100.00` |
-| B2 `complete_delivery_payout` | BLOCKED | — | High | EXECUTE revoked |
-| B3 loyalty award/redeem + direct mint | BLOCKED | — | High | revoked; 0 rows minted |
-| B4 `redeem_advanced_coupon` | BLOCKED | — | High | EXECUTE revoked |
-| B5 order total / discount forgery | BLOCKED | — | High | totals immutable (B1) |
-| B6 `driver_earnings` direct INSERT | BLOCKED | — | High | `has_table_privilege=false` |
-| B7 `set_driver_status` | BLOCKED | — | High | EXECUTE revoked |
-| B8 `respond_dispatch` (anon+authed) | BLOCKED | — | High | revoked from both |
-| RT-1 driver self-GPS spoof (direct) | BLOCKED | — | High | current_lat read-back `NULL` |
-| RT-2 driver self-priority (direct) | BLOCKED | — | High | priority `50.50` (recalc), not `9999` |
-| Wallet direct write / adjust / credit / cashback | BLOCKED | — | High | balance unchanged; revoked |
-| Privilege escalation (admin_users/user_roles/assign_user_role) | BLOCKED | — | High | 0 rows; admin-only |
-| Admin/finance RPCs (approve_payout, pay_settlement, issue_compensation, ban/suspend/kyc, broadcast) | BLOCKED | — | High | internal `is_ops_admin`/permission guards |
-| `delete_my_account` on another user | BLOCKED | — | High | acts only on `auth.uid()` |
-| Customer isolation (orders/wallets/addresses/payment_methods) | BLOCKED | — | High | 0 rows each |
-| IDOR cross-customer order update | BLOCKED | — | High | status stayed `pending` |
-| Merchant isolation (product write / stock) | BLOCKED | — | High | ownership enforced; stock unchanged |
-| Tenant isolation (`website_*`) | BLOCKED | — | High | `tenant_id=auth_tenant()` from `tenant_members` |
-| Coupon_usages forge | BLOCKED | — | High | insert rejected |
-| Double-spend (`complete_delivery` ×2) | BLOCKED | — | High | idempotent; 1 earning, wallet `25.00` |
-| Webhook HMAC / service-role edge | N/A | — | High | no edge functions deployed on prod |
-| JWT forgery | N/A | — | High | GoTrue-signed; identity DB-derived |
+| Category | Status | Evidence | Confidence |
+|---|---|---|---|
+| **Referral / cashback economy (N-2)** | 🔴 **SUCCEEDED — CRITICAL** | `generate_referral_code`+`apply_referral_code`+`qualify_referral` minted **1,000,000.00** into two wallets; fake order id accepted | High |
+| **Driver KYC/PII exposure (N-1)** | 🟠 **SUCCEEDED — Medium** | ordering customer read driver `national_id_number=NATID-XYZ`, `license_number=LIC-XYZ` | High |
+| B1 order money/identity/status | BLOCKED | `payment_status` stayed `unpaid`; totals immutable | High |
+| B2 driver payout RPC | BLOCKED | `complete_delivery_payout` revoked | High |
+| B3 loyalty minting | BLOCKED | award/redeem revoked; direct insert 0 rows | High |
+| B4 advanced coupon self-credit | BLOCKED | `redeem_advanced_coupon` revoked | High |
+| B5 coupon/checkout tampering | BLOCKED | server-authoritative; totals immutable | High |
+| B6 driver_earnings fabrication | BLOCKED | client INSERT privilege = false | High |
+| B7 driver status impersonation | BLOCKED | `set_driver_status` revoked | High |
+| B8 dispatch IDOR/accept | BLOCKED | `respond_dispatch` revoked anon+authed | High |
+| RT-1 driver self-GPS spoof | BLOCKED | `current_lat` read-back `null` | High |
+| RT-2 driver self-priority | BLOCKED | `priority_score` read-back `0` | High |
+| F-1 complete_delivery caller-authz | BLOCKED | customer call raises; driver call works | High |
+| F-2 finalize_driver_delivery | BLOCKED | fake/non-delivered order rejected | High |
+| F-3 merchant KYC exposure | BLOCKED | non-owner tax_number = 0 rows; `merchants_public` safe | High |
+| F-4 anon maintenance RPCs | BLOCKED | anon execute revoked (expire/recalc/auto_dispatch) | High |
+| F-5 always-true INSERT policies | BLOCKED | scoped; no `with_check=true` remains | High |
+| F-6 public bucket listing | BLOCKED | listing policies removed | High |
+| F-7 mutable search_path | CLOSED | 13/13 pinned | High |
+| F-8 pg_trgm in public | CLOSED | relocated to `extensions` | High |
+| Wallet manipulation (direct) | BLOCKED | direct write + adjust/credit RPCs revoked | High |
+| Privilege escalation (RBAC/admin) | BLOCKED | admin_users/user_roles not client-writable; assign_user_role admin-only | High |
+| Payments (forge attempt/transaction) | BLOCKED | INSERT `with_check` = own customer/order | High |
+| Refund / settlement / payout RPCs | BLOCKED | `is_ops_admin`/permission/self-only guards | High |
+| Customer isolation (IDOR/BOLA) | BLOCKED | cross-customer reads 0 rows; order-cancel blocked | High |
+| Merchant isolation | BLOCKED | cross-merchant writes rejected | High |
+| Tenant isolation | BLOCKED | `auth_tenant()` from `tenant_members`; website_* scoped | High |
+| Notifications | BLOCKED | own-only; no client INSERT grant | High |
+| Storage / buckets / uploads | BLOCKED | own-folder/admin scoped; kyc private; non-listable | High |
+| RLS / views / triggers coverage | BLOCKED | 0 RLS-disabled tables; 0 unintended definer views | High |
+| Double-spend / replay / TOCTOU | BLOCKED | idempotency keys + unique constraints + row locks | High |
+| Edge Functions / webhook / service-role | N/A | none deployed on prod | High |
+| JWT / session / claims | N/A | GoTrue-signed; identity DB-derived | High |
+| Country-admin / deep-links / SMS / push / rate-limiting | NOT FULLY EXERCISED | assessed by definition; deferred to post-fix re-validation | Low–Med |
 
 ## Tally
-- **Exploits SUCCEEDED:** 3 (1 High, 2 Medium) + 4 Low weaknesses.
-- **Previously-fixed items re-attacked:** B1–B8, RT-1, RT-2 — **all HELD**.
-- **Isolation (customer / merchant / tenant) + escalation + double-spend:** all HELD.
-- **Advisor severity:** 193 lints, all WARN; 0 ERROR/HIGH; 0 RLS-disabled tables; 0 definer views.
+- **CRITICAL succeeded:** 1 (N-2). **Medium succeeded:** 1 (N-1).
+- **Prior exploits (B1–B8, RT-1/2, F-1…F-8):** 18/18 **HELD**.
+- **Isolation, escalation, payments, wallet-direct, double-spend:** all **HELD**.
 
----
-
-# FINAL DECISION: 🔴 **FAIL**
-
-## Why FAIL
-A fresh external attack found **three reproducible exploits** — chiefly **F-1**, a High-severity
-broken-authorization defect in `complete_delivery` that lets a customer forge delivery
-completion of their own order and trigger an unauthorized driver payout (proven: order marked
-`delivered`, wallet credited `25.00`). A launch cannot proceed with a money-moving,
-state-forging authorization bypass reachable by any customer.
-
-## What is NOT broken (the platform's core defenses held)
-Every previously-remediated exploit (B1–B8, RT-1, RT-2), wallet integrity, privilege
-escalation, and all customer/merchant/tenant isolation **withstood independent re-attack**. The
-failures are **new authorization gaps on a few RPCs/policies**, not regressions or a systemic
-collapse.
-
-## Remaining Low risks (track, non-blocking on their own)
-F-4 unauthenticated maintenance-function execution; F-5 always-true INSERT policies
-(order-history/analytics log spoofing); F-6 listable public buckets; F-7 mutable function
-`search_path` ×13; F-8 `pg_trgm` in `public`.
-
-## Recommendations before launch (est. ~1 day)
-1. **F-1 (must-fix):** add `if p_driver_id <> auth.uid() and not is_ops_admin() then raise` to
-   `complete_delivery` (or route completion through an ownership-checked driver RPC).
-2. **F-2 (must-fix):** in `finalize_driver_delivery`, verify `p_order_id` is a real `delivered`
-   order assigned to the caller before decrementing `active_orders`/flipping `status`.
-3. **F-3 (must-fix):** replace `merchants_discovery_read USING(true)` with a public column/view
-   subset; keep tax/registration/contact/owner columns ops-only.
-4. **F-4–F-8 (should-fix):** guard/revoke the anon-reachable maintenance RPCs; scope the three
-   always-true INSERT policies; make the 6 public buckets non-listable; pin `search_path` on the
-   13 functions; relocate `pg_trgm`.
-5. **Re-run this exact battery** after the fixes; require all SUCCEEDED rows to flip to BLOCKED.
-
-_Read-only sprint — no code, migration, or deployment was changed._
+**A reproducible CRITICAL financial exploit exists → the gate result is FAIL.**
