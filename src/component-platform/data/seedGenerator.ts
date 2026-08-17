@@ -49,7 +49,6 @@ export function generateSeed(entity: Entity, tenantId: string, n: number, seed =
         case 'email': rec[f.name] = `${pick(POOLS.first).toLowerCase()}${i}@haat.app`; break;
         case 'phone': rec[f.name] = `+2010${String(10000000 + Math.floor(rnd() * 8999999))}`; break;
         case 'enum': case 'multiselect': rec[f.name] = f.settings.options?.length ? pick(f.settings.options) : pick(POOLS.status); break;
-        case 'boolean' as never: break;
         default:
           if (/status/.test(fn)) rec[f.name] = pick(POOLS.status);
           else if (/city|zone/.test(fn)) rec[f.name] = pick(POOLS.city);
